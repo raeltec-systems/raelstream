@@ -1,0 +1,49 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.label {
+  font-weight: 700;
+  font-size: 17px;
+}
+.desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.track {
+  position: relative;
+  width: 64px;
+  height: 36px;
+  border-radius: var(--rs-r-pill);
+  border: 0;
+  background: var(--border);
+  cursor: pointer;
+  flex: none;
+}
+.track[aria-checked='true'] {
+  background: var(--accent-ui);
+}
+.knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 120ms;
+}
+.track[aria-checked='true'] .knob {
+  left: 32px;
+}
+.track:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

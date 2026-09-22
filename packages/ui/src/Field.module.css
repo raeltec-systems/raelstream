@@ -1,0 +1,76 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.label {
+  font-weight: 700;
+  font-size: 15px;
+}
+.input {
+  height: var(--rs-control);
+  border: 2px solid var(--border);
+  border-radius: var(--rs-r-input);
+  padding: 0 18px;
+  font-size: 17px;
+  background: var(--surface);
+}
+.input:focus {
+  border-color: var(--accent-ui);
+  outline: none;
+}
+.mono {
+  font-family: var(--rs-font-mono);
+  letter-spacing: 0.1em;
+  font-size: 16px;
+}
+.error {
+  border-color: var(--rs-live) !important;
+}
+.helper {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.helperError {
+  color: var(--live-text);
+  font-weight: 700;
+}
+.secret {
+  height: var(--rs-control);
+  border: 2px solid var(--border);
+  border-radius: var(--rs-r-input);
+  padding: 0 8px 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+}
+.secretEmpty {
+  border-color: var(--accent-ui);
+}
+.secretValue {
+  flex: 1;
+  font: 400 16px var(--rs-font-mono);
+  letter-spacing: 0.1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.placeholder {
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+.inline {
+  border: 0;
+  border-radius: var(--rs-r-pill);
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.inlinePrimary {
+  background: var(--accent-ui);
+  color: var(--on-accent-ui);
+}

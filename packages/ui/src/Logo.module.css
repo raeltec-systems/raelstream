@@ -1,0 +1,17 @@
+.lockup {
+  display: inline-flex;
+  align-items: center;
+}
+.ring {
+  display: inline-block;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: var(--accent-ui);
+}
+.word {
+  font-family: var(--rs-font-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}

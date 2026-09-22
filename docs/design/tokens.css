@@ -1,0 +1,70 @@
+/* Raelstream design tokens */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  /* neutrals – light */
+  --rs-linen: #F7F6F0;
+  --rs-card: #FFFFFF;
+  --rs-line: #E0DED4;
+  --rs-fill-subtle: #F2F1EA;
+  --rs-disabled-bg: #EEEDE6;
+  --rs-disabled-fg: #9A9E98;
+  --rs-muted: #5B6059;
+  --rs-ink: #1F2320;
+  /* neutrals – dark */
+  --rs-slate: #161A18;
+  --rs-slate-raised: #232825;
+  --rs-slate-line: #353B37;
+  --rs-slate-divider: #2A302C;
+  --rs-slate-muted: #B9BFB9;
+  --rs-slate-faint: #7C847E;
+  --rs-paper-text: #F7F6F0;
+
+  /* accent – themeable per church preset (default Sky) */
+  --rs-accent: #2F6FCF;
+  --rs-accent-dark: #6EA2F0;
+  --rs-on-accent: #FFFFFF;
+  --rs-on-accent-dark: #101418;
+
+  /* status – fixed */
+  --rs-live: #D6342C;
+  --rs-live-bg-dark: #2A1614;  --rs-live-text-dark: #FF8A82;
+  --rs-live-bg-light: #FBE9E7; --rs-live-text-light: #B3261E;
+  --rs-ready: #2F9A5A;
+  --rs-ready-bg-dark: #1B3325; --rs-ready-text-dark: #9BE0B4;
+  --rs-ready-bg-light: #E3F3E8; --rs-ready-text-light: #1D6A3C;
+  --rs-standby: #D99A1E;
+  --rs-standby-bg-dark: #3A2E14; --rs-standby-text-dark: #F4C866;
+  --rs-standby-bg-light: #FBF0D9; --rs-standby-text-light: #7A5308;
+
+  /* type */
+  --rs-font-display: 'Bricolage Grotesque', sans-serif;
+  --rs-font-ui: 'Atkinson Hyperlegible', sans-serif;
+  --rs-font-mono: 'IBM Plex Mono', monospace;
+  --rs-text-display: 700 56px/58px var(--rs-font-display);
+  --rs-text-h1: 700 36px/40px var(--rs-font-display);
+  --rs-text-title: 700 28px/34px var(--rs-font-display);
+  --rs-text-body: 400 17px/26px var(--rs-font-ui);
+  --rs-text-label: 700 15px/20px var(--rs-font-ui);
+  --rs-text-data: 400 14px/20px var(--rs-font-mono);
+
+  /* radius */
+  --rs-r-xs: 8px; --rs-r-sm: 12px; --rs-r-row: 14px; --rs-r-input: 16px;
+  --rs-r-card: 22px; --rs-r-frame: 28px; --rs-r-pill: 999px;
+
+  /* size */
+  --rs-control: 56px;
+  --rs-control-dense: 44px;
+
+  /* shadow */
+  --rs-shadow-modal: 0 24px 60px rgba(22,26,24,.18);
+  --rs-shadow-segment: 0 1px 3px rgba(0,0,0,.12);
+
+  /* focus */
+  --rs-focus: 3px solid var(--rs-accent);
+  --rs-focus-offset: 3px;
+}
+
+[data-theme="dark"] {
+  --rs-focus: 3px solid var(--rs-accent-dark);
+}

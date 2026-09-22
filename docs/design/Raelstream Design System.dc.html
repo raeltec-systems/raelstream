@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#F7F6F0;color:#1F2320;font-family:'Atkinson Hyperlegible',sans-serif}a{color:#2F6FCF}a:hover{color:#1F2320}</style>
+</helmet>
+<div style="max-width:1360px;margin:0 auto;padding:72px 40px 120px;display:flex;flex-direction:column;gap:112px">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;align-items:center;gap:18px"><div style="width:56px;height:56px;border-radius:50%;border:9px solid {{ a }};box-sizing:border-box"></div><div style="font:700 88px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="font-size:22px;line-height:1.5;max-width:760px;color:#5B6059;text-wrap:pretty">An open-source broadcast studio for churches. One phone camera, one laptop, one stream to Facebook and YouTube, and it's calm enough for a volunteer to run.</div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;font:500 13px 'IBM Plex Mono',monospace;color:#5B6059">
+<a href="#logo" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">01 Logo</a>
+<a href="#colour" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">02 Colour</a>
+<a href="#type" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">03 Type</a>
+<a href="#components" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">04 Components</a>
+<a href="#live" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">05 Live states</a>
+<a href="#voice" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">06 Voice</a>
+<a href="#screens" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">07 Screens</a>
+<a href="#broadcast" style="color:#5B6059;background:#fff;border:1px solid #E0DED4;padding:8px 14px;border-radius:999px;text-decoration:none">08 On-air graphics</a>
+</div>
+</header>
+
+<section id="logo" data-screen-label="01 Logo" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">01 · LOGO</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">The ring and the wordmark</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">The ring is an open signal: a light that's on, with room inside it. The wordmark is always lowercase Bricolage Grotesque Bold at −3.5% tracking. The ring takes the accent colour, and the wordmark always stays ink or paper.</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+<div style="background:#fff;border-radius:24px;height:220px;display:flex;align-items:center;justify-content:center;gap:14px"><div style="width:36px;height:36px;border-radius:50%;border:6px solid {{ a }};box-sizing:border-box"></div><div style="font:700 50px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="background:#161A18;border-radius:24px;height:220px;display:flex;align-items:center;justify-content:center;gap:14px;color:#F7F6F0"><div style="width:36px;height:36px;border-radius:50%;border:6px solid {{ aD }};box-sizing:border-box"></div><div style="font:700 50px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="background:{{ a }};border-radius:24px;height:220px;display:flex;align-items:center;justify-content:center;gap:28px">
+<div style="width:96px;height:96px;border-radius:24px;background:#fff;display:flex;align-items:center;justify-content:center"><div style="width:48px;height:48px;border-radius:50%;border:9px solid {{ a }};box-sizing:border-box"></div></div>
+<div style="width:56px;height:56px;border-radius:14px;background:#161A18;display:flex;align-items:center;justify-content:center"><div style="width:28px;height:28px;border-radius:50%;border:5px solid {{ aD }};box-sizing:border-box"></div></div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;font-size:16px;line-height:1.5">
+<div style="display:flex;flex-direction:column;gap:6px"><div style="font-weight:700">Proportions</div><div style="color:#5B6059">The ring's diameter matches the x-height plus the ascender. Its stroke is one-sixth of the diameter.</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="font-weight:700">Clear space</div><div style="color:#5B6059">Leave one ring-diameter of space on every side. The smallest lockup is 96px wide, and below that use the app icon.</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="font-weight:700">Never</div><div style="color:#5B6059">Don't fill the ring, colour it Live red, add a cross or dove, or place it on a photo.</div></div>
+</div>
+</section>
+
+<section id="colour" data-screen-label="02 Colour" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">02 · COLOUR</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Neutrals, one accent, three signals</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">Sky is Raelstream's default accent. Each church's preset replaces it with their own colour, which is used on buttons, selection and the ring. Status colours never change. Each has a single meaning and always comes with a label, so a church accent that looks like a status colour can't be mistaken for one.</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#F7F6F0;border:1px solid #E0DED4"></div><div style="font-weight:700">Linen</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#F7F6F0 · light bg</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#FFFFFF;border:1px solid #E0DED4"></div><div style="font-weight:700">Card</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#FFFFFF · surface</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#E0DED4"></div><div style="font-weight:700">Line</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#E0DED4 · borders</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#5B6059"></div><div style="font-weight:700">Muted</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#5B6059 · secondary text</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#1F2320"></div><div style="font-weight:700">Ink</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#1F2320 · text</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#161A18"></div><div style="font-weight:700">Slate</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#161A18 · dark bg</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="height:96px;border-radius:18px;background:#232825"></div><div style="font-weight:700">Slate raised</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">#232825 · dark surface</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+<div style="background:{{ a }};color:#fff;border-radius:22px;padding:24px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Accent · {{ accentName }}</div><div style="font:400 13px/1.5 'IBM Plex Mono',monospace">{{ a }} on light<br>{{ aD }} on dark<br>Replaced by the church preset</div></div>
+<div style="background:#D6342C;color:#fff;border-radius:22px;padding:24px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Live</div><div style="font:400 13px/1.5 'IBM Plex Mono',monospace">#D6342C<br>On air, programme tally, stopping.<br>Nothing else.</div></div>
+<div style="background:#2F9A5A;color:#fff;border-radius:22px;padding:24px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Ready</div><div style="font:400 13px/1.5 'IBM Plex Mono',monospace">#2F9A5A<br>Check passed, link healthy,<br>destination confirmed.</div></div>
+<div style="background:#D99A1E;color:#1F2320;border-radius:22px;padding:24px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Standby</div><div style="font:400 13px/1.5 'IBM Plex Mono',monospace">#D99A1E<br>Waiting, reconnecting, slate on,<br>needs a decision.</div></div>
+</div>
+</section>
+
+<section id="type" data-screen-label="03 Type" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">03 · TYPE</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Three faces, each with one job</div></div>
+<div style="background:#fff;border-radius:24px;padding:36px;display:flex;flex-direction:column;gap:28px">
+<div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:baseline;border-bottom:1px solid #E0DED4;padding-bottom:28px"><div style="font:400 13px/1.6 'IBM Plex Mono',monospace;color:#5B6059">Bricolage Grotesque<br>Bold 700 · −2%<br>Headings, wordmark, slate</div><div style="font:700 56px/1.05 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Sunday Service, 10:00</div></div>
+<div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:baseline;border-bottom:1px solid #E0DED4;padding-bottom:28px"><div style="font:400 13px/1.6 'IBM Plex Mono',monospace;color:#5B6059">Atkinson Hyperlegible<br>Regular 400 / Bold 700<br>Every label, button, sentence</div><div style="font-size:20px;line-height:1.55;max-width:680px">Designed so that letters like I, l, 1, O and 0 are hard to confuse. It's the face for anything a volunteer has to read quickly, like a stream key field or a button that ends the service.</div></div>
+<div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:baseline"><div style="font:400 13px/1.6 'IBM Plex Mono',monospace;color:#5B6059">IBM Plex Mono<br>Regular 400<br>Numbers, timers, diagnostics</div><div style="font:400 20px/1.6 'IBM Plex Mono',monospace">00:42:17 · RTT 38 ms · loss 0.2% · 720p30 · 2.5 Mb/s</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+<div style="background:#fff;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">Display · 56/58</div><div style="font:700 36px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Aa</div></div>
+<div style="background:#fff;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">Title · 28/34</div><div style="font:700 28px/1 'Bricolage Grotesque',sans-serif">Aa</div></div>
+<div style="background:#fff;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">Body · 17/26</div><div style="font-size:17px">Aa Regular</div></div>
+<div style="background:#fff;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">Label · 15/20 Bold</div><div style="font-weight:700;font-size:15px">Aa Label</div></div>
+<div style="background:#fff;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">Data · 14/20 Mono</div><div style="font:400 14px 'IBM Plex Mono',monospace">38 ms</div></div>
+</div>
+</section>
+
+<section id="components" data-screen-label="04 Components" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">04 · COMPONENTS</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Big, round, and hard to misclick</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">Controls are 56px by default and 44px in dense panels, never smaller. Every button is labelled with a verb and an object. Anything that affects the live stream sits apart from everyday controls.</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:16px">
+<div style="background:#fff;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:20px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">BUTTONS · LIGHT</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+<div style="background:{{ a }};color:#fff;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Start session</div>
+<div style="border:2px solid #E0DED4;font-weight:700;font-size:17px;height:56px;padding:0 26px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Test uplink</div>
+<div style="background:#D6342C;color:#fff;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Stop both</div>
+<div style="background:#EEEDE6;color:#9A9E98;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Go live</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+<div style="background:{{ a }};color:#fff;font-weight:700;font-size:15px;height:44px;padding:0 20px;border-radius:999px;display:flex;align-items:center">Take</div>
+<div style="border:2px solid #E0DED4;font-weight:700;font-size:15px;height:44px;padding:0 18px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Edit</div>
+<div style="font-weight:700;font-size:15px;height:44px;padding:0 14px;border-radius:999px;display:flex;align-items:center;color:{{ a }}">Show diagnostics</div>
+</div>
+</div>
+<div style="background:#161A18;color:#F7F6F0;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:20px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">BUTTONS · DARK</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+<div style="background:{{ aD }};color:#101418;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Go live</div>
+<div style="border:2px solid #353B37;font-weight:700;font-size:17px;height:56px;padding:0 26px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Show slate</div>
+<div style="border:2px solid #D6342C;color:#FF8A82;font-weight:700;font-size:17px;height:56px;padding:0 26px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Stop streaming…</div>
+</div>
+<div style="font-size:14px;line-height:1.5;color:#B9BFB9">A danger action shown outside a modal is outlined and ends with an ellipsis, because it opens a confirmation. It's only filled red inside that confirmation.</div>
+</div>
+<div style="background:#fff;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:20px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">INPUTS</div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Service name</div><div style="height:56px;border:2px solid #E0DED4;border-radius:16px;padding:0 18px;display:flex;align-items:center;font-size:17px;box-sizing:border-box">Sunday Service</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Facebook stream key · this event only</div><div style="height:56px;border:2px solid {{ a }};border-radius:16px;padding:0 8px 0 18px;display:flex;align-items:center;gap:10px;box-sizing:border-box"><div style="flex:1;font:400 17px 'IBM Plex Mono',monospace;letter-spacing:.1em">FB-••••-••••-••••-7Q2K</div><div style="font-weight:700;font-size:14px;padding:10px 14px;border-radius:999px;background:#F2F1EA">Show</div><div style="font-weight:700;font-size:14px;padding:10px 14px;border-radius:999px;background:#F2F1EA">Paste</div></div><div style="font-size:14px;color:#5B6059">Encrypted when saved. Only the media server can read it.</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">YouTube stream key</div><div style="height:56px;border:2px solid #D6342C;border-radius:16px;padding:0 18px;display:flex;align-items:center;font:400 17px 'IBM Plex Mono',monospace;color:#9A9E98;box-sizing:border-box">Paste key</div><div style="font-size:14px;color:#B3261E;font-weight:700">This key has 1 character too few. Copy it again from YouTube Studio.</div></div>
+</div>
+<div style="background:#fff;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:22px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">SELECTION</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><div style="display:flex;flex-direction:column;gap:2px"><div style="font-weight:700;font-size:17px">Gentle compressor</div><div style="font-size:14px;color:#5B6059">Evens out loud and quiet speakers</div></div><div style="width:64px;height:36px;border-radius:999px;background:{{ a }};position:relative;flex:none"><div style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff"></div></div></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><div style="display:flex;flex-direction:column;gap:2px"><div style="font-weight:700;font-size:17px">Private recording</div><div style="font-size:14px;color:#5B6059">Kept for 30 days, off unless you turn it on</div></div><div style="width:64px;height:36px;border-radius:999px;background:#E0DED4;position:relative;flex:none"><div style="position:absolute;left:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff"></div></div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Stream quality</div><div style="display:flex;background:#F2F1EA;border-radius:999px;padding:4px;gap:4px"><div style="flex:1;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700">480p</div><div style="flex:1;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)">720p · Recommended</div><div style="flex:1;height:48px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#9A9E98">1080p</div></div></div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:24px;align-items:center;background:#E9E7DE;border-radius:28px;padding:40px">
+<div style="background:#fff;border-radius:28px;padding:32px;display:flex;flex-direction:column;gap:20px;box-shadow:0 24px 60px rgba(22,26,24,.18);max-width:520px">
+<div style="font:700 28px/1.15 'Bricolage Grotesque',sans-serif">Stop streaming to 2 places?</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:12px;background:#F7F6F0;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#D6342C"></div><div style="flex:1;font-weight:700">Facebook Page · Grace Chapel Lusaka</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">LIVE 42:17</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#F7F6F0;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#D6342C"></div><div style="flex:1;font-weight:700">YouTube · Grace Chapel Live</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">LIVE 42:15</div></div>
+</div>
+<div style="font-size:16px;line-height:1.5;color:#5B6059">Viewers will see the stream end. You can't restart this broadcast. Starting again creates a new one.</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1;height:56px;border-radius:999px;border:2px solid #1F2320;outline:3px solid {{ a }};outline-offset:3px;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;box-sizing:border-box">Keep streaming</div><div style="flex:1;height:56px;border-radius:999px;background:#D6342C;color:#fff;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center">Stop both</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;font-size:16px;line-height:1.5">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">STOP MODAL · RULES (I-11)</div>
+<div style="display:flex;gap:12px"><div style="font:500 13px 'IBM Plex Mono',monospace;color:#5B6059;flex:none">01</div><div>The title gives the number of destinations, and each one is listed by platform and page name.</div></div>
+<div style="display:flex;gap:12px"><div style="font:500 13px 'IBM Plex Mono',monospace;color:#5B6059;flex:none">02</div><div>Focus starts on <b>Keep streaming</b>, shown by the accent focus ring. Enter doesn't confirm, and Escape closes the modal.</div></div>
+<div style="display:flex;gap:12px"><div style="font:500 13px 'IBM Plex Mono',monospace;color:#5B6059;flex:none">03</div><div>The confirm label names the result ("Stop both", "Stop YouTube only"). Never "OK" or "Yes".</div></div>
+<div style="display:flex;gap:12px"><div style="font:500 13px 'IBM Plex Mono',monospace;color:#5B6059;flex:none">04</div><div>The body says what viewers will see and whether it can be undone.</div></div>
+</div>
+</div>
+</section>
+
+<section id="live" data-screen-label="05 Live states" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">05 · LIVE STATES</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Always know what viewers can see</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">Every status is a dot, a word and, where it helps, a number. Colour supports the meaning but never carries it alone.</div></div>
+<div style="background:#161A18;color:#F7F6F0;border-radius:28px;padding:36px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">SESSION PILL</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+<div style="display:flex;align-items:center;gap:10px;background:#232825;color:#B9BFB9;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #7C847E;box-sizing:border-box"></div>Off air</div>
+<div style="display:flex;align-items:center;gap:10px;background:#1B3325;color:#9BE0B4;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div>Ready to go live</div>
+<div style="display:flex;align-items:center;gap:10px;background:#D6342C;color:#fff;font-weight:700;font-size:15px;letter-spacing:.06em;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#fff"></div>ON AIR<div style="font:500 14px 'IBM Plex Mono',monospace;letter-spacing:0;opacity:.9">42:17</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#3A2E14;color:#F4C866;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#D99A1E"></div>Reconnecting camera…</div>
+<div style="display:flex;align-items:center;gap:10px;background:#3A2E14;color:#F4C866;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#D99A1E"></div>Slate on · ends stream in <div style="font:500 14px 'IBM Plex Mono',monospace">1:24</div></div>
+</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:24px">
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">DESTINATIONS</div>
+<div style="display:flex;align-items:center;gap:12px;background:#232825;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#D6342C"></div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">Facebook Page</div><div style="font-size:14px;color:#B9BFB9">Live · 2.5 Mb/s</div></div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">42:17</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#232825;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#D99A1E"></div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">YouTube</div><div style="font-size:14px;color:#B9BFB9">Receiving · publish it in YouTube Studio</div></div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">—</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#232825;border-radius:16px;padding:14px 16px;box-shadow:inset 0 0 0 2px #D6342C"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #D6342C;box-sizing:border-box"></div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">YouTube</div><div style="font-size:14px;color:#FF8A82">Stopped · YouTube rejected the key</div></div><div style="font-weight:700;font-size:14px;color:{{ aD }}">Fix</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">HEALTH</div>
+<div style="background:#232825;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;gap:12px"><div style="display:flex;gap:3px;align-items:flex-end;height:20px"><div style="width:5px;height:6px;background:#2F9A5A;border-radius:2px"></div><div style="width:5px;height:10px;background:#2F9A5A;border-radius:2px"></div><div style="width:5px;height:15px;background:#2F9A5A;border-radius:2px"></div><div style="width:5px;height:20px;background:#353B37;border-radius:2px"></div></div><div style="flex:1;font-weight:700">Uplink good</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">3.1 Mb/s · 38 ms</div></div>
+<div style="display:flex;align-items:center;gap:12px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700">Camera 1 · direct link</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">4 ms · 30 fps</div></div>
+<div style="display:flex;align-items:center;gap:12px"><div style="width:10px;height:10px;border-radius:50%;background:#D99A1E"></div><div style="flex:1;font-weight:700">Laptop is working hard</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">CPU 86%</div></div>
+</div></div>
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">CAMERA TALLY</div>
+<div style="display:flex;gap:12px">
+<div style="flex:1;aspect-ratio:9/12;border-radius:16px;background:repeating-linear-gradient(135deg,#232825 0 8px,#1d221f 8px 16px);box-shadow:inset 0 0 0 5px #D6342C;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;box-sizing:border-box"><div style="background:#D6342C;color:#fff;font-weight:700;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px">LIVE</div></div>
+<div style="flex:1;aspect-ratio:9/12;border-radius:16px;background:repeating-linear-gradient(135deg,#232825 0 8px,#1d221f 8px 16px);box-shadow:inset 0 0 0 5px #2F9A5A;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;box-sizing:border-box"><div style="background:#2F9A5A;color:#fff;font-weight:700;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px">READY</div></div>
+<div style="flex:1;aspect-ratio:9/12;border-radius:16px;background:repeating-linear-gradient(135deg,#232825 0 8px,#1d221f 8px 16px);box-shadow:inset 0 0 0 2px #353B37;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;box-sizing:border-box"><div style="background:#353B37;color:#B9BFB9;font-weight:700;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px">OFF</div></div>
+</div></div>
+</div>
+<div style="display:flex;align-items:flex-start;gap:16px;background:#2A1614;border-radius:20px;padding:20px 22px;box-shadow:inset 0 0 0 2px #D6342C">
+<div style="width:12px;height:12px;border-radius:50%;background:#D6342C;margin-top:6px;flex:none"></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div style="font-weight:700;font-size:18px">Camera can't reach this laptop directly</div><div style="font-size:15px;line-height:1.5;color:#E3C9C6;max-width:720px">Both devices must be on the <b>Production</b> Wi-Fi, and the router must allow devices to see each other. Raelstream doesn't route video through the internet as a fallback.</div></div>
+<div style="display:flex;gap:10px;flex:none"><div style="border:2px solid #5A3431;font-weight:700;font-size:15px;height:44px;padding:0 18px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Diagnostics</div><div style="background:{{ aD }};color:#101418;font-weight:700;font-size:15px;height:44px;padding:0 18px;border-radius:999px;display:flex;align-items:center">Try again</div></div>
+</div>
+</div>
+</section>
+
+<section id="voice" data-screen-label="06 Voice" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">06 · VOICE</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Talk like the calmest person in the booth</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">The person reading might be sixteen and running their first service. Say what happened, say what to do next, and use the words they'd use themselves. Every string lives in one message catalogue (I-21).</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+<div style="background:#fff;border-radius:24px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Say what happened, then what to do</div><div style="display:flex;flex-direction:column;gap:8px;font-size:16px;line-height:1.45"><div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A;margin-top:7px;flex:none"></div>Facebook stopped accepting video. Paste a new key from Live Producer.</div><div style="display:flex;gap:10px;color:#5B6059"><div style="width:8px;height:8px;border-radius:50%;border:2px solid #D6342C;box-sizing:border-box;margin-top:7px;flex:none"></div>RTMP publish error 403.</div></div></div>
+<div style="background:#fff;border-radius:24px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Name the thing</div><div style="display:flex;flex-direction:column;gap:8px;font-size:16px;line-height:1.45"><div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A;margin-top:7px;flex:none"></div>Stop YouTube only</div><div style="display:flex;gap:10px;color:#5B6059"><div style="width:8px;height:8px;border-radius:50%;border:2px solid #D6342C;box-sizing:border-box;margin-top:7px;flex:none"></div>Are you sure? OK / Cancel</div></div></div>
+<div style="background:#fff;border-radius:24px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Calm, never alarming</div><div style="display:flex;flex-direction:column;gap:8px;font-size:16px;line-height:1.45"><div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A;margin-top:7px;flex:none"></div>Camera 1 dropped. Viewers are seeing the slate while it reconnects.</div><div style="display:flex;gap:10px;color:#5B6059"><div style="width:8px;height:8px;border-radius:50%;border:2px solid #D6342C;box-sizing:border-box;margin-top:7px;flex:none"></div>CRITICAL: VIDEO SOURCE LOST!</div></div></div>
+<div style="background:#fff;border-radius:24px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="font:700 22px 'Bricolage Grotesque',sans-serif">Numbers go in the details</div><div style="display:flex;flex-direction:column;gap:8px;font-size:16px;line-height:1.45"><div style="display:flex;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A;margin-top:7px;flex:none"></div>Uplink good · 3.1 Mb/s</div><div style="display:flex;gap:10px;color:#5B6059"><div style="width:8px;height:8px;border-radius:50%;border:2px solid #D6342C;box-sizing:border-box;margin-top:7px;flex:none"></div>ICE state: connected, candidate pair srflx/host</div></div></div>
+</div>
+</section>
+
+<section id="screens" data-screen-label="07 Screens" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">07 · SCREENS</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Preparation, Studio, Camera</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">Preparation is light because it happens during the week in good light. The Studio and Camera are dark because they're used in a dim sanctuary during the service.</div></div>
+
+<div style="overflow-x:auto;padding-bottom:8px"><div data-screen-label="Preparation" style="width:1280px;height:820px;background:#F7F6F0;border:1px solid #E0DED4;border-radius:24px;overflow:hidden;display:grid;grid-template-columns:260px 1fr;box-sizing:border-box">
+<div style="background:#fff;border-right:1px solid #E0DED4;padding:24px 20px;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:50%;border:4px solid {{ a }};box-sizing:border-box"></div><div style="font:700 24px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">1</div><div style="font-weight:700">Devices</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">2</div><div style="font-weight:700">Uplink test</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#F2F1EA"><div style="width:26px;height:26px;border-radius:50%;background:{{ a }};color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">3</div><div style="font-weight:700">Destinations</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;color:#5B6059"><div style="width:26px;height:26px;border-radius:50%;border:2px solid #E0DED4;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box">4</div><div style="font-weight:700">Rundown</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;color:#5B6059"><div style="width:26px;height:26px;border-radius:50%;border:2px solid #E0DED4;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box">5</div><div style="font-weight:700">Audio</div></div>
+</div>
+<div style="margin-top:auto;font-size:14px;color:#5B6059;line-height:1.5">Signed in as Chanda<br>Volunteer operator</div>
+</div>
+<div style="display:grid;grid-template-rows:minmax(0,1fr) 96px;min-width:0;min-height:0">
+<div style="padding:36px 40px;display:flex;flex-direction:column;gap:24px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:6px"><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">SUNDAY SERVICE · SUN 27 SEP · 10:00</div><div style="font:700 36px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Where is this service going?</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div style="background:#fff;border-radius:22px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:inset 0 0 0 2px #D99A1E">
+<div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#F2F1EA;font:500 11px 'IBM Plex Mono',monospace;color:#5B6059;display:flex;align-items:center;justify-content:center">FB</div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700;font-size:18px">Facebook Page</div><div style="font-size:14px;color:#5B6059">Grace Chapel Lusaka</div></div><div style="display:flex;align-items:center;gap:8px;background:#FBF0D9;color:#7A5308;font-weight:700;font-size:14px;padding:6px 12px;border-radius:999px"><div style="width:8px;height:8px;border-radius:50%;background:#D99A1E"></div>Needs key</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Stream key for this event</div><div style="height:56px;border:2px solid {{ a }};border-radius:16px;padding:0 8px 0 18px;display:flex;align-items:center;gap:10px;box-sizing:border-box"><div style="flex:1;font:400 16px 'IBM Plex Mono',monospace;color:#9A9E98">Paste from Live Producer</div><div style="font-weight:700;font-size:14px;padding:10px 14px;border-radius:999px;background:{{ a }};color:#fff">Paste</div></div><div style="font-size:14px;color:#5B6059;line-height:1.45">Facebook makes a new key for each event. Create the event, then copy its key.</div></div>
+</div>
+<div style="background:#fff;border-radius:22px;padding:24px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#F2F1EA;font:500 11px 'IBM Plex Mono',monospace;color:#5B6059;display:flex;align-items:center;justify-content:center">YT</div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700;font-size:18px">YouTube</div><div style="font-size:14px;color:#5B6059">Grace Chapel Live</div></div><div style="display:flex;align-items:center;gap:8px;background:#E3F3E8;color:#1D6A3C;font-weight:700;font-size:14px;padding:6px 12px;border-radius:999px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A"></div>Ready</div></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;background:#F7F6F0;border-radius:16px;padding:14px 16px"><div style="display:flex;flex-direction:column;gap:2px"><div style="font-weight:700">Goes public when video arrives</div><div style="font-size:14px;color:#5B6059">Matches the setting in YouTube Studio</div></div><div style="width:64px;height:36px;border-radius:999px;background:{{ a }};position:relative;flex:none"><div style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff"></div></div></div>
+<div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">Key ••••-8F3A · saved 12 Sep</div>
+</div>
+</div>
+<div style="background:#fff;border-radius:22px;padding:22px 24px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center">
+<div style="display:flex;flex-direction:column;gap:4px"><div style="font-weight:700;font-size:17px">Uplink supports 720p</div><div style="font:400 14px 'IBM Plex Mono',monospace;color:#5B6059">3.1 Mb/s up · RTT 38 ms to Johannesburg · loss 0.2% · tested 09:12</div></div>
+<div style="display:flex;background:#F2F1EA;border-radius:999px;padding:4px;gap:4px;width:420px"><div style="flex:1;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">480p</div><div style="flex:1.6;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)">720p · Recommended</div><div style="flex:1;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#9A9E98">1080p</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700">Camera 1 paired</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">A26</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700">Mixer audio in</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">UMC204HD 1–2</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:16px;padding:14px 16px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700">Browser checks passed</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">Dell 14</div></div>
+</div>
+</div>
+<div style="background:#fff;border-top:1px solid #E0DED4;padding:0 40px;display:flex;align-items:center;gap:16px">
+<div style="display:flex;align-items:center;gap:10px;flex:1;font-size:16px"><div style="width:10px;height:10px;border-radius:50%;background:#D99A1E"></div><div><b>1 thing left:</b> paste the Facebook stream key.</div></div>
+<div style="border:2px solid #E0DED4;font-weight:700;font-size:17px;height:56px;padding:0 26px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Back</div>
+<div style="background:#EEEDE6;color:#9A9E98;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Continue to rundown</div>
+</div>
+</div>
+</div></div>
+
+<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+<div style="overflow-x:auto;max-width:100%;padding-bottom:8px"><div data-screen-label="Studio" style="width:1280px;height:800px;background:#161A18;color:#F7F6F0;border-radius:24px;overflow:hidden;display:grid;grid-template-rows:72px 1fr 168px">
+<div style="display:flex;align-items:center;gap:20px;padding:0 20px;border-bottom:1px solid #2A302C">
+<div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:50%;border:4px solid {{ aD }};box-sizing:border-box"></div><div style="font:700 22px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="width:1px;height:28px;background:#353B37"></div>
+<div style="display:flex;flex-direction:column"><div style="font-weight:700">Sunday Service</div><div style="font-size:13px;color:#B9BFB9">Grace Chapel Lusaka · 720p30</div></div>
+<div style="flex:1"></div>
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:10px;background:#D6342C;color:#fff;font-weight:700;font-size:15px;letter-spacing:.06em;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#fff"></div>ON AIR<div style="font:500 14px 'IBM Plex Mono',monospace;letter-spacing:0">42:17</div></div></sc-if>
+<sc-if value="{{ isReady }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;background:#1B3325;color:#9BE0B4;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div>Ready to go live</div></sc-if>
+<div style="display:flex;align-items:center;gap:8px;background:#232825;font-size:14px;padding:9px 14px;border-radius:999px"><div style="display:flex;gap:2px;align-items:flex-end;height:14px"><div style="width:4px;height:5px;background:#2F9A5A;border-radius:1px"></div><div style="width:4px;height:9px;background:#2F9A5A;border-radius:1px"></div><div style="width:4px;height:14px;background:#2F9A5A;border-radius:1px"></div></div>Uplink good</div>
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}"><div style="border:2px solid #D6342C;color:#FF8A82;font-weight:700;font-size:16px;height:48px;padding:0 22px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Stop streaming…</div></sc-if>
+<sc-if value="{{ isReady }}" hint-placeholder-val="{{ false }}"><div style="background:{{ aD }};color:#101418;font-weight:700;font-size:16px;height:48px;padding:0 24px;border-radius:999px;display:flex;align-items:center">Go live</div></sc-if>
+</div>
+<div style="display:grid;grid-template-columns:240px minmax(0,1fr) 300px;gap:16px;padding:16px;min-height:0">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">SOURCES</div>
+<div style="background:#232825;border-radius:18px;padding:10px;display:flex;flex-direction:column;gap:10px">
+<div style="aspect-ratio:16/9;border-radius:12px;background:repeating-linear-gradient(135deg,#2C322E 0 8px,#262B28 8px 16px);box-shadow:inset 0 0 0 3px {{ tally }};display:flex;align-items:flex-end;padding:8px;box-sizing:border-box"><div style="font:400 10px 'IBM Plex Mono',monospace;color:#7C847E">camera 1</div></div>
+<div style="display:flex;align-items:center;gap:8px;padding:0 4px 4px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700;font-size:15px">Camera 1</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#B9BFB9">4 ms</div></div>
+</div>
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9;margin-top:8px">SCENES</div>
+<div style="display:flex;align-items:center;gap:10px;background:{{ aD }};color:#101418;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px">1</div><div style="font-weight:700">Camera + lower third</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#232825;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:#353B37;border-radius:6px;padding:2px 7px">2</div><div style="font-weight:700">Camera only</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#232825;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:#353B37;border-radius:6px;padding:2px 7px">3</div><div style="font-weight:700">Text card</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#232825;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:#353B37;border-radius:6px;padding:2px 7px">4</div><div style="font-weight:700">Be right back slate</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+<div style="display:flex;justify-content:space-between;font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9"><div>PROGRAMME</div><div>{{ progLabel }}</div></div>
+<div style="position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:repeating-linear-gradient(135deg,#2C322E 0 12px,#262B28 12px 24px);box-shadow:inset 0 0 0 4px {{ tally }}">
+<div style="position:absolute;top:16px;left:16px;font:400 12px 'IBM Plex Mono',monospace;color:#7C847E">programme canvas · camera 1</div>
+<div style="position:absolute;left:28px;bottom:28px;display:flex;align-items:stretch;border-radius:14px;overflow:hidden"><div style="width:8px;background:{{ a }}"></div><div style="background:#fff;color:#1F2320;padding:10px 20px;display:flex;flex-direction:column;gap:2px"><div style="font:700 22px/1.1 'Bricolage Grotesque',sans-serif">Pastor Mwansa Banda</div><div style="font-size:14px;font-weight:700;color:{{ a }}">Sunday sermon · Psalm 23</div></div></div>
+</div>
+<div style="display:flex;gap:10px;align-items:center"><div style="font-size:14px;color:#B9BFB9;flex:1">Next: <b style="color:#F7F6F0">Offering announcement</b> · text card</div><div style="border:2px solid #353B37;font-weight:700;font-size:15px;height:44px;padding:0 18px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Clear graphics</div><div style="background:{{ aD }};color:#101418;font-weight:700;font-size:15px;height:44px;padding:0 20px;border-radius:999px;display:flex;align-items:center;gap:8px">Take next<div style="font:500 11px 'IBM Plex Mono',monospace;background:rgba(0,0,0,.12);border-radius:6px;padding:2px 6px">Space</div></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+<div style="display:flex;justify-content:space-between;font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9"><div>RUNDOWN</div><div>4 / 9</div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;color:#7C847E"><div style="font:400 12px 'IBM Plex Mono',monospace">03</div><div style="flex:1">Worship · song titles</div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#2A1614;box-shadow:inset 0 0 0 2px #D6342C"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#FF8A82">04</div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">Pastor Mwansa Banda</div><div style="font-size:13px;color:#E3C9C6">Lower third · on screen</div></div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#232825;box-shadow:inset 0 0 0 2px {{ aD }}"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#B9BFB9">05</div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">Offering announcement</div><div style="font-size:13px;color:#B9BFB9">Text card · next</div></div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#232825"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#B9BFB9">06</div><div style="flex:1">Scripture · Psalm 23:1–4</div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#232825"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#B9BFB9">07</div><div style="flex:1">Prayer requests · image</div></div>
+<div style="margin-top:auto;font-weight:700;font-size:15px;color:{{ aD }};padding:8px 14px">Edit rundown</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px;padding:0 16px 16px">
+<div style="background:#232825;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9"><div>AUDIO · MIXER 1–2</div><div>−12 dB</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:10px;border-radius:999px;background:#353B37;overflow:hidden"><div style="width:64%;height:100%;background:#2F9A5A"></div></div><div style="height:10px;border-radius:999px;background:#353B37;overflow:hidden"><div style="width:61%;height:100%;background:#2F9A5A"></div></div></div>
+<div style="display:flex;gap:8px;margin-top:auto"><div style="display:flex;align-items:center;gap:8px;background:#2C322E;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700"><div style="width:8px;height:8px;border-radius:50%;background:{{ aD }}"></div>Low cut</div><div style="display:flex;align-items:center;gap:8px;background:#2C322E;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700"><div style="width:8px;height:8px;border-radius:50%;background:{{ aD }}"></div>Compressor</div><div style="display:flex;align-items:center;gap:8px;background:#2C322E;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700;color:#B9BFB9">Mute</div></div>
+</div>
+<div style="background:#232825;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">DESTINATIONS</div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;background:{{ destDot }}"></div><div style="flex:1;font-weight:700">Facebook Page</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">{{ destState }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;background:{{ destDot }}"></div><div style="flex:1;font-weight:700">YouTube</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">{{ destState }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #7C847E;box-sizing:border-box"></div><div style="flex:1;font-weight:700;color:#B9BFB9">Private recording</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#7C847E">off</div></div>
+</div>
+<div style="background:#232825;border-radius:18px;padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-content:start">
+<div style="grid-column:1/-1;font:500 12px 'IBM Plex Mono',monospace;color:#B9BFB9">HEALTH</div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#B9BFB9">Uplink</div><div style="font:500 16px 'IBM Plex Mono',monospace">2.5 / 3.1 Mb/s</div></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#B9BFB9">To Johannesburg</div><div style="font:500 16px 'IBM Plex Mono',monospace">38 ms · 0.2%</div></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#B9BFB9">Laptop</div><div style="font:500 16px 'IBM Plex Mono',monospace">CPU 54%</div></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#B9BFB9">Dropped frames</div><div style="font:500 16px 'IBM Plex Mono',monospace">0</div></div>
+</div>
+</div>
+</div></div>
+
+<div data-screen-label="Camera" style="width:390px;height:844px;border-radius:48px;background:#0C0E0D;padding:10px;box-sizing:border-box;flex:none">
+<div style="position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;background:repeating-linear-gradient(135deg,#232825 0 12px,#1D221F 12px 24px);box-shadow:inset 0 0 0 8px {{ tally }};color:#F7F6F0">
+<div style="position:absolute;top:52%;left:0;right:0;text-align:center;font:400 12px 'IBM Plex Mono',monospace;color:#7C847E">rear camera · full frame</div>
+<div style="position:absolute;top:56px;left:24px;right:24px;display:flex;align-items:center;justify-content:space-between">
+<div style="display:flex;align-items:center;gap:10px;background:{{ tally }};color:#fff;font-weight:700;font-size:18px;letter-spacing:.08em;padding:10px 20px;border-radius:999px"><div style="width:12px;height:12px;border-radius:50%;background:#fff"></div>{{ tallyWord }}</div>
+<div style="background:rgba(22,26,24,.8);font-weight:700;font-size:15px;padding:10px 16px;border-radius:999px">Camera 1</div>
+</div>
+<div style="position:absolute;left:12px;right:12px;bottom:12px;background:rgba(22,26,24,.92);border-radius:32px;padding:20px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;background:#232825;border-radius:999px;padding:4px;gap:4px"><div style="flex:1;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px">0.5×</div><div style="flex:1;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;background:{{ aD }};color:#101418">1×</div><div style="flex:1;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px">2×</div></div>
+<div style="display:flex;flex-direction:column;gap:10px;font-size:15px">
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700">Connected to Studio</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">4 ms</div></div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;background:#D99A1E"></div><div style="flex:1;font-weight:700">Phone is warm</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#B9BFB9">64%</div></div>
+</div>
+<div style="font-size:14px;line-height:1.45;color:#B9BFB9">Keep this screen open. Locking the phone stops the camera.</div>
+</div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:12px"><div style="font:700 24px 'Bricolage Grotesque',sans-serif">Studio · light</div><div style="font-size:16px;color:#5B6059;max-width:720px">For daytime services and bright rooms. Same layout and states, with status colours unchanged.</div></div>
+<div style="overflow-x:auto;max-width:100%;padding-bottom:8px"><div data-screen-label="Studio · light" style="width:1280px;height:800px;background:#F7F6F0;color:#1F2320;border:1px solid #E0DED4;box-sizing:border-box;border-radius:24px;overflow:hidden;display:grid;grid-template-rows:72px 1fr 168px">
+<div style="display:flex;align-items:center;gap:20px;padding:0 20px;border-bottom:1px solid #E0DED4">
+<div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:20px;border-radius:50%;border:4px solid {{ a }};box-sizing:border-box"></div><div style="font:700 22px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="width:1px;height:28px;background:#E0DED4"></div>
+<div style="display:flex;flex-direction:column"><div style="font-weight:700">Sunday Service</div><div style="font-size:13px;color:#5B6059">Grace Chapel Lusaka · 720p30</div></div>
+<div style="flex:1"></div>
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:10px;background:#D6342C;color:#fff;font-weight:700;font-size:15px;letter-spacing:.06em;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#fff"></div>ON AIR<div style="font:500 14px 'IBM Plex Mono',monospace;letter-spacing:0">42:17</div></div></sc-if>
+<sc-if value="{{ isReady }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;background:#E3F3E8;color:#1D6A3C;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div>Ready to go live</div></sc-if>
+<div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;font-size:14px;padding:9px 14px;border-radius:999px"><div style="display:flex;gap:2px;align-items:flex-end;height:14px"><div style="width:4px;height:5px;background:#2F9A5A;border-radius:1px"></div><div style="width:4px;height:9px;background:#2F9A5A;border-radius:1px"></div><div style="width:4px;height:14px;background:#2F9A5A;border-radius:1px"></div></div>Uplink good</div>
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ true }}"><div style="border:2px solid #D6342C;color:#B3261E;font-weight:700;font-size:16px;height:48px;padding:0 22px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Stop streaming…</div></sc-if>
+<sc-if value="{{ isReady }}" hint-placeholder-val="{{ false }}"><div style="background:{{ a }};color:#fff;font-weight:700;font-size:16px;height:48px;padding:0 24px;border-radius:999px;display:flex;align-items:center">Go live</div></sc-if>
+</div>
+<div style="display:grid;grid-template-columns:240px minmax(0,1fr) 300px;gap:16px;padding:16px;min-height:0">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">SOURCES</div>
+<div style="background:#FFFFFF;border-radius:18px;padding:10px;display:flex;flex-direction:column;gap:10px">
+<div style="aspect-ratio:16/9;border-radius:12px;background:repeating-linear-gradient(135deg,#F2F1EA 0 8px,#EAE8E0 8px 16px);box-shadow:inset 0 0 0 3px {{ tally }};display:flex;align-items:flex-end;padding:8px;box-sizing:border-box"><div style="font:400 10px 'IBM Plex Mono',monospace;color:#9A9E98">camera 1</div></div>
+<div style="display:flex;align-items:center;gap:8px;padding:0 4px 4px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A"></div><div style="flex:1;font-weight:700;font-size:15px">Camera 1</div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">4 ms</div></div>
+</div>
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059;margin-top:8px">SCENES</div>
+<div style="display:flex;align-items:center;gap:10px;background:{{ a }};color:#fff;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:rgba(255,255,255,.22);border-radius:6px;padding:2px 7px">1</div><div style="font-weight:700">Camera + lower third</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#FFFFFF;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:#E0DED4;border-radius:6px;padding:2px 7px">2</div><div style="font-weight:700">Camera only</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#FFFFFF;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:#E0DED4;border-radius:6px;padding:2px 7px">3</div><div style="font-weight:700">Text card</div></div>
+<div style="display:flex;align-items:center;gap:10px;background:#FFFFFF;border-radius:14px;height:48px;padding:0 14px"><div style="font:500 12px 'IBM Plex Mono',monospace;background:#E0DED4;border-radius:6px;padding:2px 7px">4</div><div style="font-weight:700">Be right back slate</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+<div style="display:flex;justify-content:space-between;font:500 12px 'IBM Plex Mono',monospace;color:#5B6059"><div>PROGRAMME</div><div>{{ progLabel }}</div></div>
+<div style="position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:repeating-linear-gradient(135deg,#F2F1EA 0 12px,#EAE8E0 12px 24px);box-shadow:inset 0 0 0 4px {{ tally }}">
+<div style="position:absolute;top:16px;left:16px;font:400 12px 'IBM Plex Mono',monospace;color:#9A9E98">programme canvas · camera 1</div>
+<div style="position:absolute;left:28px;bottom:28px;display:flex;align-items:stretch;border-radius:14px;overflow:hidden"><div style="width:8px;background:{{ a }}"></div><div style="background:#fff;color:#1F2320;padding:10px 20px;display:flex;flex-direction:column;gap:2px"><div style="font:700 22px/1.1 'Bricolage Grotesque',sans-serif">Pastor Mwansa Banda</div><div style="font-size:14px;font-weight:700;color:{{ a }}">Sunday sermon · Psalm 23</div></div></div>
+</div>
+<div style="display:flex;gap:10px;align-items:center"><div style="font-size:14px;color:#5B6059;flex:1">Next: <b style="color:#1F2320">Offering announcement</b> · text card</div><div style="border:2px solid #E0DED4;font-weight:700;font-size:15px;height:44px;padding:0 18px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Clear graphics</div><div style="background:{{ a }};color:#fff;font-weight:700;font-size:15px;height:44px;padding:0 20px;border-radius:999px;display:flex;align-items:center;gap:8px">Take next<div style="font:500 11px 'IBM Plex Mono',monospace;background:rgba(255,255,255,.22);border-radius:6px;padding:2px 6px">Space</div></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+<div style="display:flex;justify-content:space-between;font:500 12px 'IBM Plex Mono',monospace;color:#5B6059"><div>RUNDOWN</div><div>4 / 9</div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;color:#9A9E98"><div style="font:400 12px 'IBM Plex Mono',monospace">03</div><div style="flex:1">Worship · song titles</div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#FBE9E7;box-shadow:inset 0 0 0 2px #D6342C"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#B3261E">04</div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">Pastor Mwansa Banda</div><div style="font-size:13px;color:#7A3A35">Lower third · on screen</div></div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#FFFFFF;box-shadow:inset 0 0 0 2px {{ a }}"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">05</div><div style="flex:1;display:flex;flex-direction:column"><div style="font-weight:700">Offering announcement</div><div style="font-size:13px;color:#5B6059">Text card · next</div></div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#FFFFFF"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">06</div><div style="flex:1">Scripture · Psalm 23:1–4</div></div>
+<div style="display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;background:#FFFFFF"><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">07</div><div style="flex:1">Prayer requests · image</div></div>
+<div style="margin-top:auto;font-weight:700;font-size:15px;color:{{ a }};padding:8px 14px">Edit rundown</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px;padding:0 16px 16px">
+<div style="background:#FFFFFF;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;font:500 12px 'IBM Plex Mono',monospace;color:#5B6059"><div>AUDIO · MIXER 1–2</div><div>−12 dB</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:10px;border-radius:999px;background:#E0DED4;overflow:hidden"><div style="width:64%;height:100%;background:#2F9A5A"></div></div><div style="height:10px;border-radius:999px;background:#E0DED4;overflow:hidden"><div style="width:61%;height:100%;background:#2F9A5A"></div></div></div>
+<div style="display:flex;gap:8px;margin-top:auto"><div style="display:flex;align-items:center;gap:8px;background:#F2F1EA;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700"><div style="width:8px;height:8px;border-radius:50%;background:{{ a }}"></div>Low cut</div><div style="display:flex;align-items:center;gap:8px;background:#F2F1EA;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700"><div style="width:8px;height:8px;border-radius:50%;background:{{ a }}"></div>Compressor</div><div style="display:flex;align-items:center;gap:8px;background:#F2F1EA;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700;color:#5B6059">Mute</div></div>
+</div>
+<div style="background:#FFFFFF;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+<div style="font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">DESTINATIONS</div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;background:{{ destDot }}"></div><div style="flex:1;font-weight:700">Facebook Page</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">{{ destState }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;background:{{ destDot }}"></div><div style="flex:1;font-weight:700">YouTube</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">{{ destState }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #9A9E98;box-sizing:border-box"></div><div style="flex:1;font-weight:700;color:#5B6059">Private recording</div><div style="font:400 13px 'IBM Plex Mono',monospace;color:#9A9E98">off</div></div>
+</div>
+<div style="background:#FFFFFF;border-radius:18px;padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-content:start">
+<div style="grid-column:1/-1;font:500 12px 'IBM Plex Mono',monospace;color:#5B6059">HEALTH</div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#5B6059">Uplink</div><div style="font:500 16px 'IBM Plex Mono',monospace">2.5 / 3.1 Mb/s</div></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#5B6059">To Johannesburg</div><div style="font:500 16px 'IBM Plex Mono',monospace">38 ms · 0.2%</div></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#5B6059">Laptop</div><div style="font:500 16px 'IBM Plex Mono',monospace">CPU 54%</div></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:#5B6059">Dropped frames</div><div style="font:500 16px 'IBM Plex Mono',monospace">0</div></div>
+</div>
+</div>
+</div></div>
+<div style="display:flex;flex-direction:column;gap:12px"><div style="font:700 24px 'Bricolage Grotesque',sans-serif">Preparation · Rundown and Audio</div></div>
+<div style="overflow-x:auto;padding-bottom:8px"><div data-screen-label="Preparation · Rundown" style="width:1280px;height:820px;background:#F7F6F0;border:1px solid #E0DED4;border-radius:24px;overflow:hidden;display:grid;grid-template-columns:260px 1fr;box-sizing:border-box">
+<div style="background:#fff;border-right:1px solid #E0DED4;padding:24px 20px;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:50%;border:4px solid {{ a }};box-sizing:border-box"></div><div style="font:700 24px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">1</div><div style="font-weight:700">Devices</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">2</div><div style="font-weight:700">Uplink test</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">3</div><div style="font-weight:700">Destinations</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#F2F1EA"><div style="width:26px;height:26px;border-radius:50%;background:{{ a }};color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">4</div><div style="font-weight:700">Rundown</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;color:#5B6059"><div style="width:26px;height:26px;border-radius:50%;border:2px solid #E0DED4;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box">5</div><div style="font-weight:700">Audio</div></div>
+</div>
+<div style="margin-top:auto;font-size:14px;color:#5B6059;line-height:1.5">Signed in as Chanda<br>Volunteer operator</div>
+</div>
+<div style="display:grid;grid-template-rows:minmax(0,1fr) 96px;min-width:0;min-height:0">
+<div style="padding:36px 40px;display:flex;flex-direction:column;gap:24px;overflow:hidden;min-height:0">
+<div style="display:flex;flex-direction:column;gap:6px"><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">SUNDAY SERVICE · SUN 27 SEP · 10:00</div><div style="font:700 36px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">What goes on screen, in order?</div></div>
+<div style="display:grid;grid-template-columns:420px minmax(0,1fr);gap:20px;min-height:0;flex:1">
+<div style="display:flex;flex-direction:column;gap:6px;min-height:0;overflow:auto">
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">01</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Welcome</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Text card</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">02</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Worship · song titles</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Lower third</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">03</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Announcements</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Image</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;box-shadow:inset 0 0 0 2px {{ a }};"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">04</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Pastor Mwansa Banda</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Lower third</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">05</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Offering announcement</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Text card</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">06</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Scripture · Psalm 23:1–4</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Lower third</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">07</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Prayer requests</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Image</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">08</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Benediction</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Text card</div></div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:0 14px;height:44px;flex:none;"><div style="display:grid;grid-template-columns:repeat(2,4px);gap:3px"><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div><div style="width:4px;height:4px;border-radius:50%;background:#C9C7BD"></div></div><div style="font:400 12px 'IBM Plex Mono',monospace;color:#5B6059">09</div><div style="flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Thanks for joining</div><div style="font-size:13px;color:#5B6059;background:#F2F1EA;border-radius:999px;padding:4px 10px">Text card</div></div>
+<div style="display:flex;align-items:center;justify-content:center;height:52px;border:2px dashed #D6D4C9;border-radius:14px;font-weight:700;color:{{ a }};flex:none">Add item</div>
+</div>
+<div style="background:#fff;border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:18px;min-width:0">
+<div style="position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:repeating-linear-gradient(135deg,#EAE8E0 0 10px,#F2F1EA 10px 20px)"><div style="position:absolute;top:12px;left:12px;font:400 11px 'IBM Plex Mono',monospace;color:#9A9E98">preview over camera</div><div style="position:absolute;left:6%;bottom:9%;display:flex;align-items:stretch;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(22,26,24,.15)"><div style="width:6px;background:{{ a }}"></div><div style="background:#fff;padding:8px 16px;display:flex;flex-direction:column;gap:2px"><div style="font:700 18px/1.1 'Bricolage Grotesque',sans-serif">Pastor Mwansa Banda</div><div style="font-size:12px;font-weight:700;color:{{ a }}">Sunday sermon · Psalm 23</div></div></div></div>
+<div style="display:flex;background:#F2F1EA;border-radius:999px;padding:4px;gap:4px"><div style="flex:1;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)">Name</div><div style="flex:1;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">Scripture</div><div style="flex:1;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">Text card</div><div style="flex:1;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">Image</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Name</div><div style="height:52px;border:2px solid {{ a }};border-radius:16px;padding:0 16px;display:flex;align-items:center;font-size:17px;box-sizing:border-box">Pastor Mwansa Banda</div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Second line</div><div style="height:52px;border:2px solid #E0DED4;border-radius:16px;padding:0 16px;display:flex;align-items:center;font-size:17px;box-sizing:border-box">Sunday sermon · Psalm 23</div></div>
+</div>
+<div style="font-size:14px;color:#5B6059">Lines longer than 40 characters get shortened on air. This one fits.</div>
+</div>
+</div>
+</div>
+<div style="background:#fff;border-top:1px solid #E0DED4;padding:0 40px;display:flex;align-items:center;gap:16px"><div style="flex:1;font-size:16px;color:#5B6059">9 items. You can still edit and reorder during the service.</div>
+<div style="border:2px solid #E0DED4;font-weight:700;font-size:17px;height:56px;padding:0 26px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Back</div>
+<div style="background:{{ a }};color:#fff;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Continue to audio</div></div>
+</div>
+</div></div>
+<div style="overflow-x:auto;padding-bottom:8px"><div data-screen-label="Preparation · Audio" style="width:1280px;height:820px;background:#F7F6F0;border:1px solid #E0DED4;border-radius:24px;overflow:hidden;display:grid;grid-template-columns:260px 1fr;box-sizing:border-box">
+<div style="background:#fff;border-right:1px solid #E0DED4;padding:24px 20px;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;align-items:center;gap:10px"><div style="width:22px;height:22px;border-radius:50%;border:4px solid {{ a }};box-sizing:border-box"></div><div style="font:700 24px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em">raelstream</div></div>
+<div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">1</div><div style="font-weight:700">Devices</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">2</div><div style="font-weight:700">Uplink test</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">3</div><div style="font-weight:700">Destinations</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px"><div style="width:26px;height:26px;border-radius:50%;background:#2F9A5A;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">4</div><div style="font-weight:700">Rundown</div></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#F2F1EA"><div style="width:26px;height:26px;border-radius:50%;background:{{ a }};color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">5</div><div style="font-weight:700">Audio</div></div>
+</div>
+<div style="margin-top:auto;font-size:14px;color:#5B6059;line-height:1.5">Signed in as Chanda<br>Volunteer operator</div>
+</div>
+<div style="display:grid;grid-template-rows:minmax(0,1fr) 96px;min-width:0;min-height:0">
+<div style="padding:36px 40px;display:flex;flex-direction:column;gap:24px;overflow:hidden;min-height:0">
+<div style="display:flex;flex-direction:column;gap:6px"><div style="font:400 13px 'IBM Plex Mono',monospace;color:#5B6059">SUNDAY SERVICE · SUN 27 SEP · 10:00</div><div style="font:700 36px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">Is the mixer coming through?</div></div>
+<div style="background:#fff;border-radius:22px;padding:24px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:center;gap:14px"><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="font-weight:700;font-size:15px">Audio input</div><div style="height:56px;border:2px solid #E0DED4;border-radius:16px;padding:0 18px;display:flex;align-items:center;gap:12px;font-size:17px;box-sizing:border-box"><div style="flex:1">Behringer UMC204HD · inputs 1 and 2</div><div style="width:10px;height:10px;border-right:2px solid #5B6059;border-bottom:2px solid #5B6059;transform:rotate(45deg);margin-top:-4px"></div></div></div>
+<div style="display:flex;align-items:center;gap:8px;background:#E3F3E8;color:#1D6A3C;font-weight:700;font-size:14px;padding:8px 14px;border-radius:999px;align-self:flex-end;margin-bottom:10px"><div style="width:8px;height:8px;border-radius:50%;background:#2F9A5A"></div>Sound detected</div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:14px"><div style="font:500 13px 'IBM Plex Mono',monospace;color:#5B6059;width:14px">L</div><div style="flex:1;height:18px;border-radius:999px;background:#F2F1EA;overflow:hidden;position:relative"><div style="width:62%;height:100%;background:#2F9A5A;border-radius:999px"></div><div style="position:absolute;left:82%;top:0;bottom:0;width:2px;background:#D99A1E"></div></div></div><div style="display:flex;align-items:center;gap:14px"><div style="font:500 13px 'IBM Plex Mono',monospace;color:#5B6059;width:14px">R</div><div style="flex:1;height:18px;border-radius:999px;background:#F2F1EA;overflow:hidden;position:relative"><div style="width:58%;height:100%;background:#2F9A5A;border-radius:999px"></div><div style="position:absolute;left:82%;top:0;bottom:0;width:2px;background:#D99A1E"></div></div></div></div>
+<div style="display:flex;justify-content:space-between;font-size:14px;color:#5B6059"><div>Ask the sound desk to speak into the pulpit mic. Aim for green, just below the amber line.</div><div style="font:400 13px 'IBM Plex Mono',monospace">peak −9 dB</div></div>
+</div>
+<div style="background:#fff;border-radius:20px;padding:20px 22px;display:flex;align-items:center;gap:16px"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="font-weight:700;font-size:17px">Low cut</div><div style="font-size:14px;color:#5B6059">Removes rumble from stage and air conditioning</div></div><div style="font-weight:700;font-size:15px;height:44px;padding:0 16px;border-radius:999px;display:flex;align-items:center;border:2px solid #E0DED4;box-sizing:border-box">Hear without it</div><div style="width:64px;height:36px;border-radius:999px;background:{{ a }};position:relative;flex:none"><div style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff"></div></div></div>
+<div style="background:#fff;border-radius:20px;padding:20px 22px;display:flex;align-items:center;gap:16px"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="font-weight:700;font-size:17px">Gentle compressor</div><div style="font-size:14px;color:#5B6059">Evens out loud and quiet speakers</div></div><div style="font-weight:700;font-size:15px;height:44px;padding:0 16px;border-radius:999px;display:flex;align-items:center;border:2px solid #E0DED4;box-sizing:border-box">Hear without it</div><div style="width:64px;height:36px;border-radius:999px;background:{{ a }};position:relative;flex:none"><div style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff"></div></div></div>
+</div>
+<div style="background:#fff;border-top:1px solid #E0DED4;padding:0 40px;display:flex;align-items:center;gap:16px"><div style="display:flex;align-items:center;gap:10px;flex:1;font-size:16px"><div style="width:10px;height:10px;border-radius:50%;background:#2F9A5A"></div><div><b>Everything is ready.</b> You can go live from the Studio.</div></div>
+<div style="border:2px solid #E0DED4;font-weight:700;font-size:17px;height:56px;padding:0 26px;border-radius:999px;display:flex;align-items:center;box-sizing:border-box">Back</div>
+<div style="background:{{ a }};color:#fff;font-weight:700;font-size:17px;height:56px;padding:0 28px;border-radius:999px;display:flex;align-items:center">Open the Studio</div></div>
+</div>
+</div></div>
+</section>
+
+<section id="broadcast" data-screen-label="08 On-air graphics" style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#5B6059">08 · ON-AIR GRAPHICS</div><div style="font:700 44px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em">The church's brand, not ours</div><div style="font-size:18px;line-height:1.55;max-width:720px;color:#5B6059;text-wrap:pretty">Anything viewers see uses the preset theme: the church logo, 2 colours and 1 bundled font (I-10). Raelstream never appears on air. These templates are shown with the default font and the current accent.</div></div>
+<div data-screen-label="Slate" style="position:relative;width:100%;max-width:1100px;aspect-ratio:16/9;border-radius:24px;overflow:hidden;background:#161A18;color:#F7F6F0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px">
+<div style="position:absolute;left:0;right:0;bottom:0;height:10px;background:{{ a }}"></div>
+<div style="width:120px;height:120px;border-radius:50%;background:repeating-linear-gradient(135deg,#232825 0 6px,#2C322E 6px 12px);display:flex;align-items:center;justify-content:center;font:400 11px 'IBM Plex Mono',monospace;color:#7C847E">church logo</div>
+<div style="font:700 72px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em;text-align:center">We'll be right back</div>
+<div style="font-size:24px;color:#B9BFB9">Grace Chapel Lusaka · Sunday Service</div>
+<div style="position:absolute;top:24px;right:28px;font:400 12px 'IBM Plex Mono',monospace;color:#7C847E">fallback slate · rendered server-side (I-12)</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="position:relative;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:repeating-linear-gradient(135deg,#2C322E 0 10px,#262B28 10px 20px)"><div style="position:absolute;left:6%;bottom:9%;display:flex;align-items:stretch;border-radius:12px;overflow:hidden"><div style="width:6px;background:{{ a }}"></div><div style="background:#fff;color:#1F2320;padding:8px 16px;display:flex;flex-direction:column;gap:2px"><div style="font:700 18px/1.1 'Bricolage Grotesque',sans-serif">Pastor Mwansa Banda</div><div style="font-size:12px;font-weight:700;color:{{ a }}">Sunday sermon</div></div></div></div><div style="font-weight:700">Lower third · name</div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="position:relative;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:repeating-linear-gradient(135deg,#2C322E 0 10px,#262B28 10px 20px)"><div style="position:absolute;left:6%;right:6%;bottom:9%;background:rgba(22,26,24,.9);color:#F7F6F0;border-radius:14px;padding:12px 18px;display:flex;flex-direction:column;gap:4px"><div style="font-size:15px;line-height:1.4">The Lord is my shepherd; I shall not want.</div><div style="font-size:12px;font-weight:700;color:{{ aD }}">Psalm 23:1</div></div></div><div style="font-weight:700">Lower third · scripture</div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="aspect-ratio:16/9;border-radius:18px;background:{{ a }};color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;box-sizing:border-box;text-align:center"><div style="font:700 28px/1.1 'Bricolage Grotesque',sans-serif">Offering</div><div style="font-size:15px">Mobile money · 0977 000 000</div></div><div style="font-weight:700">Text card</div></div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Sky&quot;,&quot;Clay&quot;,&quot;Teal&quot;,&quot;Navy&quot;],&quot;default&quot;:&quot;Sky&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Church theme&quot;},&quot;studioState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Live&quot;,&quot;Ready&quot;],&quot;default&quot;:&quot;Live&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Screens&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const A = { Sky: ['#2F6FCF', '#6EA2F0'], Clay: ['#C0613A', '#E07A52'], Teal: ['#1F7A86', '#3FB0BD'], Navy: ['#2B4C7E', '#8AA8DA'] };
+    const name = this.props.accent ?? 'Sky';
+    const [a, aD] = A[name] || A.Sky;
+    const live = (this.props.studioState ?? 'Live') === 'Live';
+    return {
+      a, aD, accentName: name,
+      isLive: live, isReady: !live,
+      tally: live ? '#D6342C' : '#2F9A5A',
+      tallyWord: live ? 'LIVE' : 'READY',
+      progLabel: live ? 'ON AIR' : 'NOT YET ON AIR',
+      destDot: live ? '#D6342C' : '#2F9A5A',
+      destState: live ? 'live 42:17' : 'ready'
+    };
+  }
+}
+</script>
+</body>
+</html>

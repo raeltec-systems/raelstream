@@ -1,0 +1,67 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--rs-r-pill);
+  border: 2px solid transparent;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  background: transparent;
+}
+.default {
+  height: var(--rs-control);
+  padding: 0 26px;
+  font-size: 17px;
+}
+.top {
+  height: 48px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+.dense {
+  height: var(--rs-control-dense);
+  padding: 0 18px;
+  font-size: 15px;
+}
+.primary {
+  background: var(--accent-ui);
+  color: var(--on-accent-ui);
+}
+.secondary {
+  border-color: var(--border);
+  color: var(--text);
+}
+.destructive {
+  background: var(--rs-live);
+  color: #fff;
+}
+.dangerTrigger {
+  border-color: var(--rs-live);
+  color: var(--live-text);
+}
+.ghost {
+  color: var(--accent-ui);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.btn:disabled {
+  background: var(--rs-disabled-bg);
+  color: var(--rs-disabled-fg);
+  border-color: transparent;
+  cursor: not-allowed;
+}
+[data-theme='dark'] .btn:disabled {
+  background: var(--surface);
+  color: var(--text-faint);
+}
+.key {
+  font: 500 11px/1 var(--rs-font-mono);
+  background: var(--chip-bg);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+.primary .key {
+  background: rgba(0, 0, 0, 0.12);
+}

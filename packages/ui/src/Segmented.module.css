@@ -1,0 +1,31 @@
+.track {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--rs-r-pill);
+  background: var(--surface-2);
+}
+[data-theme='dark'] .track {
+  background: var(--surface);
+}
+.seg {
+  border: 0;
+  border-radius: var(--rs-r-pill);
+  background: transparent;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0 12px;
+}
+.selected {
+  background: var(--rs-card);
+  box-shadow: var(--rs-shadow-segment);
+}
+[data-theme='dark'] .selected {
+  background: var(--accent-ui);
+  color: var(--on-accent-ui);
+}
+.seg:disabled {
+  color: var(--rs-disabled-fg);
+  cursor: not-allowed;
+}

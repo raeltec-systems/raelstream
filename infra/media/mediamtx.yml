@@ -1,0 +1,41 @@
+# Raelstream MediaMTX configuration (pinned image: see infra/VERSIONS.md).
+# Every action goes through the control service's HTTP auth hook (SPEC §11.1, A42).
+logLevel: info
+writeQueueSize: 512
+
+authMethod: http
+authHTTPAddress: http://control:3000/internal/mediamtx/auth
+authHTTPExclude: []
+
+api: true
+apiAddress: :9997
+metrics: false
+pprof: false
+playback: false
+
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: :8554
+rtmp: false
+hls: false
+srt: false
+
+# WHIP ingest. HTTP is terminated by Caddy; media uses the UDP mux (and TCP fallback) below.
+webrtc: true
+webrtcAddress: :8889
+webrtcEncryption: false
+webrtcAllowOrigins: []
+webrtcTrustedProxies: []
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8189
+webrtcIPsFromInterfaces: true
+webrtcAdditionalHosts: []
+webrtcICEServers2: []
+
+pathDefaults:
+  source: publisher
+  overridePublisher: false
+
+paths:
+  '~^live/[0-9a-f-]{36}/g[0-9]+/contrib$': {}
+  '~^test/[0-9a-f-]{36}$': {}

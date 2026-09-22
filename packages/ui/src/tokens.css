@@ -1,0 +1,182 @@
+/* Raelstream design tokens (docs/design/tokens.css), fonts self-hosted per SPEC §14.1 (PLAN D-1). */
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+:root {
+  /* neutrals – light */
+  --rs-linen: #f7f6f0;
+  --rs-card: #ffffff;
+  --rs-line: #e0ded4;
+  --rs-fill-subtle: #f2f1ea;
+  --rs-disabled-bg: #eeede6;
+  --rs-disabled-fg: #9a9e98;
+  --rs-muted: #5b6059;
+  --rs-ink: #1f2320;
+  /* neutrals – dark */
+  --rs-slate: #161a18;
+  --rs-slate-raised: #232825;
+  --rs-slate-raised-2: #2c322e;
+  --rs-slate-line: #353b37;
+  --rs-slate-divider: #2a302c;
+  --rs-slate-muted: #b9bfb9;
+  --rs-slate-faint: #7c847e;
+  --rs-paper-text: #f7f6f0;
+
+  /* accent – themeable per church preset (default Sky) */
+  --rs-accent: #2f6fcf;
+  --rs-accent-dark: #6ea2f0;
+  --rs-on-accent: #ffffff;
+  --rs-on-accent-dark: #101418;
+
+  /* status – fixed, never themed */
+  --rs-live: #d6342c;
+  --rs-live-bg-dark: #2a1614;
+  --rs-live-text-dark: #ff8a82;
+  --rs-live-text2-dark: #e3c9c6;
+  --rs-live-bg-light: #fbe9e7;
+  --rs-live-text-light: #b3261e;
+  --rs-ready: #2f9a5a;
+  --rs-ready-bg-dark: #1b3325;
+  --rs-ready-text-dark: #9be0b4;
+  --rs-ready-bg-light: #e3f3e8;
+  --rs-ready-text-light: #1d6a3c;
+  --rs-standby: #d99a1e;
+  --rs-standby-bg-dark: #3a2e14;
+  --rs-standby-text-dark: #f4c866;
+  --rs-standby-bg-light: #fbf0d9;
+  --rs-standby-text-light: #7a5308;
+
+  /* type */
+  --rs-font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif;
+  --rs-font-ui: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  --rs-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* radius */
+  --rs-r-xs: 8px;
+  --rs-r-sm: 12px;
+  --rs-r-row: 14px;
+  --rs-r-input: 16px;
+  --rs-r-panel: 18px;
+  --rs-r-card: 22px;
+  --rs-r-frame: 28px;
+  --rs-r-pill: 999px;
+
+  /* size */
+  --rs-control: 56px;
+  --rs-control-dense: 44px;
+
+  /* shadow */
+  --rs-shadow-modal: 0 24px 60px rgba(22, 26, 24, 0.18);
+  --rs-shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ---- semantic layer: components only use these ---- */
+:root,
+[data-theme='light'] {
+  --bg: var(--rs-linen);
+  --surface: var(--rs-card);
+  --surface-2: var(--rs-fill-subtle);
+  --border: var(--rs-line);
+  --divider: var(--rs-line);
+  --text: var(--rs-ink);
+  --text-muted: var(--rs-muted);
+  --text-faint: var(--rs-disabled-fg);
+  --accent-ui: var(--rs-accent);
+  --on-accent-ui: var(--rs-on-accent);
+  --chip-bg: rgba(0, 0, 0, 0.08);
+  --live-bg: var(--rs-live-bg-light);
+  --live-text: var(--rs-live-text-light);
+  --live-text2: var(--rs-live-text-light);
+  --ready-bg: var(--rs-ready-bg-light);
+  --ready-text: var(--rs-ready-text-light);
+  --standby-bg: var(--rs-standby-bg-light);
+  --standby-text: var(--rs-standby-text-light);
+  --focus-ring: 3px solid var(--rs-accent);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: var(--rs-slate);
+  --surface: var(--rs-slate-raised);
+  --surface-2: var(--rs-slate-raised-2);
+  --border: var(--rs-slate-line);
+  --divider: var(--rs-slate-divider);
+  --text: var(--rs-paper-text);
+  --text-muted: var(--rs-slate-muted);
+  --text-faint: var(--rs-slate-faint);
+  --accent-ui: var(--rs-accent-dark);
+  --on-accent-ui: var(--rs-on-accent-dark);
+  --chip-bg: var(--rs-slate-line);
+  --live-bg: var(--rs-live-bg-dark);
+  --live-text: var(--rs-live-text-dark);
+  --live-text2: var(--rs-live-text2-dark);
+  --ready-bg: var(--rs-ready-bg-dark);
+  --ready-text: var(--rs-ready-text-dark);
+  --standby-bg: var(--rs-standby-bg-dark);
+  --standby-text: var(--rs-standby-text-dark);
+  --focus-ring: 3px solid var(--rs-accent-dark);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 17px/26px var(--rs-font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.rs-mono {
+  font-family: var(--rs-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-overline {
+  font: 500 12px/16px var(--rs-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.rs-h1 {
+  font: 700 36px/40px var(--rs-font-display);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.rs-title {
+  font: 700 28px/34px var(--rs-font-display);
+  margin: 0;
+}
+
+.rs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -1,0 +1,18 @@
+.track {
+  position: relative;
+  border-radius: var(--rs-r-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+.fill {
+  height: 100%;
+  background: var(--rs-ready);
+  transition: width 60ms linear;
+}
+.marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--rs-standby);
+}

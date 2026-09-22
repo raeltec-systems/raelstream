@@ -1,0 +1,118 @@
+.frame {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--bg);
+}
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.step {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--rs-r-row);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  text-align: left;
+}
+.current {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.numDone {
+  background: var(--rs-ready);
+  border-color: var(--rs-ready);
+  color: #fff;
+}
+.numCurrent {
+  background: var(--accent-ui);
+  border-color: var(--accent-ui);
+  color: var(--on-accent-ui);
+}
+.stepLabel {
+  font-weight: 700;
+}
+.who {
+  margin-top: auto;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 96px;
+  min-width: 0;
+  height: 100vh;
+}
+.content {
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow: auto;
+}
+.footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  font-size: 16px;
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .frame {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+  .main {
+    height: auto;
+    grid-template-rows: auto auto;
+  }
+  .footer {
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,31 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 26, 24, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal {
+  background: var(--rs-card);
+  color: var(--rs-ink);
+  border-radius: var(--rs-r-frame);
+  padding: 32px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: var(--rs-shadow-modal);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.title {
+  font: 700 28px/34px var(--rs-font-display);
+  margin: 0;
+}
+.actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 12px;
+}

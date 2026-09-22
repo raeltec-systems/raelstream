@@ -1,0 +1,179 @@
+.page {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.card {
+  background: var(--surface);
+  border-radius: 28px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.title {
+  font: 700 28px/34px var(--rs-font-display);
+  margin: 0;
+}
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1.5;
+}
+.error {
+  margin: 0;
+  color: var(--live-text);
+  font-weight: 700;
+  line-height: 1.45;
+}
+.badge {
+  align-self: flex-start;
+  background: var(--surface-2);
+  border-radius: var(--rs-r-pill);
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.big {
+  width: 100%;
+  height: 64px;
+  font-size: 19px;
+}
+.phrase {
+  font: 700 40px/1.1 var(--rs-font-display);
+  letter-spacing: -0.01em;
+  text-align: center;
+  padding: 20px 0;
+  word-break: break-word;
+}
+.live {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: var(--text);
+  overflow: hidden;
+}
+.live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tally_live::after {
+  box-shadow: inset 0 0 0 8px var(--rs-live);
+}
+.tally_ready::after {
+  box-shadow: inset 0 0 0 8px var(--rs-ready);
+}
+.tally_standby::after {
+  box-shadow: inset 0 0 0 8px var(--rs-standby);
+}
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.topBar {
+  position: absolute;
+  top: max(24px, env(safe-area-inset-top));
+  left: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tally {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: var(--rs-r-pill);
+}
+.tallyPill_live {
+  background: var(--rs-live);
+}
+.tallyPill_ready {
+  background: var(--rs-ready);
+}
+.tallyPill_standby {
+  background: var(--rs-standby);
+  color: #1f2320;
+}
+.tallyDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.camChip {
+  background: rgba(22, 26, 24, 0.8);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 10px 16px;
+  border-radius: var(--rs-r-pill);
+}
+.sheet {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(22, 26, 24, 0.92);
+  border-radius: 32px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.stopRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.rotate {
+  position: absolute;
+  top: 45%;
+  left: 24px;
+  right: 24px;
+  text-align: center;
+  background: var(--standby-bg);
+  color: var(--standby-text);
+  font-weight: 700;
+  padding: 16px;
+  border-radius: 20px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .topBar {
+    right: 364px;
+  }
+  .sheet {
+    left: auto;
+    right: 12px;
+    width: 340px;
+    top: 12px;
+    bottom: 12px;
+    overflow: auto;
+    gap: 10px;
+    padding: 16px;
+  }
+}

@@ -1,0 +1,186 @@
+import { useEffect, useState } from 'react';
+import { Button, Card, Meter, Segmented, StatusDot, Toggle } from '@raelstream/ui';
+import { t } from '@raelstream/i18n';
+import { DELAY_MAX_MS, meterPosition, type RoutingMode } from '@raelstream/media-runtime';
+import { useStore } from '../../lib/useStore.js';
+import { studioRuntime } from '../runtime.js';
+import s from './steps.module.css';
+
+const MODE_LABEL: Record<RoutingMode, string> = {
+  in1_both: 'audio.mode.in1',
+  in2_both: 'audio.mode.in2',
+  stereo_12: 'audio.mode.stereo',
+  mono_blend: 'audio.mode.blend',
+};
+
+export function AudioStep() {
+  const rt = studioRuntime();
+  const a = useStore(rt.audio);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selected, setSelected] = useState('');
+
+  async function refresh() {
+    setDevices(await rt.audio.listInputs());
+  }
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- list devices once on mount
+  }, []);
+
+  async function choose(id: string) {
+    setSelected(id);
+    if (id) {
+      await rt.audio.selectDevice(id);
+      await refresh(); // labels appear after permission is granted
+    }
+  }
+
+  const hasSignal = a.soundRecent;
+
+  return (
+    <>
+      <h1 className="rs-h1">{t('audio.title')}</h1>
+      <Card>
+        <label className={s.headTitle} htmlFor="rs-audio-device">
+          {t('audio.input')}
+        </label>
+        <div className={s.row}>
+          <select
+            id="rs-audio-device"
+            className={s.select}
+            value={selected}
+            onChange={(e) => void choose(e.target.value)}
+            style={{ flex: 1 }}
+          >
+            <option value="">{t('audio.choose')}</option>
+            {devices.map((d, i) => (
+              <option key={d.deviceId || i} value={d.deviceId}>
+                {d.label || t('audio.unnamedInput', { n: i + 1 })}
+              </option>
+            ))}
+          </select>
+          {a.status === 'running' && (
+            <span className={`${s.chip} ${hasSignal ? s.chipReady : s.chipStandby}`}>
+              <StatusDot tone={hasSignal ? 'ready' : 'standby'} size={8} />
+              {hasSignal ? t('audio.soundDetected') : t('audio.noSound')}
+            </span>
+          )}
+        </div>
+        {a.status === 'device_lost' && <p className={s.warn}>{t('audio.deviceLost')}</p>}
+        {a.status === 'error' && <p className={s.warn}>{t('audio.captureError')}</p>}
+        {a.processingNotDisabled.length > 0 && (
+          <p className={s.warn}>
+            {t('audio.processingOn', { list: a.processingNotDisabled.join(', ') })}
+          </p>
+        )}
+        {a.channelCount === 1 && <p className={s.muted}>{t('audio.oneChannel')}</p>}
+        <Segmented<RoutingMode>
+          label={t('audio.routing')}
+          value={a.mode}
+          onChange={(m) => rt.audio.setMode(m)}
+          options={(Object.keys(MODE_LABEL) as RoutingMode[]).map((m) => ({
+            value: m,
+            label: t(MODE_LABEL[m] as never),
+            disabled: !a.availableModes.includes(m),
+          }))}
+        />
+        <div className={s.meters}>
+          {(['L', 'R'] as const).map((ch, i) => (
+            <div key={ch} className={s.meterRow}>
+              <span>{ch}</span>
+              <Meter
+                height={18}
+                level={meterPosition(a.programme.holdDb[i]!)}
+                marker={0.9}
+                label={t('audio.meter', { ch })}
+              />
+              <span>{t('audio.peak', { db: Math.round(a.programme.holdDb[i]!) })}</span>
+            </div>
+          ))}
+        </div>
+        <p className={s.muted}>
+          {t('audio.aim')}{' '}
+          {a.clipCount > 0 && <b className={s.warn}>{t('audio.clipped', { n: a.clipCount })}</b>}
+        </p>
+        <label className={s.headTitle} htmlFor="rs-gain">
+          {t('audio.gain', { db: a.gainDb })}
+        </label>
+        <input
+          id="rs-gain"
+          className={s.slider}
+          type="range"
+          min={-24}
+          max={12}
+          step={1}
+          value={a.gainDb}
+          onChange={(e) => rt.audio.setGainDb(Number(e.target.value))}
+        />
+        <p className={s.muted}>{t('audio.channelTest')}</p>
+      </Card>
+      <div className={s.grid2}>
+        <Card>
+          <Toggle
+            label={t('audio.lowCut')}
+            description={t('audio.lowCutDesc')}
+            checked={a.hpf}
+            onChange={(v) => rt.audio.setHpf(v)}
+          />
+        </Card>
+        <Card>
+          <Toggle
+            label={t('audio.compressor')}
+            description={t('audio.compressorDesc')}
+            checked={a.compressor}
+            onChange={(v) => rt.audio.setCompressor(v)}
+          />
+        </Card>
+      </div>
+      <LipSync />
+    </>
+  );
+}
+
+function LipSync() {
+  const rt = studioRuntime();
+  const a = useStore(rt.audio);
+  const [draft, setDraft] = useState(String(a.delayMs));
+  useEffect(() => setDraft(String(a.delayMs)), [a.delayMs]);
+  const apply = (v: number) => rt.audio.setDelayMs(v);
+  return (
+    <Card>
+      <div className={s.headTitle}>{t('sync.title')}</div>
+      <p className={s.muted}>{t('sync.rule')}</p>
+      <div className={s.delay}>
+        <Button size="dense" onClick={() => apply(a.delayMs - 50)}>
+          −50
+        </Button>
+        <Button size="dense" onClick={() => apply(a.delayMs - 10)}>
+          −10
+        </Button>
+        <input
+          aria-label={t('sync.inputLabel')}
+          className={s.delayInput}
+          inputMode="numeric"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => apply(Number(draft))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') apply(Number(draft));
+          }}
+        />
+        <span className={s.mono}>{t('units.ms')}</span>
+        <Button size="dense" onClick={() => apply(a.delayMs + 10)}>
+          +10
+        </Button>
+        <Button size="dense" onClick={() => apply(a.delayMs + 50)}>
+          +50
+        </Button>
+        <Button size="dense" variant="ghost" onClick={() => apply(0)}>
+          {t('sync.reset')}
+        </Button>
+      </div>
+      <p className={s.mono}>{t('sync.applied', { ms: a.delayMs, max: DELAY_MAX_MS })}</p>
+      <p className={s.muted}>{t('sync.method')}</p>
+    </Card>
+  );
+}

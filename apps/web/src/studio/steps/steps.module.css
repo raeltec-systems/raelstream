@@ -1,0 +1,227 @@
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tile {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rs-r-sm);
+  background: var(--surface-2);
+  font: 500 11px var(--rs-font-mono);
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.headText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.headTitle {
+  font-weight: 700;
+  font-size: 18px;
+}
+.headSub {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--rs-r-pill);
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.chipReady {
+  background: var(--ready-bg);
+  color: var(--ready-text);
+}
+.chipStandby {
+  background: var(--standby-bg);
+  color: var(--standby-text);
+}
+.chipOff {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.qr {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.qr img {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--rs-r-sm);
+  image-rendering: pixelated;
+  background: #fff;
+}
+.phrase {
+  font: 700 34px/1.1 var(--rs-font-display);
+  letter-spacing: -0.01em;
+}
+.mono {
+  font: 400 14px/20px var(--rs-font-mono);
+  color: var(--text-muted);
+}
+.checks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: var(--rs-r-input);
+  padding: 14px 16px;
+}
+.checkLabel {
+  flex: 1;
+  font-weight: 700;
+}
+.checkDetail {
+  font: 400 12px var(--rs-font-mono);
+  color: var(--text-muted);
+}
+.preview {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: var(--rs-r-sm);
+  background: #000;
+  object-fit: contain;
+}
+.select {
+  height: var(--rs-control);
+  border: 2px solid var(--border);
+  border-radius: var(--rs-r-input);
+  padding: 0 18px;
+  font-size: 17px;
+  background: var(--surface);
+  width: 100%;
+}
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meterRow {
+  display: grid;
+  grid-template-columns: 20px 1fr 90px;
+  gap: 12px;
+  align-items: center;
+  font: 500 13px var(--rs-font-mono);
+  color: var(--text-muted);
+}
+.delay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.delayInput {
+  width: 120px;
+  height: var(--rs-control-dense);
+  border: 2px solid var(--border);
+  border-radius: var(--rs-r-input);
+  padding: 0 14px;
+  font: 500 17px var(--rs-font-mono);
+  text-align: right;
+  background: var(--surface);
+}
+.slider {
+  width: 100%;
+  accent-color: var(--accent-ui);
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 10px 0 14px;
+  border-radius: var(--rs-r-row);
+  background: var(--surface);
+  cursor: pointer;
+  border: 0;
+  width: 100%;
+  text-align: left;
+}
+.itemSelected {
+  box-shadow: inset 0 0 0 2px var(--accent-ui);
+}
+.itemIndex {
+  font: 400 12px var(--rs-font-mono);
+  color: var(--text-muted);
+}
+.itemTitle {
+  flex: 1;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.typeChip {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: var(--rs-r-pill);
+  padding: 4px 10px;
+}
+.add {
+  min-height: 44px;
+  border: 2px dashed var(--border);
+  border-radius: var(--rs-r-row);
+  background: none;
+  font-weight: 700;
+  color: var(--accent-ui);
+  cursor: pointer;
+}
+.rundownGrid {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.warn {
+  color: var(--standby-text);
+  font-weight: 700;
+  font-size: 14px;
+}
+@media (max-width: 1100px) {
+  .grid2,
+  .rundownGrid,
+  .checks {
+    grid-template-columns: 1fr;
+  }
+}
