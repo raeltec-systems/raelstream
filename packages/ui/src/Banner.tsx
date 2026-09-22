@@ -9,14 +9,17 @@ export function Banner({
   title,
   children,
   actions,
+  compact = false,
 }: {
   tone?: 'live' | 'standby';
+  /** One-line variant for the Live studio, where vertical space is scarce at 1366×768. */
+  compact?: boolean;
   title: ReactNode;
   children?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
-    <div className={cx(s.banner, s[tone])} role="alert">
+    <div className={cx(s.banner, s[tone], compact && s.compact)} role="alert">
       <StatusDot tone={tone} size={12} />
       <div className={s.text}>
         <div className={s.title}>{title}</div>

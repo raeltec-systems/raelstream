@@ -20,7 +20,7 @@ The design is high-fidelity and final for **look, copy and layout**. SPEC.md is 
 | D-1 | Load the fonts from Google Fonts (`@import`) | The CSP only allows fonts from our own server, and no third-party requests (§14.1) | Serve the **same three fonts** (Bricolage Grotesque, Atkinson Hyperlegible, IBM Plex Mono) ourselves, using the `@fontsource` packages. |
 | D-2 | Health row "Laptop CPU 54%", "CPU 86%" | Browsers can't measure machine CPU, and the brief forbids inventing it (B§24.2) | The row reads "Laptop · keeping up" / "Laptop is working hard", **inferred** from WebRTC's `qualityLimitationReason = cpu` and the encode rate. There is no percentage, and the row is labelled "inferred". |
 | D-3 | Phone status "Phone is warm · 64%" | No thermal readings (B§9.4) | Show "Battery 64%" (or "Battery information unavailable"). Remove "warm". |
-| D-4 | Quality options 480p / 720p / 1080p | Two profiles only, 720p and 1080p; a reduced state exists as "Recovery" (§11.2) | Show **720p and 1080p**. 480p is omitted. **Owner question:** do you want a 480p profile for very weak uplinks? |
+| D-4 | Quality options 480p / 720p / 1080p | Two profiles only, 720p and 1080p; a reduced state exists as "Recovery" (§11.2) | Show **720p and 1080p**. **Owner decision (22 Sep): leave 480p out for now.** |
 | D-5 | 4 scenes on keys 1–4, and **Take next** on Space | 5 scene types, keys 1,2,3,4,0, and draft → Apply | Use the design's model. The scenes are Camera + lower third, Camera only, Text card, and Be right back slate. Images are rundown items. **Take next** puts the next *prepared* rundown item on air. Live edits still go through Edit → Apply. Space fires only when no button or field has focus, so it never clashes with a button's own Space activation. |
 | D-6 | No blinking | The spec had an amber blinking "Reconnecting" tally | Follow the design: no blinking. Colour and word change only. |
 | D-7 | Session pill: Off air / Ready / ON AIR / Reconnecting / Slate on | 10 lifecycle states | The spec states map onto the design pills: DRAFT/PREPARING → Off air, READY → Ready, SENDING/PARTIAL → ON AIR (PARTIAL also shows the failed destination row), a camera reconnecting while live → Reconnecting camera…, RECOVERING → Slate on · countdown. |
@@ -93,3 +93,44 @@ M1 and M2 can be built and tested entirely in CI and this dev container. **M3 ne
 
 **Not yet proven (needs M2/M3):** mDNS host candidates between the real A26 and Dell (the tests use raw IPs),
 real UMC channel mapping, laptop CPU/memory, any Facebook or YouTube output.
+
+### M2: built 22 Sep 2026
+
+| Area | State |
+|---|---|
+| `packages/media-node-adapter` | Done: FFmpeg argument builders (normaliser, publisher, slate), progress parser, publisher error classifier, key/URL redaction, backoff, destination allowlist + SSRF checks (A41), MediaMTX API client |
+| `packages/secrets` | Done: libsodium sealed boxes. Control can only encrypt; only the supervisor holds the secret key (SPEC §14.2) |
+| `apps/supervisor` | Done: reconciles desired vs observed state from PostgreSQL (LISTEN/NOTIFY + 500 ms tick). Runs the normaliser, one isolated publisher per destination with backoff 1/2/4/8/15 s, and the fallback slate through MediaMTX always-available with a bounded grace period → INTERRUPTED. Stop always wins. Derives the lifecycle (STARTING/SENDING/PARTIAL/RECOVERING). |
+| Control | Done: start/stop/retry with idempotency keys, the destinations list (keys never returned), observed-state relay to studios, `norm/` paths restricted to the supervisor, an owner CLI (`keys:generate`, `destination:add` with the key read from stdin, `destination:list`) |
+| Studio | Done: Go live modal (Cancel focused; Enter never confirms), the design's Stop modal (truthful per-destination state), session pill (ON AIR / Starting / Slate on · countdown / Stopping), live destination rows (Sending · rate, "publish it in YouTube Studio", Reconnecting · attempt n, Stopped · reason + Retry), compact partial/slate/ended banners that keep all four scenes visible at 1366×768 |
+| Infra | Supervisor image (ADR-0002), Compose service + shared slate volume + seal secret, MediaMTX MoQ disabled, internal RTMP for the normalised programme (ADR-0003), CI `media` job |
+
+**Verified:**
+- 59 unit tests and 25 integration tests pass. Two Playwright runs pass: the M1 spine, and the new
+  **broadcast** run with the real supervisor and two RTMP sinks (Go live → both sending → one
+  platform lost → partial → Enter-safe stop → ended).
+- **8 media-node tests** pass with real FFmpeg 8.1.2 and MediaMTX. Evidence is written to
+  `test-results/m2-media-evidence.json` and uploaded by CI:
+  - The output is H.264 Main 1280×720 30 fps, no B-frames, keyframes exactly 2.000 s apart,
+    AAC 44.1 kHz stereo, monotonic PTS.
+  - A/V offset end to end through the normaliser: 19–35 ms. The test signal alone accounts for 0–21 ms.
+  - Killing one platform leaves the other on the **same RTMP connection** at 3.9 Mbit/s (A28, P-10).
+  - Losing the contribution puts the matched slate on air with the **publisher connection unchanged**
+    before, during and after (A36). The programme is restored about 6 s after the contribution returns (A37).
+  - Stop is idempotent, ends the session and revokes tokens (A34). Stream keys and internal
+    credentials never appear in supervisor logs (A40).
+
+**Bugs found and fixed through testing:**
+- Audio timing through RTSP (ADR-0003).
+- The slate filter graph.
+- MediaMTX 1.21's default MoQ listener collided with other instances on port 8892.
+- The studio never loaded destinations, and `server.ts` never started the observed-state relay. Both
+  were silently failed scripted edits, found by the broadcast e2e and an audit.
+- The Stop modal claimed LIVE for a destination that was reconnecting.
+
+**Still open for M3 (hardware and real platforms):**
+- Real Facebook/YouTube acceptance of the output profile.
+- Stderr patterns for real auth rejections (a rejected key is currently classified as a network error
+  unless the platform's message matches, so it retries rather than failing fast).
+- Normaliser CPU headroom on the Vultr 4 vCPU instance (P-12).
+- Real WebRTC contribution sync.

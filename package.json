@@ -17,7 +17,8 @@
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
-    "ci:local": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e"
+    "ci:local": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e && pnpm test:media",
+    "test:media": "pnpm --filter @raelstream/supervisor build && docker build -q -f infra/compose/supervisor.Dockerfile -t rs-supervisor:dev . && vitest run --project media"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -9,6 +9,10 @@ export const E2E = {
   passphrase: 'e2e-passphrase-1234',
   dbAdmin:
     process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://raelstream:dev@localhost:55432/raelstream',
+  broadcast: process.env.RS_E2E_BROADCAST === '1',
+  // TEST-ONLY sealed-box keypair for the broadcast e2e run. Never used outside automated tests.
+  sealPublicKey: 'jYpBKnSnxZqDHCwq9fg-qyqIwEo8gyOz9mMDW3PIXh8',
+  sealSecretKey: 'YVuLOwVF8VFS-ZGdja17j1_gdwMTyxR3MsfQkkbEsJw',
 };
 
 /**
@@ -52,6 +56,10 @@ export default defineConfig({
         RS_DEV_AUTH: '1',
         RS_DEV_PASSPHRASE: E2E.passphrase,
         RS_PAIR_RATE_LIMIT: '1000',
+        RS_SEAL_PUBLIC_KEY: E2E.sealPublicKey,
+        RS_E2E_SEAL_SECRET_KEY: E2E.sealSecretKey,
+        RS_DEST_TEST_SINKS: '1',
+        RS_E2E_BROADCAST: E2E.broadcast ? '1' : '0',
         PORT: '3000',
         HOST: '127.0.0.1',
       },

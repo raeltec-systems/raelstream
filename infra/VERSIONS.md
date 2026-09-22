@@ -19,6 +19,8 @@ passed the gate evidence is the qualified release.
 | PostgreSQL | 18 (image `postgres:18`, observed 18.6) | Pin the digest at deploy time |
 | MediaMTX | 1.21.1 (`bluenviron/mediamtx:1.21.1-ffmpeg`) | Pin the digest at deploy time |
 | Caddy | 2.11 (`caddy:2.11`) | Pin the digest at deploy time |
-| FFmpeg | 9.0.x | Arrives with the supervisor (M2) |
+| Supervisor image | `bluenviron/mediamtx:1.21.1-ffmpeg` + Node from `node:24-alpine` (both Alpine 3.24.2) | `infra/compose/supervisor.Dockerfile` |
+| libsodium-wrappers | 0.8.x | Sealed boxes for stream keys |
+| FFmpeg | **8.1.2** (from the pinned MediaMTX image) | ADR-0002: one FFmpeg build across the media node. 9.0 needs a new image source plus a media-suite pass. |
 
 Exact npm versions are in `pnpm-lock.yaml`.

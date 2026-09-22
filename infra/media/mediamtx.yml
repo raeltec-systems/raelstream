@@ -16,9 +16,14 @@ playback: false
 rtsp: true
 rtspTransports: [tcp]
 rtspAddress: :8554
-rtmp: false
+# Internal only: the normaliser publishes and publishers read the shared programme over RTMP
+# (ADR-0003). Never publish this port outside the private network.
+rtmp: true
+rtmpAddress: :1935
 hls: false
 srt: false
+# MoQ (on by default in 1.21) is not used; keep it off to minimise exposed surface.
+moq: false
 
 # WHIP ingest. HTTP is terminated by Caddy; media uses the UDP mux (and TCP fallback) below.
 webrtc: true

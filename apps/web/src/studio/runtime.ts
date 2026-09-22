@@ -5,6 +5,9 @@ import type {
   TallyState,
   ServerMessage,
   CreatePairingResponse,
+  DestinationSummary,
+  ObservedState,
+  SessionLifecycle,
 } from '@raelstream/contracts';
 import {
   AudioEngine,
@@ -43,7 +46,21 @@ export interface StudioState {
   wanBlockTestPassed: boolean;
   productionSsid: string;
   sendingSince: number | null;
+  /** Media-node truth from the supervisor (SPEC §12.1); null until first report. */
+  observed: ObservedState | null;
+  lifecycle: SessionLifecycle | null;
+  destinations: DestinationSummary[];
+  liveDestinationIds: string[];
+  commandError: string | null;
 }
+
+export const LIVE_STATES: SessionLifecycle[] = [
+  'STARTING',
+  'SENDING',
+  'PARTIAL',
+  'RECOVERING',
+  'STOPPING',
+];
 
 /**
  * One persistent media runtime per studio page (SPEC §10.1). React reads it through stores; route changes
@@ -75,6 +92,11 @@ export class StudioRuntime extends Observable<StudioState> {
       wanBlockTestPassed: false,
       productionSsid: '',
       sendingSince: null,
+      observed: null,
+      lifecycle: null,
+      destinations: [],
+      liveDestinationIds: [],
+      commandError: null,
     });
     this.audio = new AudioEngine();
     this.compositor = new Compositor(PROFILE_SIZE.reliable_hd.w, PROFILE_SIZE.reliable_hd.h);
@@ -104,6 +126,7 @@ export class StudioRuntime extends Observable<StudioState> {
     } catch {
       /* optional */
     }
+    void this.loadDestinations();
     this.socket?.close();
     this.socket = new SessionSocket(
       () => ({
@@ -125,13 +148,25 @@ export class StudioRuntime extends Observable<StudioState> {
         if (m.snapshot) {
           this.lastSequence = Math.max(this.lastSequence, m.snapshot.lastSequence);
           const hadAdmitted = this.admittedSource?.id;
-          this.set({ session: m.snapshot });
+          this.set({ session: m.snapshot, lifecycle: m.snapshot.lifecycle });
           if (hadAdmitted && !this.admittedSource) this.camera.close();
         }
         break;
       case 'event':
         this.lastSequence = Math.max(this.lastSequence, m.event.sequence);
         break;
+      case 'observed': {
+        // After a reload mid-broadcast, the observed destinations tell us which ones are live.
+        const ids = m.observed ? Object.keys(m.observed.destinations) : [];
+        this.set({
+          observed: m.observed,
+          lifecycle: m.lifecycle,
+          liveDestinationIds: this.state.liveDestinationIds.length
+            ? this.state.liveDestinationIds
+            : ids,
+        });
+        break;
+      }
       case 'peer':
         this.set({ cameraPresent: { ...this.state.cameraPresent, [m.sourceId]: m.present } });
         break;
@@ -264,42 +299,105 @@ export class StudioRuntime extends Observable<StudioState> {
     this.set({ rundown: items });
   }
 
-  // ---- contribution (private ingest test in M1) ----
+  // ---- media node (SPEC §12): contribution + normaliser + publishers ----
+  async loadDestinations(): Promise<void> {
+    try {
+      this.set({ destinations: await api<DestinationSummary[]>('GET', '/api/destinations') });
+    } catch {
+      /* shown as none configured */
+    }
+  }
+
+  get isLive(): boolean {
+    return !!this.state.lifecycle && LIVE_STATES.includes(this.state.lifecycle);
+  }
+
+  /** Ensure the WHIP contribution for the current generation is running. */
+  private async ensureContribution(): Promise<void> {
+    const s = this.state.session!;
+    if (
+      this.whip &&
+      (this.whip.snapshot.status === 'connected' || this.whip.snapshot.status === 'connecting')
+    )
+      return;
+    const ingest = await api<IngestResponse>('POST', `/api/sessions/${s.id}/ingest`);
+    this.whip = new WhipPublisher(
+      this.compositor.track,
+      this.audio.track,
+      PROFILE_SIZE[this.state.profile].ceiling,
+    );
+    this.whip.subscribe(() => {
+      const w = this.whip!.snapshot;
+      if (w.status === 'connected' && this.state.contribution !== 'sending')
+        this.set({ contribution: 'sending', sendingSince: Date.now() });
+      if (w.status === 'failed') this.set({ contribution: 'error', contributionError: w.error });
+    });
+    await this.whip.start({
+      whipUrl: ingest.whipUrl,
+      bearer: ingest.bearer,
+      iceServers: ingest.iceServers as RTCIceServer[],
+    });
+  }
+
+  private async command(path: string, body?: unknown): Promise<void> {
+    await api('POST', `/api/sessions/${this.state.session!.id}/${path}`, body);
+  }
+
   async startPrivateTest(): Promise<void> {
     const s = this.state.session;
     if (!s) return;
-    this.set({ contribution: 'starting', contributionError: null });
+    this.set({ contribution: 'starting', contributionError: null, commandError: null });
     try {
-      await api('POST', `/api/sessions/${s.id}/mode`, { mode: 'ingest_test' });
-      const ingest = await api<IngestResponse>('POST', `/api/sessions/${s.id}/ingest`);
-      this.whip = new WhipPublisher(
-        this.compositor.track,
-        this.audio.track,
-        PROFILE_SIZE[this.state.profile].ceiling,
-      );
-      this.whip.subscribe(() => {
-        const w = this.whip!.snapshot;
-        if (w.status === 'connected' && this.state.contribution !== 'sending')
-          this.set({ contribution: 'sending', sendingSince: Date.now() });
-        if (w.status === 'failed') this.set({ contribution: 'error', contributionError: w.error });
+      await this.command('mode', { mode: 'ingest_test' });
+      await this.command('start', {
+        mode: 'ingest_test',
+        profile: this.state.profile,
+        destinationIds: [],
       });
-      await this.whip.start({
-        whipUrl: ingest.whipUrl,
-        bearer: ingest.bearer,
-        iceServers: ingest.iceServers as RTCIceServer[],
-      });
+      await this.ensureContribution();
     } catch (e) {
       this.set({ contribution: 'error', contributionError: (e as Error).message });
     }
   }
 
   async stopPrivateTest(): Promise<void> {
+    await this.command('stop').catch(() => undefined);
     await this.whip?.stop();
     this.whip = null;
     const s = this.state.session;
     if (s)
       await api('POST', `/api/sessions/${s.id}/mode`, { mode: 'rehearsal' }).catch(() => undefined);
     this.set({ contribution: 'idle', sendingSince: null });
+  }
+
+  /** Start sending to the chosen destinations (B§16.4). The idempotency key makes double clicks safe (A32). */
+  async goLive(destinationIds: string[]): Promise<void> {
+    this.set({ commandError: null, liveDestinationIds: destinationIds });
+    try {
+      if (this.state.session?.mode === 'rehearsal')
+        await this.command('mode', { mode: 'ingest_test' });
+      await api('POST', `/api/sessions/${this.state.session!.id}/start`, {
+        mode: 'live',
+        profile: this.state.profile,
+        destinationIds,
+      });
+      await this.ensureContribution();
+    } catch (e) {
+      this.set({ commandError: (e as Error).message });
+    }
+  }
+
+  async stopSending(): Promise<void> {
+    await this.command('stop').catch((e) => this.set({ commandError: (e as Error).message }));
+    await this.whip?.stop();
+    this.whip = null;
+    this.set({ contribution: 'idle', sendingSince: null });
+  }
+
+  async retryDestination(id: string): Promise<void> {
+    await this.command(`destinations/${id}/retry`).catch((e) =>
+      this.set({ commandError: (e as Error).message }),
+    );
   }
 }
 

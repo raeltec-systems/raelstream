@@ -5,3 +5,4 @@ playwright-report
 .git
 infra/compose/.env
 infra/compose/secrets
+!apps/supervisor/dist

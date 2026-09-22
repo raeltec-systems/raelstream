@@ -208,6 +208,9 @@ importers:
       '@raelstream/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@raelstream/media-node-adapter':
+        specifier: workspace:*
+        version: link:../../packages/media-node-adapter
       fastify:
         specifier: ^5.12.5
         version: 5.12.5
@@ -221,6 +224,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@raelstream/secrets':
+        specifier: workspace:*
+        version: link:../../packages/secrets
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
@@ -236,6 +242,40 @@ importers:
       ws:
         specifier: ^8.21.3
         version: 8.21.3
+
+  apps/supervisor:
+    dependencies:
+      '@raelstream/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@raelstream/media-node-adapter':
+        specifier: workspace:*
+        version: link:../../packages/media-node-adapter
+      kysely:
+        specifier: ^0.29.6
+        version: 0.29.6
+      pg:
+        specifier: ^8.23.0
+        version: 8.23.0
+    devDependencies:
+      '@raelstream/secrets':
+        specifier: workspace:*
+        version: link:../../packages/secrets
+      '@types/node':
+        specifier: ^26.6.2
+        version: 26.6.2
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      fastify:
+        specifier: ^5.12.5
+        version: 5.12.5
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   apps/web:
     dependencies:
@@ -294,11 +334,30 @@ importers:
 
   packages/i18n: {}
 
+  packages/media-node-adapter:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.2
+        version: 26.6.2
+
   packages/media-runtime:
     dependencies:
       '@raelstream/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/secrets:
+    dependencies:
+      libsodium-wrappers:
+        specifier: ^0.8.4
+        version: 0.8.4
+    devDependencies:
+      '@types/libsodium-wrappers':
+        specifier: ^0.8.2
+        version: 0.8.2
+      '@types/node':
+        specifier: ^26.6.2
+        version: 26.6.2
 
   packages/ui:
     dependencies:
@@ -804,6 +863,10 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
+  '@types/libsodium-wrappers@0.8.2':
+    resolution: {integrity: sha512-+2IDfSULPUskSjIYfZl9suIUsIE5PXwoKZiE/j0MZWd+M9nEGvJDsk/ztMZKNhL1lBL+1CaypW0dQSjqPW2dMg==}
+    deprecated: This is a stub types definition. libsodium-wrappers provides its own type definitions, so you do not need this installed.
+
   '@types/node@26.6.2':
     resolution: {integrity: sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g==}
 
@@ -1298,6 +1361,12 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
+
+  libsodium-wrappers@0.8.4:
+    resolution: {integrity: sha512-mu8aAWucZjTB5O/BtGXtW4e1agy7uHxNYG7zPthmmD1jU43LCDmSWZLN4JhflbdPXj3yDO4lxM1O9hLDgIOXDw==}
+
+  libsodium@0.8.4:
+    resolution: {integrity: sha512-lMcYaRi0zcs7tarATsQUYC7rstliIXZuoq0c6zXSgNtSNtdvBgkSegjWhpMJAXzKX3SUSwIp7+zEsob+j3LuRw==}
 
   light-my-request@6.6.0:
     resolution: {integrity: sha512-CHYbu8RtboSIoVsHZ6Ye4cj4Aw/yg2oAFimlF7mNvfDV192LR7nDiKtSIfCuLT7KokPSTn/9kfVLm5OGN0A28A==}
@@ -2282,6 +2351,10 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
+  '@types/libsodium-wrappers@0.8.2':
+    dependencies:
+      libsodium-wrappers: 0.8.4
+
   '@types/node@26.6.2':
     dependencies:
       undici-types: 8.9.0
@@ -2811,6 +2884,12 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libsodium-wrappers@0.8.4:
+    dependencies:
+      libsodium: 0.8.4
+
+  libsodium@0.8.4: {}
 
   light-my-request@6.6.0:
     dependencies:

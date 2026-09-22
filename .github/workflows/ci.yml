@@ -45,3 +45,32 @@ jobs:
           name: e2e-results
           path: test-results/
           retention-days: 14
+
+  media:
+    # Real FFmpeg/MediaMTX media-node suite (M2): conformance, A/V sync, isolation, fallback, stop.
+    runs-on: ubuntu-24.04
+    needs: check
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: raelstream
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: raelstream
+        ports: ['55432:5432']
+        options: >-
+          --health-cmd "pg_isready -U raelstream" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: docker pull bluenviron/mediamtx:1.21.1-ffmpeg && docker pull node:24-alpine
+      - run: pnpm test:media
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-media-evidence
+          path: test-results/m2-media-evidence.json

@@ -39,3 +39,25 @@
   gap: 10px;
   align-self: center;
 }
+.compact {
+  padding: 10px 16px;
+  border-radius: var(--rs-r-row);
+  align-items: center;
+  gap: 12px;
+}
+.compact > span:first-child {
+  margin-top: 0;
+}
+.compact .text {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 0;
+}
+.compact .title {
+  font-size: 15px;
+}
+.compact .body {
+  font-size: 14px;
+}

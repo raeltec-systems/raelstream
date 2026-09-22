@@ -5,8 +5,8 @@ they cannot qualify the Galaxy A26, the Dell, the UMC204HD or the Wi-Fi (B§26.1
 `docs/evidence/wp0/` using the fields in B Appendix A: build, environment, steps, observed result,
 evidence, and pass/fail/blocked.
 
-> Facebook and YouTube publishing is **not** part of M1. This run covers G1 (browser and device access),
-> G2 (the direct camera link) and the laptop side of G3. Platform output (G5) comes after M2.
+> This run covers G1 (browser and device access), G2 (the direct camera link), G3 (laptop workload) and
+> a first G5 check (real Facebook and YouTube **test/private** events).
 
 ## 1. Server (once)
 
@@ -18,8 +18,26 @@ evidence, and pass/fail/blocked.
    `NODE_ENV=wp0`, `RS_DEV_AUTH=1`, `RS_DEV_PASSPHRASE=<long random phrase>`.
 6. `mkdir -p infra/compose/secrets && openssl rand -hex 24 > infra/compose/secrets/pg_password`. Then put
    the same password into `DATABASE_URL` in `.env`.
-7. `docker compose -f infra/compose/docker-compose.yml up -d --build`
-8. Open `https://stream.<your-domain>/studio`. You should see the sign-in page.
+7. Build the bundles: `corepack enable && pnpm install && pnpm build`.
+8. Generate the stream-key sealing keys: `node apps/control/dist/cli.js keys:generate`. Put the
+   `RS_SEAL_PUBLIC_KEY=` line in `.env` and the secret line in `infra/compose/secrets/seal_secret`
+   (`chmod 400`). Keep a copy of the secret in your password manager. It is **not** in backups.
+9. `docker compose -f infra/compose/docker-compose.yml up -d --build`
+10. Open `https://stream.<your-domain>/studio`. You should see the sign-in page.
+
+## 1b. Test destinations (once per event)
+
+Create a **private or unlisted** YouTube event and a Facebook test/"only me" live, and note each
+stream key. Then add them on the server. The key is read from stdin, so it never enters shell history:
+
+```sh
+docker compose -f infra/compose/docker-compose.yml exec -T control node dist/cli.js destination:add \
+  --platform youtube --label "YouTube test" --server rtmps://a.rtmps.youtube.com/live2 --auto-publish no <<< 'PASTE-KEY'
+docker compose -f infra/compose/docker-compose.yml exec -T control node dist/cli.js destination:add \
+  --platform facebook --label "Facebook test" --server rtmps://live-api-s.facebook.com:443/rtmp/ --per-event <<< 'PASTE-KEY'
+```
+
+(The in-studio key paste for Facebook's per-event keys arrives in M7.)
 
 ## 2. Venue
 
@@ -40,6 +58,10 @@ evidence, and pass/fail/blocked.
 | G1-d | Audio → choose the UMC204HD. | The channel count the browser reports, and any "processing kept on" warning. Play into Input 1 only, then Input 2 only, and note which meters move (A15/A16). |
 | G3-a | Open the Studio. Start private test. | "server receiving". Windows Task Manager CPU and memory for the browser at 720p, then 1080p (P-07/P-08). Health panel values. |
 | G3-b | Leave it running for 30 minutes. | Any drops, memory growth, and meter behaviour. |
+| G5-a | Stop the private test. Choose **Go live…**, check both destinations, and start. | Each row's state. Whether each platform shows the stream (YouTube: click Go Live in Studio if auto-start is off). Picture, sound, and the lower third on the platform. |
+| G5-b | Record a phone video of the platform player next to the studio for 30 s during a clap. | Platform delay and a rough lip-sync check at the platform. |
+| G6-a | Unplug the laptop's Ethernet for 20 s, then reconnect. | Whether the platforms show "We'll be right back" and then return. The studio countdown. |
+| G5-c | **Stop streaming…** then confirm. | That both platforms end, or that you had to end them in each platform's console (A48). |
 
 Also run the lip-sync check: clap on camera next to a mixer-fed microphone. The clip-review tool comes in a
 later build, so for now note roughly the delay value that looked right.

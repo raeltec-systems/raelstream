@@ -40,10 +40,34 @@ services:
     deploy:
       resources: { limits: { cpus: '1.0', memory: 512M } }
 
+  supervisor:
+    # Build the bundle first: pnpm --filter @raelstream/supervisor build (see infra/scripts)
+    build: { context: ../.., dockerfile: infra/compose/supervisor.Dockerfile }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      MEDIAMTX_API: http://mediamtx:9997
+      MEDIAMTX_RTSP: rtsp://mediamtx:8554
+      MEDIAMTX_RTMP: rtmp://mediamtx:1935
+      MEDIAMTX_INTERNAL_USER: ${MEDIAMTX_INTERNAL_USER}
+      MEDIAMTX_INTERNAL_PASS: ${MEDIAMTX_INTERNAL_PASS}
+      RS_SEAL_PUBLIC_KEY: ${RS_SEAL_PUBLIC_KEY}
+      RS_SEAL_SECRET_KEY_FILE: /run/secrets/seal_secret
+    secrets: [seal_secret]
+    volumes: [slates:/var/lib/raelstream/slates]
+    depends_on:
+      postgres: { condition: service_healthy }
+      mediamtx: { condition: service_started }
+    deploy:
+      resources: { limits: { cpus: '3.0', memory: 2G } }
+
   mediamtx:
     image: bluenviron/mediamtx:1.21.1-ffmpeg
     restart: unless-stopped
-    volumes: [../media/mediamtx.yml:/mediamtx.yml:ro]
+    volumes:
+      - ../media/mediamtx.yml:/mediamtx.yml:ro
+      - slates:/var/lib/raelstream/slates:ro
     environment:
       MTX_WEBRTCADDITIONALHOSTS: ${PUBLIC_IP:?set PUBLIC_IP in .env}
       MTX_WEBRTCTRUSTEDPROXIES: 172.16.0.0/12
@@ -63,7 +87,11 @@ services:
 secrets:
   pg_password:
     file: ./secrets/pg_password
+  # Sealed-box secret key: only the supervisor can decrypt stream keys (SPEC §14.2). Not in backups.
+  seal_secret:
+    file: ./secrets/seal_secret
 
 volumes:
   pgdata:
   caddydata:
+  slates:

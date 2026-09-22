@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/server.js --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/server.js --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" && esbuild src/cli.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/cli.js --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "start": "node dist/server.js",
     "migrate": "tsx src/migrate-cli.ts",
     "typecheck": "tsc -p tsconfig.json"
@@ -14,12 +14,14 @@
     "@fastify/cookie": "^11.1.2",
     "@fastify/websocket": "^11.3.1",
     "@raelstream/contracts": "workspace:*",
+    "@raelstream/media-node-adapter": "workspace:*",
     "fastify": "^5.12.5",
     "kysely": "^0.29.6",
     "pg": "^8.23.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@raelstream/secrets": "workspace:*",
     "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.28.2",

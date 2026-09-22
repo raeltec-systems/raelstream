@@ -62,7 +62,7 @@ export async function authorizeMediaMtx(
   now = new Date(),
 ): Promise<boolean> {
   const action = req.action ?? '';
-  if (action === 'publish') {
+  if (action === 'publish' && !(req.path ?? '').startsWith('norm/')) {
     const token = req.token || req.password || '';
     if (!token || !req.path) return false;
     const row = await db
@@ -86,6 +86,14 @@ export async function authorizeMediaMtx(
       row.lifecycle !== 'INTERRUPTED'
     );
   }
+  const internalOk = () =>
+    !!req.user &&
+    !!req.password &&
+    safeEqual(req.user, internal.user) &&
+    safeEqual(req.password, internal.pass) &&
+    PRIVATE_ADDR.test(req.ip ?? '');
+  // The supervisor's normaliser publishes the shared normalised programme (SPEC §12.2).
+  if (action === 'publish' && (req.path ?? '').startsWith('norm/')) return internalOk();
   if (action === 'read' || action === 'playback' || action === 'api' || action === 'metrics') {
     return (
       !!req.user &&

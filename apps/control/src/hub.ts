@@ -10,6 +10,8 @@ import type { DB } from './db.js';
 import { eventsSince, snapshot } from './sessions.js';
 import { renewCredential, sourceByCredential } from './pairing.js';
 import { RateLimiter } from './ratelimit.js';
+import { readObserved } from './observed.js';
+import type { ObservedState, SessionLifecycle } from '@raelstream/contracts';
 
 type Conn =
   | { role: 'unauth'; authedOperator: boolean }
@@ -54,6 +56,14 @@ export class Hub {
 
   broadcastEvent(sessionId: string, event: SessionEvent): void {
     this.toStudios(sessionId, { type: 'event', event });
+  }
+
+  broadcastObserved(
+    sessionId: string,
+    lifecycle: SessionLifecycle,
+    observed: ObservedState | null,
+  ): void {
+    this.toStudios(sessionId, { type: 'observed', lifecycle, observed });
   }
 
   async broadcastSnapshot(sessionId: string): Promise<void> {
@@ -129,6 +139,9 @@ export class Hub {
         }
         for (const s of snap.sources)
           this.send(ws, { type: 'peer', sourceId: s.id, present: this.cameraPresent(s.id) });
+        const obs = await readObserved(this.db, msg.sessionId);
+        if (obs)
+          this.send(ws, { type: 'observed', lifecycle: obs.lifecycle, observed: obs.observed });
         return;
       }
       const src = await sourceByCredential(this.db, msg.credential);

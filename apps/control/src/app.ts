@@ -19,6 +19,8 @@ import { RateLimiter } from './ratelimit.js';
 import * as sessions from './sessions.js';
 import * as pairing from './pairing.js';
 import { authorizeMediaMtx, createIngest, type MediaMtxAuthRequest } from './ingest.js';
+import { StartRequest } from '@raelstream/contracts';
+import { idempotent, listDestinations, retryDestination, startMedia, stopMedia } from './media.js';
 
 const Uuid = z.string().uuid();
 const SessionParams = z.object({ id: Uuid });
@@ -227,6 +229,55 @@ export async function buildApp(
       }),
     );
     return r;
+  });
+
+  // ---- media node: start / stop / retry (SPEC §12.1, §17.1) ----
+  const idemKey = (req: { headers: Record<string, unknown> }) => {
+    const k = req.headers['idempotency-key'];
+    return typeof k === 'string' && Uuid.safeParse(k).success ? k : undefined;
+  };
+  app.get('/api/destinations', { preHandler: operator }, async () => listDestinations(db));
+  app.post('/api/sessions/:id/start', { preHandler: operator }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    const body = StartRequest.parse(req.body);
+    const r = await idempotent(db, idemKey(req), id, 'start', async () => {
+      const out = await startMedia(db, id, body);
+      hub.broadcastEvent(
+        id,
+        await sessions.appendEvent(
+          db,
+          id,
+          body.mode === 'live' ? 'broadcast.start' : 'ingest_test.start',
+          'info',
+          operatorOf(req).name,
+          { destinations: body.destinationIds.length, profile: body.profile },
+        ),
+      );
+      await hub.broadcastSnapshot(id);
+      return { mode: out.desired.mode, profile: out.desired.profile };
+    });
+    return r;
+  });
+  app.post('/api/sessions/:id/stop', { preHandler: operator }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    const r = await stopMedia(db, id);
+    if (r.stopping)
+      hub.broadcastEvent(
+        id,
+        await sessions.appendEvent(db, id, 'broadcast.stop', 'info', operatorOf(req).name),
+      );
+    return r;
+  });
+  app.post('/api/sessions/:id/destinations/:dest/retry', { preHandler: operator }, async (req) => {
+    const { id, dest } = z.object({ id: Uuid, dest: Uuid }).parse(req.params);
+    await retryDestination(db, id, dest);
+    hub.broadcastEvent(
+      id,
+      await sessions.appendEvent(db, id, 'destination.retry', 'info', operatorOf(req).name, {
+        destinationId: dest,
+      }),
+    );
+    return { ok: true };
   });
 
   app.get('/api/venue', { preHandler: operator }, async () => {

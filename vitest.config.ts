@@ -20,6 +20,16 @@ export default defineConfig({
           hookTimeout: 30_000,
         },
       },
+      {
+        test: {
+          name: 'media',
+          include: ['apps/*/test/**/*.media.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 120_000,
+          hookTimeout: 240_000,
+        },
+      },
     ],
   },
 });

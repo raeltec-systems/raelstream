@@ -1,0 +1,27 @@
+# Stand-in "platform" for automated media tests: an RTMP server that accepts anything.
+# Port and API address are set per instance with MTX_RTMPADDRESS / MTX_APIADDRESS.
+logLevel: warn
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+      - action: read
+      - action: api
+api: true
+apiAddress: 127.0.0.1:9998
+metrics: false
+pprof: false
+playback: false
+rtsp: false
+rtmp: true
+rtmpAddress: :1935
+hls: false
+webrtc: false
+srt: false
+# MoQ (on by default in 1.21) is not used; keep it off to minimise exposed surface.
+moq: false
+paths:
+  all_others:

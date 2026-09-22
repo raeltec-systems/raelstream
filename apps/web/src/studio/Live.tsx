@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, KeyChip, Logo, Meter, Pill, StatusDot, cx } from '@raelstream/ui';
+import { Button, KeyChip, Logo, Meter, StatusDot, cx } from '@raelstream/ui';
 import { t } from '@raelstream/i18n';
 import { meterPosition, type SceneKind } from '@raelstream/media-runtime';
 import { useStore } from '../lib/useStore.js';
 import { router } from '../lib/router.js';
 import { PROFILE_SIZE, studioRuntime } from './runtime.js';
-import { CameraPreview, ROUTE_TEXT } from './steps/DevicesStep.js';
+import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from './Broadcast.js';
+import { CameraPreview } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
 import s from './Live.module.css';
 
@@ -15,16 +16,6 @@ const SCENES: { kind: SceneKind; key: string; label: string }[] = [
   { kind: 'text', key: '3', label: 'scene.textCard' },
   { kind: 'slate', key: '4', label: 'scene.slate' },
 ];
-
-function fmtElapsed(since: number | null, now: number): string {
-  if (!since) return '00:00';
-  const sec = Math.floor((now - since) / 1000);
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const ss = sec % 60;
-  const p = (n: number) => String(n).padStart(2, '0');
-  return h ? `${h}:${p(m)}:${p(ss)}` : `${p(m)}:${p(ss)}`;
-}
 
 /** Shortcuts never fire while typing, inside a modal, or on key auto-repeat (SPEC §9.7). */
 export function shortcutAllowed(e: KeyboardEvent): boolean {
@@ -90,19 +81,6 @@ export function Live() {
   const sending = st.contribution === 'sending';
   const src = st.session?.sources.find((x) => x.status === 'admitted');
 
-  let pill: React.ReactNode;
-  if (comp.autoCutAt) pill = <Pill tone="standby">{t('pill.cameraDropped')}</Pill>;
-  else if (sending && cam.connection !== 'connected' && src)
-    pill = <Pill tone="standby">{t('pill.reconnectingCamera')}</Pill>;
-  else if (sending)
-    pill = (
-      <Pill tone="off">
-        {t('pill.privateTest')}
-        <span className="rs-mono">{fmtElapsed(st.sendingSince, now)}</span>
-      </Pill>
-    );
-  else pill = <Pill tone="off">{t('pill.offAir')}</Pill>;
-
   const upBps = whip?.bitrateBps ?? null;
   const laptop =
     whip?.qualityLimitation === 'cpu'
@@ -121,7 +99,11 @@ export function Live() {
           <div className={s.serviceSub}>{PROFILE_SIZE[st.profile].label}</div>
         </div>
         <div className={s.spacer} />
-        {pill}
+        <SessionPill
+          now={now}
+          cameraDropped={!!comp.autoCutAt}
+          cameraReconnecting={!!src && cam.connection !== 'connected'}
+        />
         <div className={s.uplink}>
           <StatusDot
             tone={sending ? (whip?.status === 'connected' ? 'ready' : 'standby') : 'off'}
@@ -131,17 +113,22 @@ export function Live() {
         <Button size="dense" onClick={() => router.go('/studio')}>
           {t('live.preparation')}
         </Button>
-        {st.contribution === 'sending' || st.contribution === 'starting' ? (
-          <Button size="top" variant="secondary" onClick={() => void rt.stopPrivateTest()}>
-            {t('live.stopPrivateTest')}
-          </Button>
-        ) : (
-          <Button size="top" variant="primary" onClick={() => void rt.startPrivateTest()}>
-            {t('live.startPrivateTest')}
-          </Button>
-        )}
+        {!rt.isLive &&
+          (st.contribution === 'sending' || st.contribution === 'starting' ? (
+            <Button size="dense" onClick={() => void rt.stopPrivateTest()}>
+              {t('live.stopPrivateTest')}
+            </Button>
+          ) : (
+            <Button size="dense" onClick={() => void rt.startPrivateTest()}>
+              {t('live.startPrivateTest')}
+            </Button>
+          ))}
+        <BroadcastAction now={now} />
       </header>
 
+      <div className={s.banners}>
+        <BroadcastBanners />
+      </div>
       <main className={s.main}>
         <section className={s.col} aria-label={t('live.sources')}>
           <div className="rs-overline">{t('live.sources')}</div>
@@ -157,9 +144,7 @@ export function Live() {
               </span>
             </div>
           </div>
-          <div className="rs-overline" style={{ marginTop: 8 }}>
-            {t('live.scenes')}
-          </div>
+          <div className="rs-overline">{t('live.scenes')}</div>
           {SCENES.map((sc) => (
             <button
               key={sc.kind}
@@ -313,16 +298,7 @@ export function Live() {
         </div>
         <div className={s.panel}>
           <span className="rs-overline">{t('live.destinations')}</span>
-          <div className={s.destRow}>
-            <StatusDot tone="off" />
-            <b>{t('platform.facebook')}</b>
-            <span className="rs-mono">{t('live.notBuilt')}</span>
-          </div>
-          <div className={s.destRow}>
-            <StatusDot tone="off" />
-            <b>{t('platform.youtube')}</b>
-            <span className="rs-mono">{t('live.notBuilt')}</span>
-          </div>
+          <DestinationRows />
           <div className={s.destRow}>
             <StatusDot tone={sending ? 'ready' : 'off'} />
             <b>{t('live.privateTestServer')}</b>
@@ -361,7 +337,7 @@ export function Live() {
             <div className={s.hLabel}>{t('health.camera')}</div>
             <div className={s.hValue}>
               {cam.summary?.fps != null ? `${Math.round(cam.summary.fps)} fps` : '—'} ·{' '}
-              {t(ROUTE_TEXT[cam.route] as never).split(' ')[0]}
+              {t(`route.short.${cam.route}` as never)}
             </div>
           </div>
         </div>

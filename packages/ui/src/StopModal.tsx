@@ -10,6 +10,9 @@ export interface LiveDestination {
   platform: string;
   pageName: string;
   elapsed: string;
+  /** Only destinations actually sending show LIVE + timer; others show their real state. */
+  sending: boolean;
+  statusText?: string;
 }
 
 /** Stop confirmation (SPEC I-11, design Stop modal). Keep streaming gets initial focus; Enter never confirms. */
@@ -49,11 +52,13 @@ export function StopModal({
       <ul className={s.list}>
         {destinations.map((d) => (
           <li key={d.id} className={s.row}>
-            <StatusDot tone="live" />
+            <StatusDot tone={d.sending ? 'live' : 'standby'} />
             <b className={s.name}>
               {d.platform} · {d.pageName}
             </b>
-            <span className="rs-mono">{t('stop.liveTimer', { elapsed: d.elapsed })}</span>
+            <span className="rs-mono">
+              {d.sending ? t('stop.liveTimer', { elapsed: d.elapsed }) : d.statusText}
+            </span>
           </li>
         ))}
       </ul>

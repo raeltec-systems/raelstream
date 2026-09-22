@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { SessionSnapshot, SessionEvent } from './session.js';
 import { ErrorCode } from './errors.js';
+import { ObservedState } from './media.js';
+import { SessionLifecycle } from './session.js';
 
 /** Max serialized WS message size accepted by the server (SPEC §8.2). */
 export const WS_MAX_BYTES = 64 * 1024;
@@ -70,6 +72,11 @@ export const ServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('peer'), sourceId: z.string().uuid(), present: z.boolean() }),
   z.object({ type: z.literal('error'), code: ErrorCode, message: z.string() }),
   z.object({ type: z.literal('pong') }),
+  z.object({
+    type: z.literal('observed'),
+    lifecycle: SessionLifecycle,
+    observed: ObservedState.nullable(),
+  }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;
 

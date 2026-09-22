@@ -13,6 +13,8 @@ export interface Config {
   devAuth: boolean;
   /** Shared passphrase required for dev sign-in (WP0 servers are publicly reachable). */
   devPassphrase: string;
+  /** Sealed-box public key for stream keys (control can encrypt, never decrypt). */
+  sealPublicKey: string | null;
   /** Pairing preview/claim requests per IP per minute (SPEC §14.4). */
   pairRateLimit: number;
   production: boolean;
@@ -41,6 +43,7 @@ export function loadConfig(env = process.env): Config {
     devAuth,
     devPassphrase: devAuth ? need('RS_DEV_PASSPHRASE') : '',
     pairRateLimit: Number(env.RS_PAIR_RATE_LIMIT ?? 10),
+    sealPublicKey: env.RS_SEAL_PUBLIC_KEY || null,
     production,
     migrationsDir:
       env.MIGRATIONS_DIR ?? new URL('../../../infra/migrations', import.meta.url).pathname,

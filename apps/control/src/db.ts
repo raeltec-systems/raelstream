@@ -17,6 +17,37 @@ export interface DB {
     ended_at: TsNull;
     end_reason: string | null;
     last_sequence: ColumnType<string, string | number | undefined, string | number>;
+    desired_state: ColumnType<Record<string, unknown>, string | undefined, string>;
+    observed_state: ColumnType<Record<string, unknown>, string | undefined, string>;
+    fallback_grace_s: Generated<number>;
+    started_at: TsNull;
+  };
+  destinations: {
+    id: Generated<string>;
+    platform: string;
+    label: string;
+    server_url: string;
+    key_enc: Buffer | null;
+    key_last4: string | null;
+    key_updated_at: TsNull;
+    key_mode: string;
+    auto_publishes_on_ingest: Generated<string>;
+    watch_url: string | null;
+    enabled: Generated<boolean>;
+    created_at: Generated<Date>;
+    archived_at: TsNull;
+  };
+  session_destinations: {
+    session_id: string;
+    destination_id: string;
+    selected_at: Generated<Date>;
+  };
+  command_log: {
+    idempotency_key: string;
+    session_id: string | null;
+    command: string;
+    result: ColumnType<Record<string, unknown>, string, string>;
+    created_at: Generated<Date>;
   };
   camera_invitations: {
     id: Generated<string>;
