@@ -1,6 +1,6 @@
 # Raeltec Stream: Release 1 Implementation Specification
 
-**Version:** 1.0 (implementation spec)
+**Version:** 1.1 (implementation spec; stack versions updated, Cloudflare R2/TURN adopted)
 **Date:** 22 September 2026
 **Owner:** Israel Muyoba, Raeltec Systems Limited
 **Source brief:** [`docs/brief/raeltec-stream-brief-v1.0.md`](docs/brief/raeltec-stream-brief-v1.0.md) (Product and Engineering Specification v1.0, 20 Sep 2026). Cited below as **B§n**.
@@ -33,12 +33,14 @@ Keywords: **MUST**, **SHOULD** and **MAY** mean what they mean in B§1.
 | I-14 | YouTube | Either mode is possible. A per-destination flag records whether media arriving auto-publishes. | §13.2 |
 | I-15 | Fallback grace | 2 min default, configurable 1–10 min per preset. | §12.5 |
 | I-16 | Optional features included | High-pass filter and gentle compressor (with bypass); **opt-in private recording**; keyboard scene shortcuts; camera zoom where the browser reports it. | §10.4, §12.7, §9.7, §7.4 |
-| I-17 | Recording storage | Opt-in per session and uploaded to S3-compatible object storage. **30-day retention.** | §12.7. [DECISION] This changes B§3.3/B§20.3/D08 ("no routine recording"). Recording is still never on by default. |
+| I-17 | Recording storage | Opt-in per session and uploaded to **Cloudflare R2** (I-24). **30-day retention.** | §12.7. [DECISION] This changes B§3.3/B§20.3/D08 ("no routine recording"). Recording is still never on by default. |
 | I-18 | Budget | Flexible, sized from WP0 benchmarks. | §15.4 |
 | I-19 | Direct link failure | Show a clear blocker plus diagnostics. **No relay**, not even an opt-in one, in R1. | §8.5 |
 | I-20 | Dell blocked at G1 | A second, **personally owned laptop** may be qualified as the studio device. | §3.2 |
 | I-21 | Language | English only, with every string in one message catalogue. | §9.9 |
 | I-22 | CI/CD | GitHub Actions CI, plus a manual-dispatch deploy workflow that refuses to run while a session is active. | §16 |
+| I-23 | Versions | Use the latest stable release of every component (LTS for Node), pinned at WP0 start. | §4.3.1 |
+| I-24 | Cloudflare | Evaluated (§15.7). **Adopted:** R2 for recordings and backups, and Cloudflare TURN as the optional contribution fallback. **Rejected for media processing:** Stream Live cannot restream WHIP inputs, and Containers only take HTTP via Workers. The media node stays on the Vultr JNB VM. | §15.7 |
 
 ---
 
@@ -48,7 +50,7 @@ One church runs one weekly broadcast:
 
 - **Camera:** a Samsung Galaxy A26 running Chrome, carried by a roaming operator on a dedicated production Wi-Fi network. It sends video only.
 - **Studio:** a Dell 14 laptop running Chrome or Edge, connected to the same router by Ethernet. It receives the camera directly over the LAN, captures mixer audio from a Behringer UMC204HD, composes the programme on a canvas, and sends **one** WebRTC (WHIP) contribution to the media node.
-- **Media node:** Vultr JNB VM. MediaMTX ingests, FFmpeg normalises once to H.264/AAC, then two isolated FFmpeg publishers push to **Facebook Page** and **YouTube** over RTMPS. An optional recorder uploads to object storage.
+- **Media node:** Vultr JNB VM. MediaMTX ingests, FFmpeg normalises once to H.264/AAC, then two isolated FFmpeg publishers push to **Facebook Page** and **YouTube** over RTMPS. An optional recorder uploads to Cloudflare R2.
 - **Control plane:** a Node.js service on the same VM handles auth, pairing, sessions, leases, destinations, events and reports. A separate **supervisor** process owns every media process and is the only process that can decrypt stream keys.
 
 Out of scope for R1: everything in B§3.3 "Excluded", except private recording, which I-17 now includes.
@@ -117,7 +119,7 @@ Galaxy A26 (Chrome)                         Dell / alt laptop (Chrome/Edge)
                           │ postgres (private)                                       │
                           └───────────────┬────────────────────┬────────────────────┘
                                           ▼ RTMPS              ▼ RTMPS       ▼ S3 API
-                                     Facebook Page          YouTube     Object storage
+                                     Facebook Page          YouTube     Cloudflare R2
 ```
 
 ### 4.2 Processes and ownership
@@ -125,10 +127,10 @@ Galaxy A26 (Chrome)                         Dell / alt laptop (Chrome/Edge)
 | Process | Language | Owns | Must not |
 |---|---|---|---|
 | `web` (static SPA, served by Caddy) | TypeScript/React/Vite | Studio UI, camera UI, media runtime in the browser | Hold stream keys; recreate media objects on React renders. |
-| `control` | TypeScript/Node 22 LTS | HTTP API, WSS hub, auth, pairing, sessions, leases, desired-state writes, events, reports, MediaMTX auth hook | Spawn FFmpeg; decrypt stream keys. |
-| `supervisor` | TypeScript/Node 22 LTS | Reconciling desired vs observed media state; spawning and supervising FFmpeg; the MediaMTX path config API; decrypting keys (the only process holding `KEY_ENCRYPTION_KEY`); uploading recordings | Serve public HTTP. |
+| `control` | TypeScript/Node 24 LTS | HTTP API, WSS hub, auth, pairing, sessions, leases, desired-state writes, events, reports, MediaMTX auth hook | Spawn FFmpeg; decrypt stream keys. |
+| `supervisor` | TypeScript/Node 24 LTS | Reconciling desired vs observed media state; spawning and supervising FFmpeg; the MediaMTX path config API; decrypting keys (the only process holding the sealed-box private key, §14.2); uploading recordings | Serve public HTTP. |
 | `mediamtx` | Pinned MediaMTX image | WHIP ingest, internal RTSP, always-available offline file, per-path recording | Be reachable on RTSP/API from outside the host. |
-| `postgres` | Pinned PostgreSQL 16 image | Durable state; LISTEN/NOTIFY between control and supervisor | Expose a port publicly. |
+| `postgres` | Pinned PostgreSQL 18 image | Durable state; LISTEN/NOTIFY between control and supervisor | Expose a port publicly. |
 | `caddy` | Pinned Caddy image | Automatic TLS; routes `/` → web, `/api` + `/ws` → control, `/whip` → mediamtx | Proxy WebRTC UDP (it cannot). |
 
 `control` and `supervisor` communicate **only through PostgreSQL**. Control writes `desired_state` rows and `NOTIFY desired_changed`. Supervisor writes `observed_state` and `NOTIFY observed_changed`. This gives restart reconciliation for free (B§19.2) without Redis or a broker (B§22.1).
@@ -138,7 +140,7 @@ Galaxy A26 (Chrome)                         Dell / alt laptop (Chrome/Edge)
 | Concern | Choice | Reason |
 |---|---|---|
 | Package manager | pnpm workspaces, committed `pnpm-lock.yaml` | One manager (B§22.1). |
-| Runtime | Node 22 LTS, pinned via `.nvmrc` and the Docker base digest | |
+| Runtime | Node 24 LTS (Active LTS), pinned via `.nvmrc` and the Docker base digest | Production should run an LTS line. Node 26 is still "Current" until it enters LTS in October 2026. |
 | HTTP | Fastify | Schema-first; small. |
 | WebSocket | `ws` via `@fastify/websocket` | |
 | Validation / contracts | Zod in `packages/contracts`, shared by browser and server | Runtime schemas (B§22.2). |
@@ -146,12 +148,37 @@ Galaxy A26 (Chrome)                         Dell / alt laptop (Chrome/Edge)
 | Passwords | Argon2id (`@node-rs/argon2`), m=64 MiB, t=3, p=1 | |
 | TOTP | RFC 6238, SHA-1, 6 digits, 30 s, ±1 step window (`otpauth`) | Works with standard authenticator apps. |
 | Secret encryption | libsodium sealed boxes (X25519). `control` holds only the public key and can encrypt. Only `supervisor` holds the private key and can decrypt (see §14.2) | Decryption limited to the supervisor (B§23.2). |
-| UI | React 18 + Vite; plain CSS modules. No component framework dependency | Small; volunteer-legible styling. |
+| UI | React 19 + Vite; plain CSS modules. No component framework dependency | Small; volunteer-legible styling. |
 | QR | `qrcode` (render only) | |
 | Tests | Vitest (unit/integration), Playwright (browser; uses `/opt/pw-browsers` Chromium in CI images), a custom media harness (FFmpeg + ffprobe) | |
-| Object storage | S3-compatible API via `@aws-sdk/client-s3`. Provider: Vultr Object Storage if it is offered in or near JNB, otherwise the nearest S3-compatible region. **Verify in WP4.** | |
+| Object storage | **Cloudflare R2** via its S3-compatible API (`@aws-sdk/client-s3`) | Free egress, 10 GB-month free tier, lifecycle rules and presigned URLs (§15.7). |
 
-Pin every image by digest and every npm dependency through the lockfile (B§22.1). This spec does not assert version numbers. WP0 records them in `infra/VERSIONS.md`.
+Pin every image by digest and every npm dependency through the lockfile (B§22.1).
+
+#### 4.3.1 Version policy and baseline (I-23)
+
+**Policy:** use the newest **stable** release of each component, and for Node the newest **Active LTS** line. Do not use betas, release candidates or "Current" Node lines. Pin exact versions and image digests at WP0 start in `infra/VERSIONS.md`. After that, upgrade only between services, through CI, and never mid-work-package without a reason (B§28.3).
+
+Baseline observed on 22 Sep 2026 (from npm, GitHub tags and the official project pages). WP0 re-checks it and pins the patch versions:
+
+| Component | Version line | Note |
+|---|---|---|
+| Node.js | 24.x LTS | 22.x is in maintenance. 26.x is Current and becomes LTS in Oct 2026, so upgrade to it only after it reaches LTS and passes CI. |
+| PostgreSQL | 18.x | Newest major (18.6). Supported to Nov 2030. |
+| TypeScript | 7.x | The native compiler line. If a tool in the chain doesn't support 7 yet, fall back to 6.x and record the reason. |
+| React | 19.x | |
+| Vite | 8.x | |
+| Fastify | 5.x | |
+| Kysely | 0.29.x | |
+| Zod | 4.x | |
+| Vitest | 5.x | |
+| Playwright | 1.63.x | CI uses the preinstalled Chromium where the versions match. |
+| pnpm | 12.x | |
+| MediaMTX | 1.21.x | Verify the always-available and WHIP behaviour on this exact version (§12.5). |
+| FFmpeg | 9.0.x | Newest stable. If WP0 finds a regression, pin 8.1.x and record an ADR. |
+| Caddy | 2.11.x | |
+
+"Latest" is where each component starts, not a rule to chase it. Once a combination passes the G1–G8 evidence, that exact combination is the qualified release. Any later upgrade reruns the relevant gates.
 
 ### 4.4 Repository layout
 
@@ -185,7 +212,7 @@ docs/
 
 ## 5. Data model
 
-PostgreSQL 16. All ids are UUIDv7. All timestamps are `timestamptz`. The first migration is `infra/migrations/0001_init.sql`.
+PostgreSQL 18. All ids are UUIDv7. All timestamps are `timestamptz`. The first migration is `infra/migrations/0001_init.sql`.
 
 ```sql
 create type user_role as enum ('owner','operator');
@@ -1099,7 +1126,7 @@ Automated in `tests/integration/security/*`:
 
 ### 15.3 TURN for contribution (optional)
 
-Not deployed by default. If WP0 or a venue finds UDP blocked, first test MediaMTX's own TCP ICE on 8189. If that is also blocked, add coturn with TLS on a **second public IP** on port 443 (B§28.2), and record an ADR. The contribution's route (UDP, TCP or TURN) is shown in the Programme upload health group.
+Not deployed by default. If WP0 or a venue finds UDP blocked, first test MediaMTX's own TCP ICE on 8189. If that is also blocked, enable **Cloudflare TURN** (TURN over TLS on 443/tcp, anycast, with short-lived credentials minted by `control` and returned only in the ingest response). It is used for the studio→server contribution only, never the camera link (NET-02). This replaces the brief's self-hosted TURN on a second public IP (B§28.2). Record an ADR when it is enabled. The contribution's route (UDP, TCP or TURN) is shown in the Programme upload health group.
 
 ### 15.4 Budget safeguards (B§28.5)
 
@@ -1108,9 +1135,22 @@ Not deployed by default. If WP0 or a venue finds UDP blocked, first test MediaMT
 
 ### 15.5 Backups (B§28.3)
 
-- A nightly `pg_dump` plus a tar of the `assets` volume, encrypted with `age` to the owner's public key and uploaded to the object storage bucket under `backups/`, with 30-day retention.
+- A nightly `pg_dump` plus a tar of the `assets` volume, encrypted with `age` to the owner's public key and uploaded to the R2 bucket under `backups/`, with 30-day retention.
 - The KEK and the supervisor's private key are **not** included. They are kept separately.
 - `infra/scripts/restore.sh` restores the backup to a clean VM. A46 runs this as a drill.
+
+### 15.7 Cloudflare evaluation (I-24)
+
+| Cloudflare product | Could it do… | Verdict |
+|---|---|---|
+| **Stream Live** (WHIP ingest + simulcast) | Replace MediaMTX+FFmpeg and publish to FB/YT | **No.** The docs state that WHIP/WebRTC inputs do not support simulcasting (restreaming via RTMP/SRT) or recording. RTMP ingest does support simulcast, but a browser cannot send RTMP, and adding a local encoder breaks C-02. Revisit if Cloudflare adds WHIP→RTMPS output. |
+| **Containers** | Run MediaMTX/FFmpeg | **No.** Instances are reached over HTTP through Workers, sleep when idle, and top out at 4 vCPU. WebRTC ingest needs a public UDP listener and an always-on process. |
+| **Realtime SFU** | Ingest WebRTC | It is not an RTMPS publisher, so a server-side transcoder is still needed. It adds a hop and gives nothing over MediaMTX here. |
+| **R2** | Recordings and backups | **Yes.** S3-compatible, free egress (owner downloads of recordings cost nothing), 10 GB-month free, then $0.015/GB-month, with lifecycle rules for the 30-day expiry. At ~2.7 GB per 1080p hour, four 3-hour services a month (~32 GB in rolling storage) cost about $0.35/month above the free tier. |
+| **TURN** | Contribution fallback when UDP is blocked | **Yes, as the optional fallback** (§15.3). Anycast, so a PoP is near Lusaka. TLS on 443. $0.05/GB outbound to the client, which is small for an upload-direction stream. Off by default. |
+| **DNS** | Domain | **Yes, DNS only (grey cloud)** for the media hostname, because proxied mode would not carry WebRTC UDP. The app hostname may also be grey-clouded. Caddy keeps terminating TLS on the VM. |
+
+**Consequence:** the brief's single-VM media design stays. Cloudflare takes the storage and fallback-relay jobs. That reduces VM disk needs and removes the second-public-IP requirement for TURN.
 
 ### 15.6 Venue profile
 
@@ -1428,7 +1468,7 @@ Each WP ends with its evidence (B§27). Tasks are listed in rough order.
 ## 25. Open items (to be answered by evidence, not further interview)
 
 1. The exact Dell hardware and policies, and the alternate laptop model (WP0).
-2. Whether Vultr Object Storage is available in or near JNB. If not, which S3-compatible region to use (WP4).
+2. ~~Object storage provider~~ Resolved: Cloudflare R2 (I-24). Still to verify in WP4: the upload throughput from JNB to R2, and the R2 lifecycle rule and presigned-URL behaviour.
 3. The exact current FB/YT RTMPS endpoints and FB account limits (WP0/WP4).
 4. The venue's real uplink figures and the route survey (WP0).
 5. Whether the A26 zoom is optical-switching or a digital crop (WP2).
