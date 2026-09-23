@@ -1,3 +1,5 @@
+import { loadTotpKey } from './sealing.js';
+
 export interface Config {
   port: number;
   host: string;
@@ -9,10 +11,10 @@ export interface Config {
   /** Shared secret MediaMTX's internal readers (supervisor) present. */
   mediamtxInternalUser: string;
   mediamtxInternalPass: string;
-  /** WP0 only: dev operator login. Refused in production (SPEC §22 WP0 step 2). */
-  devAuth: boolean;
-  /** Shared passphrase required for dev sign-in (WP0 servers are publicly reachable). */
-  devPassphrase: string;
+  /** AES-256-GCM key for TOTP secrets at rest (RS_TOTP_KEY, 32 bytes base64). */
+  totpKey: Buffer;
+  /** Login attempts per IP per 10 minutes (SPEC §6.1). */
+  loginRateLimit: number;
   /** Sealed-box public key for stream keys (control can encrypt, never decrypt). */
   sealPublicKey: string | null;
   /** Pairing preview/claim requests per IP per minute (SPEC §14.4). */
@@ -23,10 +25,10 @@ export interface Config {
 
 export function loadConfig(env = process.env): Config {
   const production = env.NODE_ENV === 'production';
-  const devAuth = env.RS_DEV_AUTH === '1';
-  if (production && devAuth) throw new Error('RS_DEV_AUTH must not be enabled in production');
-  if (devAuth && (env.RS_DEV_PASSPHRASE ?? '').length < 12)
-    throw new Error('RS_DEV_PASSPHRASE must be at least 12 characters');
+  if (env.RS_DEV_AUTH)
+    throw new Error(
+      'RS_DEV_AUTH was removed in M4; create an owner with `cli.js user:create-owner`',
+    );
   const need = (k: string, fallback?: string) => {
     const v = env[k] ?? fallback;
     if (v === undefined || v === '') throw new Error(`missing env ${k}`);
@@ -40,8 +42,8 @@ export function loadConfig(env = process.env): Config {
     whipPublicBase: need('WHIP_PUBLIC_BASE').replace(/\/$/, ''),
     mediamtxInternalUser: need('MEDIAMTX_INTERNAL_USER', production ? undefined : 'supervisor'),
     mediamtxInternalPass: need('MEDIAMTX_INTERNAL_PASS', production ? undefined : 'dev-internal'),
-    devAuth,
-    devPassphrase: devAuth ? need('RS_DEV_PASSPHRASE') : '',
+    totpKey: loadTotpKey(env.RS_TOTP_KEY, production),
+    loginRateLimit: Number(env.RS_LOGIN_RATE_LIMIT ?? 20),
     pairRateLimit: Number(env.RS_PAIR_RATE_LIMIT ?? 10),
     sealPublicKey: env.RS_SEAL_PUBLIC_KEY || null,
     production,

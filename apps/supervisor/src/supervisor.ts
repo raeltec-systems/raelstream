@@ -127,11 +127,25 @@ export class Supervisor {
       return;
     }
     const desired = parsed.data;
-    if (row.id !== this.sessionId || desired.generation !== this.generation) {
+    if (row.id !== this.sessionId) {
       await this.resetSession();
       this.sessionId = row.id;
       this.generation = desired.generation;
       this.observed = emptyObserved(desired.generation, new Date(now).toISOString());
+    } else if (desired.generation !== this.generation) {
+      // Studio takeover (A33, E37): only the contribution path changes. Stop the normaliser reading the
+      // old generation; publishers and the normalised path stay up, so viewers see the slate for the gap
+      // instead of the platforms being disconnected.
+      this.log('info', 'studio takeover; switching contribution generation', {
+        from: this.generation,
+        to: desired.generation,
+      });
+      const n = this.normaliser;
+      this.normaliser = null;
+      await n?.stop(800);
+      this.generation = desired.generation;
+      this.observed.generation = desired.generation;
+      this.contribPresentSince = null;
     }
 
     if (desired.stopRequestedAt) {

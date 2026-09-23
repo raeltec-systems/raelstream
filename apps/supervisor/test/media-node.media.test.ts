@@ -8,7 +8,7 @@ import { ObservedState } from '@raelstream/contracts';
 import { generateKeypair, seal } from '@raelstream/secrets';
 import type { DB } from '../../control/src/db.js';
 import { buildApp } from '../../control/src/app.js';
-import { freshDb, testConfig, ORIGIN } from '../../control/test/helpers.js';
+import { freshDb, testConfig, createTestUser, signIn } from '../../control/test/helpers.js';
 import { MEDIAMTX_IMAGE, SUPERVISOR_IMAGE, docker, inImage, logs, rm } from './docker.js';
 import { avOffsetsMs, beepOnsets, flashTimes, keyframeTimes, probe, videoPts } from './analysis.js';
 
@@ -34,6 +34,7 @@ let app: FastifyInstance;
 let headers: Record<string, string>;
 let sessionId: string;
 let bearer: string;
+let generation = 1;
 let destA: string;
 let destB: string;
 let work: string;
@@ -164,7 +165,7 @@ async function startGenerator() {
     'rtsp',
     '-rtsp_transport',
     'tcp',
-    `rtsp://any:${bearer}@127.0.0.1:8554/live/${sessionId}/g1/contrib`,
+    `rtsp://any:${bearer}@127.0.0.1:8554/live/${sessionId}/g${generation}/contrib`,
   ]);
 }
 
@@ -200,15 +201,11 @@ beforeAll(async () => {
   db = f.db;
   const kp = await generateKeypair();
   const cfg = { ...testConfig(f.url), sealPublicKey: kp.publicKey };
-  ({ app } = await buildApp(cfg, db));
+  const built = await buildApp(cfg, db);
+  app = built.app;
   await app.listen({ port: 3000, host: '127.0.0.1' });
-  const login = await app.inject({
-    method: 'POST',
-    url: '/api/dev/login',
-    payload: { name: 'Chanda', passphrase: 'test-passphrase-123' },
-  });
-  const ck = login.cookies[0]!;
-  headers = { cookie: `${ck.name}=${ck.value}`, origin: ORIGIN, 'x-rs-csrf': login.json().csrf };
+  const owner = await createTestUser(built.auth, 'owner@media.test', 'owner', 'Chanda');
+  ({ headers } = await signIn(app, owner));
 
   destA = (
     await db
@@ -507,6 +504,41 @@ describe('media node (M2)', () => {
     expect((await flashTimes(work, 'restored.flv')).length).toBeGreaterThanOrEqual(2);
     const pts = await videoPts(work, 'restored.flv');
     for (let i = 1; i < pts.length; i++) expect(pts[i]!).toBeGreaterThan(pts[i - 1]!);
+  });
+
+  it('a studio takeover mid-broadcast keeps both platforms connected (A33, E37)', async () => {
+    const before = await sinkPath(9998, `fb/${KEY_A}`);
+    const tabB = { ...headers, 'x-rs-client': crypto.randomUUID() };
+    const t = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sessionId}/takeover`,
+      headers: tabB,
+    });
+    expect(t.json()).toEqual({ generation: 2 });
+    headers = tabB;
+    // The old tab's contribution goes away; the new tab publishes on the generation-2 path.
+    await rm(C.gen);
+    generation = 2;
+    bearer = (
+      await app.inject({ method: 'POST', url: `/api/sessions/${sessionId}/ingest`, headers })
+    ).json().bearer;
+    await startGenerator();
+    await until(
+      'programme restored on the new generation',
+      async () => {
+        const o = await observed();
+        return (
+          o.lifecycle === 'SENDING' &&
+          o.o?.generation === 2 &&
+          o.o.normaliser.state === 'running' &&
+          !o.o.fallback.active
+        );
+      },
+      40_000,
+    );
+    const after = await sinkPath(9998, `fb/${KEY_A}`);
+    expect(after?.source?.id).toBe(before?.source?.id);
+    evidence.takeover = { sameConnection: after?.source?.id === before?.source?.id };
   });
 
   it('stop wins: all processes end, the session ends and tokens are revoked (A34, A48)', async () => {

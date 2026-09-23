@@ -29,7 +29,10 @@ export const SessionSnapshot = z.object({
 });
 export type SessionSnapshot = z.infer<typeof SessionSnapshot>;
 
-export const CreateSessionRequest = z.object({ name: z.string().trim().min(1).max(80) });
+export const CreateSessionRequest = z.object({
+  name: z.string().trim().min(1).max(80),
+  presetId: z.string().uuid().optional(),
+});
 
 export const IngestResponse = z.object({
   whipUrl: z.string().url(),

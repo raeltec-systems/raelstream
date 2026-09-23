@@ -72,6 +72,8 @@ export const ServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('peer'), sourceId: z.string().uuid(), present: z.boolean() }),
   z.object({ type: z.literal('error'), code: ErrorCode, message: z.string() }),
   z.object({ type: z.literal('pong') }),
+  z.object({ type: z.literal('lease.lost') }),
+  z.object({ type: z.literal('studio.changed') }),
   z.object({
     type: z.literal('observed'),
     lifecycle: SessionLifecycle,

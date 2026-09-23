@@ -12,6 +12,9 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   SESSION_ACTIVE_EXISTS: 409,
   STALE_GENERATION: 409,
   LEASE_HELD: 409,
+  PASSWORD_WEAK: 400,
+  EMAIL_TAKEN: 409,
+  INVITE_INVALID: 410,
   DEST_NOT_CONFIGURED: 409,
   DEST_KEY_MISSING: 409,
   NOT_SENDING: 409,
@@ -20,6 +23,12 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
 /** Safe, volunteer-readable messages; never include internals (B§21.4). */
 const MESSAGES: Partial<Record<ErrorCode, string>> = {
   AUTH_REQUIRED: 'Please sign in.',
+  AUTH_INVALID:
+    "That didn't work. Check the details and try again. After several tries, wait 15 minutes.",
+  PASSWORD_WEAK: 'Use a password of at least 12 characters that is not your email address.',
+  EMAIL_TAKEN: 'An account with that email already exists.',
+  INVITE_INVALID: 'This invite link is no longer valid. Ask the owner for a new one.',
+  LEASE_HELD: 'Someone else is running the studio for this service.',
   FORBIDDEN: "You don't have permission to do that.",
   NOT_FOUND: 'That was not found.',
   VALIDATION: 'Some details were not valid.',

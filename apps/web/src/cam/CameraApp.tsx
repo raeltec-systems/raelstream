@@ -128,6 +128,9 @@ export function CameraApp() {
       case 'tally':
         sender.setTally(m.state);
         break;
+      case 'studio.changed':
+        void sender.renegotiate();
+        break;
       default:
         break;
     }

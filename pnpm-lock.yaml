@@ -214,6 +214,9 @@ importers:
       fastify:
         specifier: ^5.12.5
         version: 5.12.5
+      hash-wasm:
+        specifier: ^4.12.0
+        version: 4.12.0
       kysely:
         specifier: ^0.29.6
         version: 0.29.6
@@ -1275,6 +1278,9 @@ packages:
   globals@17.12.0:
     resolution: {integrity: sha512-cezEd/DTyyht9cvSSURyygXPfy04GtWO/5e6ZPvH7fCtjKz9PYOmuawphw1Ctd1f6C+5JypXfGD7ahNMXvevBA==}
     engines: {node: '>=18'}
+
+  hash-wasm@4.12.0:
+    resolution: {integrity: sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==}
 
   hashery@1.5.1:
     resolution: {integrity: sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ==}
@@ -2823,6 +2829,8 @@ snapshots:
       is-glob: 4.0.3
 
   globals@17.12.0: {}
+
+  hash-wasm@4.12.0: {}
 
   hashery@1.5.1:
     dependencies:

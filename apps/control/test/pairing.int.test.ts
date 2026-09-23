@@ -40,15 +40,14 @@ async function invite(): Promise<string> {
   return url.split('#t=')[1]!;
 }
 
-describe('dev sign-in (WP0 only)', () => {
-  it('requires the passphrase', async () => {
+describe('dev sign-in is gone (M4)', () => {
+  it('has no /api/dev/login route', async () => {
     const r = await app.inject({
       method: 'POST',
       url: '/api/dev/login',
-      payload: { name: 'Mallory', passphrase: 'wrong-passphrase' },
+      payload: { name: 'Mallory', passphrase: 'x' },
     });
-    expect(r.statusCode).toBe(401);
-    expect(r.cookies).toHaveLength(0);
+    expect(r.statusCode).toBe(404);
   });
 });
 
@@ -315,6 +314,11 @@ describe('contribution and MediaMTX auth (A42)', () => {
     expect(await authorizeMediaMtx(db, { action: 'publish', path, token: bearer }, internal)).toBe(
       false,
     );
+    await db
+      .updateTable('stream_sessions')
+      .set({ generation: 1 })
+      .where('id', '=', sessionId)
+      .execute();
   });
 
   it('the auth hook endpoint answers 401 for anonymous publish', async () => {

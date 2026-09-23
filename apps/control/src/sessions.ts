@@ -3,11 +3,42 @@ import type { SessionEvent, SessionSnapshot, SourceSummary } from '@raelstream/c
 import type { DB } from './db.js';
 import { AppError } from './errors.js';
 
-export async function createSession(db: Kysely<DB>, name: string, operatorName: string) {
+/**
+ * New session, optionally from a preset: copies the non-secret configuration (rundown, audio defaults,
+ * grace period). Destinations are re-reviewed at Go live (B§19.3).
+ */
+export async function createSession(
+  db: Kysely<DB>,
+  name: string,
+  operator: { name: string; userId: string },
+  presetId?: string,
+) {
+  const preset = presetId
+    ? await db
+        .selectFrom('presets')
+        .selectAll()
+        .where('id', '=', presetId)
+        .where('archived_at', 'is', null)
+        .executeTakeFirst()
+    : undefined;
+  if (presetId && !preset) throw new AppError('NOT_FOUND', 'session');
   try {
     return await db
       .insertInto('stream_sessions')
-      .values({ name, operator_name: operatorName })
+      .values({
+        name,
+        operator_name: operator.name,
+        created_by: operator.userId,
+        preset_id: preset?.id ?? null,
+        ...(preset
+          ? {
+              rundown: JSON.stringify(preset.rundown),
+              audio_state: JSON.stringify(preset.audio_defaults),
+              fallback_grace_s: preset.fallback_grace_s,
+              profile: preset.profile_preference,
+            }
+          : {}),
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
   } catch (e) {

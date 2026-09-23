@@ -192,6 +192,11 @@ export class CameraSender {
     this.set({ capture: 'error', captureError: mapCaptureError(e) });
   }
 
+  /** A new studio tab took over (E37): renegotiate with it, keeping the same slot and capture. */
+  async renegotiate(): Promise<void> {
+    if (this.state.capture === 'live' && this.stream) await this.connect();
+  }
+
   private async connect(): Promise<void> {
     this.pc?.close();
     const pc = new RTCPeerConnection({

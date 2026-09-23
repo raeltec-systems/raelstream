@@ -2,6 +2,22 @@ import type { ApiError } from '@raelstream/contracts';
 
 let csrf = '';
 
+/**
+ * Studio tab identity for the lease (SPEC §8.4). Kept in sessionStorage so a reload of the holding tab
+ * reclaims its own lease, while a second tab gets a new identity and opens read-only.
+ */
+export const clientId: string = (() => {
+  try {
+    const existing = sessionStorage.getItem('rs.client');
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    sessionStorage.setItem('rs.client', id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+})();
+
 export function setCsrf(token: string): void {
   csrf = token;
 }
@@ -25,6 +41,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     headers: {
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(method !== 'GET' ? { 'X-RS-CSRF': csrf } : {}),
+      'X-RS-Client': clientId,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

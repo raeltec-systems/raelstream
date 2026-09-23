@@ -4,6 +4,9 @@ import { z } from 'zod';
 export const ERROR_CODES = [
   'AUTH_INVALID',
   'AUTH_REQUIRED',
+  'PASSWORD_WEAK',
+  'EMAIL_TAKEN',
+  'INVITE_INVALID',
   'FORBIDDEN',
   'NOT_FOUND',
   'VALIDATION',

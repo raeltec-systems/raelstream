@@ -21,6 +21,10 @@ export interface DB {
     observed_state: ColumnType<Record<string, unknown>, string | undefined, string>;
     fallback_grace_s: Generated<number>;
     started_at: TsNull;
+    preset_id: string | null;
+    created_by: string | null;
+    rundown: ColumnType<unknown[], string | undefined, string>;
+    audio_state: ColumnType<Record<string, unknown>, string | undefined, string>;
   };
   destinations: {
     id: Generated<string>;
@@ -92,6 +96,66 @@ export interface DB {
     actor: string;
     occurred_at: Generated<Date>;
     payload: ColumnType<Record<string, unknown>, string, string>;
+  };
+  users: {
+    id: Generated<string>;
+    email: string;
+    display_name: string;
+    role: 'owner' | 'operator';
+    password_hash: string;
+    totp_secret_enc: Buffer | null;
+    totp_confirmed_at: TsNull;
+    totp_last_step: ColumnType<string, string | number | undefined, string | number>;
+    recovery_codes_hash: ColumnType<string[], string[] | undefined, string[]>;
+    failed_logins: Generated<number>;
+    locked_until: TsNull;
+    disabled_at: TsNull;
+    created_at: Generated<Date>;
+  };
+  auth_sessions: {
+    id_hash: Buffer;
+    user_id: string;
+    csrf: string;
+    created_at: Generated<Date>;
+    last_seen_at: Ts;
+    expires_at: Ts;
+    revoked_at: TsNull;
+    user_agent: string | null;
+  };
+  mfa_challenges: {
+    id_hash: Buffer;
+    user_id: string;
+    purpose: 'login' | 'enrol';
+    expires_at: Ts;
+    used_at: TsNull;
+  };
+  operator_invites: {
+    id: Generated<string>;
+    token_hash: Buffer;
+    created_by: string;
+    expires_at: Ts;
+    consumed_at: TsNull;
+    consumed_by: string | null;
+    created_at: Generated<Date>;
+  };
+  presets: {
+    id: Generated<string>;
+    name: string;
+    profile_preference: Generated<string>;
+    rundown: ColumnType<unknown[], string | undefined, string>;
+    audio_defaults: ColumnType<Record<string, unknown>, string | undefined, string>;
+    destination_ids: ColumnType<string[], string[] | undefined, string[]>;
+    fallback_grace_s: Generated<number>;
+    created_by: string | null;
+    updated_at: Ts;
+    archived_at: TsNull;
+  };
+  studio_leases: {
+    session_id: string;
+    holder_user_id: string;
+    holder_client_id: string;
+    generation: number;
+    expires_at: Ts;
   };
   venue_profile: {
     id: Generated<number>;
