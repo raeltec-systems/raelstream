@@ -216,7 +216,7 @@ export function BroadcastAction({ now }: { now: number }) {
         <Button
           size="top"
           variant="primary"
-          disabled={st.destinations.length === 0 || ended}
+          disabled={st.destinations.length === 0 || ended || !st.lease?.mine}
           onClick={() => setModal('go')}
         >
           {t('live.goLive')}

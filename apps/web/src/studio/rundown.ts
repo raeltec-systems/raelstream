@@ -9,29 +9,21 @@ export type RundownItem =
       bitmap: ImageBitmap | null;
     };
 
-const KEY = 'rs.rundown.v1';
-
-/** Convenience persistence only (SPEC: presets move to the server in WP1). Images are not persisted. */
-export function loadRundown(): RundownItem[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const items = JSON.parse(raw) as RundownItem[];
-    return items.map((i) => (i.type === 'image' ? { ...i, bitmap: null } : i));
-  } catch {
-    return [];
-  }
+/** Server form: images are kept in memory only until the asset pipeline (M6). */
+export function toServerRundown(items: RundownItem[]) {
+  return items.map((i) =>
+    i.type === 'image' ? { id: i.id, type: i.type, title: i.title, fit: i.fit } : i,
+  );
 }
 
-export function saveRundown(items: RundownItem[]): void {
-  try {
-    localStorage.setItem(
-      KEY,
-      JSON.stringify(items.map((i) => (i.type === 'image' ? { ...i, bitmap: null } : i))),
-    );
-  } catch {
-    /* storage unavailable */
-  }
+/** Rebuild the rundown from the server, reattaching any images already loaded in this tab. */
+export function fromServerRundown(
+  items: unknown[],
+  bitmaps: Map<string, ImageBitmap>,
+): RundownItem[] {
+  return (items as RundownItem[]).map((i) =>
+    i.type === 'image' ? { ...i, bitmap: bitmaps.get(i.id) ?? null } : i,
+  );
 }
 
 export function newId(): string {

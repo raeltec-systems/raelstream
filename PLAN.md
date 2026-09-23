@@ -134,3 +134,37 @@ real UMC channel mapping, laptop CPU/memory, any Facebook or YouTube output.
   unless the platform's message matches, so it retries rather than failing fast).
 - Normaliser CPU headroom on the Vultr 4 vCPU instance (P-12).
 - Real WebRTC contribution sync.
+
+### M4: built 23 Sep 2026 (WP1)
+
+| Area | State |
+|---|---|
+| Accounts | Done: email + password (Argon2id, m = 64 MiB, t = 3, p = 1) + authenticator code (RFC 6238, ±1 step, each step usable once) or a single-use recovery code (10 issued, stored hashed). TOTP secrets encrypted at rest with `RS_TOTP_KEY` (AES-256-GCM). Lockout after 5 failures for 15 min, the same generic error for every failure, per-IP rate limit. |
+| Sessions | Done: hashed `rs_sid` cookie (HttpOnly, SameSite=Strict), 12 h idle (kept alive while live), 7 days absolute. CSRF header + Origin check on every state change. Sign-out and "sign out everywhere" on disable / MFA reset. |
+| People | Done: owner CLI (`user:create-owner`, `user:reset-mfa`). One-time operator invites (link secret in the fragment, 72 h, preview doesn't consume). Enrolment shows the QR, the key and the recovery codes once, and the first code confirms the authenticator. Owner settings: list, disable/enable (not yourself), create invite. |
+| Presets | Done: saved services with the rundown, audio defaults, destinations and fallback grace. Start from a preset or blank. The rundown and audio settings are saved on the server for the session (debounced), with "Save to preset". Images stay in the studio's memory for now. Asset upload is M6. |
+| Studio lease | Done: 45 s lease renewed every 10 s per tab (`X-RS-Client`). Commands need the lease. A second tab is read-only. Take over is confirmed, bumps the generation, revokes the old WHIP token, fences the old tab (`lease.lost`) and tells the phone to renegotiate (`studio.changed`) without re-admission. Operators may take over only from their own other tab. The owner may take over from anyone and may Stop without the lease. |
+| Media node | Done: a takeover within the same session restarts only the normaliser. The publishers keep their platform connection, and the slate covers the gap. |
+| Retention | Done: daily job (events 90 d, auth sessions 30 d, MFA challenges 1 d, invites 7 d, command log 30 d, ingest tokens 7 d). |
+| Dev sign-in | Removed. `RS_DEV_AUTH` now refuses to start with a pointer to `user:create-owner`. |
+
+**Verified:**
+- 67 unit and 53 integration tests pass (auth, invites, lockout, replay, leases/fencing, presets,
+  pairing, MediaMTX auth hook).
+- 9 media-node tests pass, including a mid-broadcast **takeover that keeps the same platform
+  connection** (A/V offset 18–34 ms).
+- 4 Playwright runs pass with real sign-in: the spine, the broadcast (real supervisor + 2 RTMP
+  sinks), the auth-hook refusal, and a new **invite → enrol → operator runs the studio → owner
+  takes over** run. In that run the operator's tab is fenced and offers no Take over.
+
+**Bugs found and fixed through testing:**
+- **Security:** a wrong authenticator code threw inside the database transaction. The rollback
+  undid both the failure count and the use of the challenge, which allowed unlimited guesses.
+  Now the failure is committed and the error raised afterwards (regression test added).
+- **Security:** a correct password reset the failure counter, so an attacker who knew the password
+  could guess codes forever. Now the counter is cleared only after a full sign-in.
+- The invite page read its secret in an effect, so React's development double-mount saw an empty
+  address bar and showed "no longer valid".
+- Operators were offered Take over from the owner, which the server correctly refuses. The banner
+  now asks them to contact the owner.
+- The home screen never noticed a service started by someone else. It now checks every 5 s.

@@ -151,7 +151,11 @@ function PairPanel() {
   if (!st.invitation || left === 0) {
     return (
       <div className={s.row}>
-        <Button variant="primary" onClick={() => void rt.createInvitation()}>
+        <Button
+          variant="primary"
+          disabled={!st.lease?.mine}
+          onClick={() => void rt.createInvitation()}
+        >
           {st.invitation ? t('pair.newCode') : t('pair.show')}
         </Button>
         {st.invitation && <span className={s.muted}>{t('pair.expired')}</span>}

@@ -15,6 +15,8 @@ const MODE_LABEL: Record<RoutingMode, string> = {
 
 export function AudioStep() {
   const rt = studioRuntime();
+  const st = useStore(rt);
+  const [savedToPreset, setSavedToPreset] = useState(false);
   const a = useStore(rt.audio);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selected, setSelected] = useState('');
@@ -116,6 +118,21 @@ export function AudioStep() {
           onChange={(e) => rt.audio.setGainDb(Number(e.target.value))}
         />
         <p className={s.muted}>{t('audio.channelTest')}</p>
+        {st.savedAudioDevice && a.status !== 'running' && (
+          <p className={s.muted}>{t('audio.lastUsed', { label: st.savedAudioDevice })}</p>
+        )}
+        {st.presetId && (
+          <div className={s.row}>
+            <Button
+              size="dense"
+              onClick={() => void rt.saveAudio(true).then(() => setSavedToPreset(true))}
+            >
+              {savedToPreset
+                ? t('preset.saved')
+                : t('preset.saveAudio', { name: st.presetName ?? '' })}
+            </Button>
+          </div>
+        )}
       </Card>
       <div className={s.grid2}>
         <Card>

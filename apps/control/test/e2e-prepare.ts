@@ -3,10 +3,16 @@
  * RS_E2E_BROADCAST=1 also two RTMP sink "platforms" and the supervisor container.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, chmodSync } from 'node:fs';
+import { mkdtempSync, chmodSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
+import { createDb } from '../src/db.js';
+import { migrate } from '../src/migrate.js';
+import { loadConfig } from '../src/config.js';
+import { AuthService } from '../src/auth.js';
+
+const E2E_USERS_FILE = join(tmpdir(), 'rs-e2e-users.json');
 
 const repo = new URL('../../../', import.meta.url).pathname;
 const adminUrl =
@@ -16,6 +22,21 @@ await admin.connect();
 await admin.query('drop database if exists rs_e2e with (force)');
 await admin.query('create database rs_e2e');
 await admin.end();
+
+// Seed accounts (SPEC §6.1). One owner per spec keeps TOTP replay protection out of the way. The
+// secrets are TEST-ONLY and written next to the other e2e scratch state for the specs to read.
+const db = createDb(adminUrl.replace(/\/[^/]+$/, '/rs_e2e'));
+await migrate(db, new URL('../../../infra/migrations', import.meta.url).pathname);
+const auth = new AuthService(db, loadConfig(process.env).totpKey);
+const users: Record<string, { email: string; password: string; secret: string }> = {};
+for (const key of ['spine', 'broadcast', 'invite']) {
+  const email = `${key}@e2e.test`;
+  const password = 'correct horse battery staple';
+  const r = await auth.createUser({ email, name: 'Chanda', role: 'owner', password });
+  users[key] = { email, password, secret: r.enrolment.secret };
+}
+await db.destroy();
+writeFileSync(E2E_USERS_FILE, JSON.stringify(users));
 
 const docker = (args: string[]) => execFileSync('docker', args, { stdio: 'ignore' });
 const rm = (...n: string[]) => {

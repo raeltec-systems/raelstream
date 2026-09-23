@@ -15,11 +15,12 @@ import {
   Compositor,
   Observable,
   WhipPublisher,
+  type RoutingMode,
   type SceneKind,
 } from '@raelstream/media-runtime';
-import { api } from '../lib/api.js';
+import { api, ApiFailure, clientId } from '../lib/api.js';
 import { SessionSocket } from '../lib/ws.js';
-import { loadRundown, saveRundown, type RundownItem } from './rundown.js';
+import { fromServerRundown, toServerRundown, type RundownItem } from './rundown.js';
 
 export type Profile = 'reliable_hd' | 'full_hd';
 export const PROFILE_SIZE: Record<
@@ -52,6 +53,34 @@ export interface StudioState {
   destinations: DestinationSummary[];
   liveDestinationIds: string[];
   commandError: string | null;
+  /** Studio lease (SPEC §9.10): only the holder may send commands; others are read-only. */
+  lease: {
+    mine: boolean;
+    holderName: string | null;
+    holderIsMe: boolean;
+    canTakeOver: boolean;
+  } | null;
+  presetId: string | null;
+  presetName: string | null;
+  /** Saved device label from the preset/session, shown as a hint (labels need permission to match). */
+  savedAudioDevice: string | null;
+}
+
+export interface SessionConfig {
+  presetId: string | null;
+  presetName: string | null;
+  destinationIds: string[];
+  profile: Profile;
+  fallbackGraceS: number;
+  rundown: unknown[];
+  audio: {
+    deviceLabel?: string | null;
+    mode?: RoutingMode;
+    gainDb?: number;
+    hpf?: boolean;
+    compressor?: boolean;
+    delayMs?: number;
+  };
 }
 
 export const LIVE_STATES: SessionLifecycle[] = [
@@ -72,7 +101,12 @@ export class StudioRuntime extends Observable<StudioState> {
   readonly camera: CameraReceiver;
   whip: WhipPublisher | null = null;
   private socket: SessionSocket | null = null;
-  private clientId = crypto.randomUUID();
+  private readonly clientId = clientId;
+  private leaseTimer: ReturnType<typeof setInterval> | null = null;
+  private bitmaps = new Map<string, ImageBitmap>();
+  private rundownSave: ReturnType<typeof setTimeout> | null = null;
+  private audioSave: ReturnType<typeof setTimeout> | null = null;
+  private pendingAudio: SessionConfig['audio'] | null = null;
   private lastSequence = 0;
 
   constructor() {
@@ -84,7 +118,7 @@ export class StudioRuntime extends Observable<StudioState> {
       profile: 'reliable_hd',
       contribution: 'idle',
       contributionError: null,
-      rundown: loadRundown(),
+      rundown: [],
       onAirIndex: null,
       scene: 'slate',
       lastLowerThird: null,
@@ -97,6 +131,10 @@ export class StudioRuntime extends Observable<StudioState> {
       destinations: [],
       liveDestinationIds: [],
       commandError: null,
+      lease: null,
+      presetId: null,
+      presetName: null,
+      savedAudioDevice: null,
     });
     this.audio = new AudioEngine();
     this.compositor = new Compositor(PROFILE_SIZE.reliable_hd.w, PROFILE_SIZE.reliable_hd.h);
@@ -127,6 +165,10 @@ export class StudioRuntime extends Observable<StudioState> {
       /* optional */
     }
     void this.loadDestinations();
+    await this.loadConfig(session.id);
+    await this.renewLease();
+    if (this.leaseTimer) clearInterval(this.leaseTimer);
+    this.leaseTimer = setInterval(() => void this.renewLease(), 10_000);
     this.socket?.close();
     this.socket = new SessionSocket(
       () => ({
@@ -171,7 +213,12 @@ export class StudioRuntime extends Observable<StudioState> {
         this.set({ cameraPresent: { ...this.state.cameraPresent, [m.sourceId]: m.present } });
         break;
       case 'signal':
-        if (m.sourceId === this.admittedSource?.id) void this.camera.onSignal(m.payload);
+        // Only the lease holder talks to the phone; a read-only tab must not answer its offers.
+        if (this.state.lease?.mine && m.sourceId === this.admittedSource?.id)
+          void this.camera.onSignal(m.payload);
+        break;
+      case 'lease.lost':
+        void this.onLeaseLost();
         break;
       default:
         break;
@@ -188,7 +235,7 @@ export class StudioRuntime extends Observable<StudioState> {
     const onProgramme = this.state.scene === 'camera' || this.state.scene === 'camera_lower_third';
     const connected = this.camera.snapshot.connection === 'connected';
     const tally: TallyState = !connected ? 'off' : onProgramme ? 'live' : 'ready';
-    if (tally === this.lastTally) return;
+    if (tally === this.lastTally || !this.state.lease?.mine) return;
     this.lastTally = tally;
     this.camera.setTally(tally);
     const src = this.admittedSource;
@@ -294,9 +341,153 @@ export class StudioRuntime extends Observable<StudioState> {
     this.syncTally();
   }
 
+  /** Rundown edits save to this service on the server (debounced); images stay in this tab. */
   setRundown(items: RundownItem[]): void {
-    saveRundown(items);
+    for (const i of items) if (i.type === 'image' && i.bitmap) this.bitmaps.set(i.id, i.bitmap);
     this.set({ rundown: items });
+    if (this.rundownSave) clearTimeout(this.rundownSave);
+    this.rundownSave = setTimeout(() => void this.saveRundown(false), 600);
+  }
+
+  async saveRundown(toPreset: boolean): Promise<void> {
+    const s = this.state.session;
+    if (!s || !this.state.lease?.mine) return;
+    await api('PUT', `/api/sessions/${s.id}/rundown`, {
+      items: toServerRundown(this.state.rundown),
+      saveToPreset: toPreset,
+    }).catch((e) => this.set({ commandError: (e as Error).message }));
+  }
+
+  private audioSettings(): SessionConfig['audio'] {
+    const a = this.audio.snapshot;
+    return {
+      deviceLabel: a.deviceLabel,
+      mode: a.mode,
+      gainDb: a.gainDb,
+      hpf: a.hpf,
+      compressor: a.compressor,
+      delayMs: a.delayMs,
+    };
+  }
+
+  async saveAudio(toPreset: boolean): Promise<void> {
+    const s = this.state.session;
+    if (!s || !this.state.lease?.mine) return;
+    await api('PUT', `/api/sessions/${s.id}/audio`, {
+      settings: this.audioSettings(),
+      saveToPreset: toPreset,
+    }).catch((e) => this.set({ commandError: (e as Error).message }));
+  }
+
+  private async loadConfig(sessionId: string): Promise<void> {
+    try {
+      const c = await api<SessionConfig>('GET', `/api/sessions/${sessionId}/config`);
+      this.set({
+        presetId: c.presetId,
+        presetName: c.presetName,
+        rundown: fromServerRundown(c.rundown, this.bitmaps),
+        savedAudioDevice: c.audio.deviceLabel ?? null,
+      });
+      if (c.profile !== this.state.profile) this.setProfile(c.profile);
+      this.applyAudio(c.audio);
+    } catch {
+      /* keep defaults */
+    }
+  }
+
+  /** Restore saved audio settings; routing waits until a device with enough channels is open. */
+  private applyAudio(a: SessionConfig['audio']): void {
+    if (a.gainDb !== undefined) this.audio.setGainDb(a.gainDb);
+    if (a.hpf !== undefined) this.audio.setHpf(a.hpf);
+    if (a.compressor !== undefined) this.audio.setCompressor(a.compressor);
+    if (a.delayMs !== undefined) this.audio.setDelayMs(a.delayMs);
+    this.pendingAudio = a;
+    if (!this.audioWatch) {
+      this.audioWatch = this.audio.subscribe(() => {
+        const st = this.audio.snapshot;
+        if (
+          st.status === 'running' &&
+          this.pendingAudio?.mode &&
+          st.availableModes.includes(this.pendingAudio.mode)
+        ) {
+          const mode = this.pendingAudio.mode;
+          this.pendingAudio = null;
+          if (st.mode !== mode) this.audio.setMode(mode);
+        }
+        const key = JSON.stringify(this.audioSettings());
+        if (key !== this.lastAudioKey) {
+          this.lastAudioKey = key;
+          if (this.audioSave) clearTimeout(this.audioSave);
+          this.audioSave = setTimeout(() => void this.saveAudio(false), 800);
+        }
+      });
+      this.lastAudioKey = JSON.stringify(this.audioSettings());
+    }
+  }
+  private audioWatch: (() => void) | null = null;
+  private lastAudioKey = '';
+
+  // ---- studio lease (SPEC §9.10, §17.3) ----
+  private async renewLease(): Promise<void> {
+    const s = this.state.session;
+    if (!s) return;
+    try {
+      const l = await api<{
+        mine: boolean;
+        holderName: string | null;
+        holderIsMe: boolean;
+        canTakeOver: boolean;
+        generation: number;
+      }>('POST', `/api/sessions/${s.id}/lease`);
+      const wasMine = this.state.lease?.mine;
+      this.set({
+        lease: {
+          mine: l.mine,
+          holderName: l.holderName,
+          holderIsMe: l.holderIsMe,
+          canTakeOver: l.canTakeOver,
+        },
+      });
+      if (wasMine && !l.mine) void this.onLeaseLost();
+    } catch (e) {
+      if (e instanceof ApiFailure && e.status === 404) this.set({ lease: null });
+    }
+  }
+
+  /** Another tab took over: stop contributing and drop the phone link immediately (fencing, A33). */
+  private async onLeaseLost(): Promise<void> {
+    this.set({
+      lease: {
+        mine: false,
+        holderName: this.state.lease?.holderName ?? null,
+        holderIsMe: this.state.lease?.holderIsMe ?? false,
+        canTakeOver: false,
+      },
+    });
+    await this.whip?.stop();
+    this.whip = null;
+    this.camera.close();
+    this.set({ contribution: 'idle', sendingSince: null });
+    await this.renewLease();
+  }
+
+  /** Take over the studio (confirmation in the UI). The phone renegotiates with this tab. */
+  async takeOver(): Promise<void> {
+    const s = this.state.session;
+    if (!s) return;
+    try {
+      await api('POST', `/api/sessions/${s.id}/takeover`);
+      const snap = await api<SessionSnapshot>('GET', `/api/sessions/${s.id}`);
+      this.set({
+        session: snap,
+        lease: { mine: true, holderName: null, holderIsMe: true, canTakeOver: true },
+      });
+      await this.renewLease();
+      // If media was live, restore our contribution on the new generation.
+      if (this.isLive) await this.ensureContribution();
+    } catch (e) {
+      this.set({ commandError: (e as Error).message });
+    }
   }
 
   // ---- media node (SPEC §12): contribution + normaliser + publishers ----

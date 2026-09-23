@@ -22,7 +22,8 @@ export function typeLabel(k: Kind): string {
 
 export function RundownStep() {
   const rt = studioRuntime();
-  const { rundown } = useStore(rt);
+  const { rundown, presetId, presetName } = useStore(rt);
+  const [savedToPreset, setSavedToPreset] = useState(false);
   const [sel, setSel] = useState(0);
   const item = rundown[sel];
 
@@ -186,7 +187,19 @@ export function RundownStep() {
           </Card>
         )}
       </div>
-      <p className={s.muted}>{t('rundown.footnote', { n: rundown.length })}</p>
+      <div className={s.row}>
+        <p className={s.muted}>{t('rundown.footnote', { n: rundown.length })}</p>
+        {presetId && (
+          <Button
+            size="dense"
+            onClick={() => void rt.saveRundown(true).then(() => setSavedToPreset(true))}
+          >
+            {savedToPreset
+              ? t('preset.saved')
+              : t('preset.saveRundown', { name: presetName ?? '' })}
+          </Button>
+        )}
+      </div>
     </>
   );
 }

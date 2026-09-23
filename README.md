@@ -13,9 +13,13 @@ and one stream goes to Facebook and YouTube.
 - **M2 (media node):** supervisor, FFmpeg normaliser, isolated Facebook/YouTube publishers, fallback
   slate, and Go live / Stop in the studio.
 
-Both are built and tested with synthetic media and local RTMP sinks. Next is **M3**, the owner's
-hardware run on the real devices and real platform test events (`docs/runbooks/wp0-hardware-run.md`).
-Real accounts (M4) and the remaining work packages follow. See PLAN.md.
+- **M4 (WP1):** real accounts (email + password + authenticator code), operator invites, saved
+  services (presets), server-side rundown and audio settings, and the studio lease with a confirmed
+  take-over.
+
+All of this is built and tested with synthetic media and local RTMP sinks. **M3**, the owner's
+hardware run on the real devices and real platform test events (`docs/runbooks/wp0-hardware-run.md`),
+is still to do. See PLAN.md.
 
 ## Layout
 

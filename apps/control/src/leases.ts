@@ -11,6 +11,8 @@ export interface LeaseInfo {
   mine: boolean;
   holderName: string | null;
   holderIsMe: boolean;
+  /** Operators may take over only from their own other tab; the owner from anyone (SPEC §6.2). */
+  canTakeOver: boolean;
   generation: number;
 }
 
@@ -46,6 +48,7 @@ export async function acquireLease(
         mine: false,
         holderName: l.display_name,
         holderIsMe: l.holder_user_id === p.userId,
+        canTakeOver: p.role === 'owner' || l.holder_user_id === p.userId,
         generation: s.generation,
       };
     const expires = new Date(now.getTime() + LEASE_TTL_MS);
@@ -59,17 +62,21 @@ export async function acquireLease(
         expires_at: expires,
       })
       .onConflict((oc) =>
-        oc
-          .column('session_id')
-          .doUpdateSet({
-            holder_user_id: p.userId,
-            holder_client_id: clientId,
-            generation: s.generation,
-            expires_at: expires,
-          }),
+        oc.column('session_id').doUpdateSet({
+          holder_user_id: p.userId,
+          holder_client_id: clientId,
+          generation: s.generation,
+          expires_at: expires,
+        }),
       )
       .execute();
-    return { mine: true, holderName: p.name, holderIsMe: true, generation: s.generation };
+    return {
+      mine: true,
+      holderName: p.name,
+      holderIsMe: true,
+      canTakeOver: true,
+      generation: s.generation,
+    };
   });
 }
 
@@ -141,14 +148,12 @@ export async function takeover(
         expires_at: new Date(now.getTime() + LEASE_TTL_MS),
       })
       .onConflict((oc) =>
-        oc
-          .column('session_id')
-          .doUpdateSet({
-            holder_user_id: p.userId,
-            holder_client_id: clientId,
-            generation,
-            expires_at: new Date(now.getTime() + LEASE_TTL_MS),
-          }),
+        oc.column('session_id').doUpdateSet({
+          holder_user_id: p.userId,
+          holder_client_id: clientId,
+          generation,
+          expires_at: new Date(now.getTime() + LEASE_TTL_MS),
+        }),
       )
       .execute();
     await trx

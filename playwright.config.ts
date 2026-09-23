@@ -6,7 +6,6 @@ export const E2E = {
   web: 'http://localhost:5173',
   control: 'http://127.0.0.1:3000',
   mediamtxApi: 'http://127.0.0.1:9997',
-  passphrase: 'e2e-passphrase-1234',
   dbAdmin:
     process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://raelstream:dev@localhost:55432/raelstream',
   broadcast: process.env.RS_E2E_BROADCAST === '1',
@@ -53,9 +52,8 @@ export default defineConfig({
         DATABASE_URL: E2E.dbAdmin.replace(/\/[^/]+$/, '/rs_e2e'),
         PUBLIC_ORIGIN: E2E.web,
         WHIP_PUBLIC_BASE: `${E2E.web}/whip`,
-        RS_DEV_AUTH: '1',
-        RS_DEV_PASSPHRASE: E2E.passphrase,
         RS_PAIR_RATE_LIMIT: '1000',
+        RS_LOGIN_RATE_LIMIT: '1000',
         RS_SEAL_PUBLIC_KEY: E2E.sealPublicKey,
         RS_E2E_SEAL_SECRET_KEY: E2E.sealSecretKey,
         RS_DEST_TEST_SINKS: '1',

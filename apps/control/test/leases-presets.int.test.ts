@@ -160,7 +160,12 @@ describe('studio lease and takeover (A33, SPEC §17.3)', () => {
 
   it('a second tab opens read-only and cannot issue commands', async () => {
     const l = (await post(`/api/sessions/${sessionId}/lease`, ownerB)).json();
-    expect(l).toMatchObject({ mine: false, holderIsMe: true, holderName: 'Chanda' });
+    expect(l).toMatchObject({
+      mine: false,
+      holderIsMe: true,
+      holderName: 'Chanda',
+      canTakeOver: true,
+    });
     const r = await post(`/api/sessions/${sessionId}/pairings`, ownerB);
     expect(r.statusCode).toBe(409);
     expect(r.json().code).toBe('LEASE_HELD');
@@ -173,6 +178,8 @@ describe('studio lease and takeover (A33, SPEC §17.3)', () => {
   });
 
   it('an operator cannot take over from someone else while the lease is live', async () => {
+    const l = (await post(`/api/sessions/${sessionId}/lease`, operator.headers)).json();
+    expect(l).toMatchObject({ mine: false, holderIsMe: false, canTakeOver: false });
     expect((await post(`/api/sessions/${sessionId}/takeover`, operator.headers)).statusCode).toBe(
       403,
     );

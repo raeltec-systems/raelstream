@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { E2E } from '../../playwright.config.js';
+import { e2eUser, signIn } from './auth.js';
 
 const auth = 'Basic ' + Buffer.from('supervisor:dev-internal').toString('base64');
 
@@ -22,11 +23,9 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   const studio = await studioCtx.newPage();
   await studio.goto('/studio');
 
-  // Dev sign-in and a new service
-  await studio.getByLabel('Your name').fill('Chanda');
-  await studio.getByLabel('Studio passphrase').fill(E2E.passphrase);
-  await studio.getByRole('button', { name: 'Sign in' }).click();
-  await studio.getByRole('button', { name: 'Start preparing' }).click();
+  // Real sign-in (password + authenticator code) and a new service
+  await signIn(studio, e2eUser('spine'));
+  await studio.getByRole('button', { name: 'Start without a saved service' }).click();
   await expect(studio.getByRole('heading', { name: 'Connect the camera' })).toBeVisible();
 
   // Pairing QR (secret in the fragment)

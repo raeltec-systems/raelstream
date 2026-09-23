@@ -8,6 +8,7 @@ import { PROFILE_SIZE, studioRuntime } from './runtime.js';
 import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from './Broadcast.js';
 import { CameraPreview } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
+import { LeaseBanner } from './LeaseBanner.js';
 import s from './Live.module.css';
 
 const SCENES: { kind: SceneKind; key: string; label: string }[] = [
@@ -119,7 +120,11 @@ export function Live() {
               {t('live.stopPrivateTest')}
             </Button>
           ) : (
-            <Button size="dense" onClick={() => void rt.startPrivateTest()}>
+            <Button
+              size="dense"
+              disabled={!st.lease?.mine}
+              onClick={() => void rt.startPrivateTest()}
+            >
               {t('live.startPrivateTest')}
             </Button>
           ))}
@@ -127,6 +132,7 @@ export function Live() {
       </header>
 
       <div className={s.banners}>
+        <LeaseBanner compact />
         <BroadcastBanners />
       </div>
       <main className={s.main}>

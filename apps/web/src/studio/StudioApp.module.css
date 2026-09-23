@@ -20,3 +20,84 @@
   font-size: 15px;
   line-height: 1.45;
 }
+.qr {
+  width: 200px;
+  height: 200px;
+  align-self: center;
+  image-rendering: pixelated;
+}
+.mono {
+  font: 500 16px var(--rs-font-mono);
+  letter-spacing: 0.08em;
+  text-align: center;
+  word-break: break-all;
+}
+.recovery {
+  background: var(--surface-2);
+  border-radius: var(--rs-r-input);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.codes {
+  margin: 0;
+  padding-left: 24px;
+  columns: 2;
+  font: 400 15px/1.8 var(--rs-font-mono);
+}
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+.wide {
+  width: 100%;
+  max-width: 760px;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border-radius: var(--rs-r-row);
+  padding: 12px 16px;
+}
+.rowText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rowTitle {
+  font-weight: 700;
+}
+.rowSub {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.spacer {
+  flex: 1;
+}
+.linkBox {
+  font: 400 14px var(--rs-font-mono);
+  background: var(--surface-2);
+  border-radius: var(--rs-r-sm);
+  padding: 12px;
+  word-break: break-all;
+}

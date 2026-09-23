@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
 import { E2E } from '../../playwright.config.js';
+import { e2eUser, signIn } from './auth.js';
 
 /**
  * M2 studio broadcast flow against the real supervisor and two local RTMP "platforms"
@@ -57,10 +58,8 @@ test('Go live → both sending → one platform lost → stop → ended', async 
   ]);
 
   await page.goto('/studio');
-  await page.getByLabel('Your name').fill('Chanda');
-  await page.getByLabel('Studio passphrase').fill(E2E.passphrase);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByRole('button', { name: 'Start preparing' }).click();
+  await signIn(page, e2eUser('broadcast'));
+  await page.getByRole('button', { name: 'Start without a saved service' }).click();
   await page.goto('/studio/live');
   await expect(page.getByTestId('dest-facebook')).toContainText('Ready to test');
 

@@ -21,6 +21,7 @@ passed the gate evidence is the qualified release.
 | Caddy | 2.11 (`caddy:2.11`) | Pin the digest at deploy time |
 | Supervisor image | `bluenviron/mediamtx:1.21.1-ffmpeg` + Node from `node:24-alpine` (both Alpine 3.24.2) | `infra/compose/supervisor.Dockerfile` |
 | libsodium-wrappers | 0.8.x | Sealed boxes for stream keys |
+| hash-wasm | 4.12.x | Argon2id password hashing (m = 64 MiB, t = 3, p = 1), WebAssembly so the control image needs no native build |
 | FFmpeg | **8.1.2** (from the pinned MediaMTX image) | ADR-0002: one FFmpeg build across the media node. 9.0 needs a new image source plus a media-suite pass. |
 
 Exact npm versions are in `pnpm-lock.yaml`.

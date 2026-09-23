@@ -8,12 +8,21 @@ import { DevicesStep } from './steps/DevicesStep.js';
 import { AudioStep } from './steps/AudioStep.js';
 import { RundownStep } from './steps/RundownStep.js';
 import { NotBuiltStep } from './steps/NotBuiltStep.js';
+import { LeaseBanner } from './LeaseBanner.js';
 import s from './Preparation.module.css';
 
 const STEPS = ['devices', 'uplink', 'destinations', 'rundown', 'audio'] as const;
 type Step = (typeof STEPS)[number];
 
-export function Preparation({ operator }: { operator: string }) {
+export function Preparation({
+  operator,
+  role,
+  onSignOut,
+}: {
+  operator: string;
+  role: 'owner' | 'operator';
+  onSignOut: () => void;
+}) {
   const rt = studioRuntime();
   const st = useStore(rt);
   const cam = useStore(rt.camera);
@@ -67,11 +76,16 @@ export function Preparation({ operator }: { operator: string }) {
         <div className={s.who}>
           {t('prep.signedInAs', { name: operator })}
           <br />
-          {t('prep.devOperator')}
+          {role === 'owner' ? t('settings.owner') : t('prep.volunteerOperator')}
+          <br />
+          <Button size="dense" variant="ghost" onClick={onSignOut}>
+            {t('home.signOut')}
+          </Button>
         </div>
       </nav>
       <div className={s.main}>
         <div className={s.content}>
+          <LeaseBanner />
           <div className="rs-overline">{`${st.session?.name ?? ''} · ${date}`.toUpperCase()}</div>
           {step === 'devices' && <DevicesStep />}
           {step === 'uplink' && (
