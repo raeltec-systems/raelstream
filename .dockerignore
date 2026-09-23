@@ -4,5 +4,7 @@ test-results
 playwright-report
 .git
 infra/compose/.env
+infra/compose/.env.*
+infra/compose/.codespace-*
 infra/compose/secrets
 !apps/supervisor/dist

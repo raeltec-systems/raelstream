@@ -32,6 +32,12 @@ function norm(u: string): string {
 }
 
 /** Syntax + allowlist check. `testSinks` permits rtmp://127.0.0.1 sinks for automated tests only. */
+/**
+ * Stand-in platforms for tests and the Codespaces dev stack (the `rs-test-platform` Compose service).
+ * Only honoured when test sinks are enabled, which production refuses.
+ */
+const TEST_SINK_HOSTS = new Set(['127.0.0.1', 'localhost', 'rs-test-platform']);
+
 export function validateServerUrl(
   platform: Platform,
   url: string,
@@ -45,12 +51,7 @@ export function validateServerUrl(
     throw new DestinationError('DEST_URL_NOT_ALLOWED');
   }
   if (u.username || u.password) throw new DestinationError('DEST_URL_NOT_ALLOWED');
-  if (
-    testSinks &&
-    u.protocol === 'rtmp:' &&
-    (u.hostname === '127.0.0.1' || u.hostname === 'localhost')
-  )
-    return u;
+  if (testSinks && u.protocol === 'rtmp:' && TEST_SINK_HOSTS.has(u.hostname)) return u;
   if (u.protocol !== 'rtmps:') throw new DestinationError('DEST_URL_NOT_ALLOWED');
   if (!allowlist.some((a) => a.platform === platform && norm(a.url) === norm(url)))
     throw new DestinationError('DEST_URL_NOT_ALLOWED');

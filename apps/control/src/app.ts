@@ -20,6 +20,7 @@ import * as sessions from './sessions.js';
 import * as pairing from './pairing.js';
 import * as presets from './presets.js';
 import { authorizeMediaMtx, createIngest, type MediaMtxAuthRequest } from './ingest.js';
+import { createIceProvider } from './turn.js';
 import { idempotent, listDestinations, retryDestination, startMedia, stopMedia } from './media.js';
 import { acquireLease, requireLease, takeover } from './leases.js';
 import { registerAccountRoutes } from './routes/account.js';
@@ -51,6 +52,7 @@ export async function buildApp(
   const auth = new AuthService(db, cfg.totpKey);
   const hub = new Hub(db, app.log);
   const pairLimit = new RateLimiter(cfg.pairRateLimit, 60_000);
+  const ice = createIceProvider(cfg.turn, app.log);
   const user = requireUser(auth, cfg.publicOrigin);
   /** Privileged session commands: current lease holder only (SPEC §17.3). */
   const lease = (req: FastifyRequest, id: string) => requireLease(db, id, clientIdOf(req));
@@ -295,7 +297,16 @@ export async function buildApp(
     await lease(req, id);
     const s = await sessions.getSession(db, id);
     if (s.mode === 'rehearsal') throw new AppError('FORBIDDEN', 'contribution');
-    const r = await createIngest(db, id, s.generation, cfg.whipPublicBase);
+    const r = {
+      ...(await createIngest(
+        db,
+        id,
+        s.generation,
+        cfg.whipPublicBase,
+        await ice.forContribution(),
+      )),
+      iceTransportPolicy: cfg.iceTransportPolicy,
+    };
     await event(id, 'contribution.created', operatorOf(req).name, { generation: s.generation });
     return r;
   });

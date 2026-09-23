@@ -46,7 +46,53 @@ const rm = (...n: string[]) => {
     /* not running */
   }
 };
-rm('rs-e2e-mediamtx', 'rs-e2e-sink-a', 'rs-e2e-sink-b', 'rs-e2e-supervisor');
+rm('rs-e2e-mediamtx', 'rs-e2e-sink-a', 'rs-e2e-sink-b', 'rs-e2e-supervisor', 'rs-e2e-turn');
+
+/**
+ * RS_E2E_RELAY=1 reproduces the Codespaces topology: MediaMTX advertises only an unroutable host
+ * address, so the contribution can only flow through a TURN relay on both sides (coturn stands in
+ * for Cloudflare TURN).
+ */
+const relay = process.env.RS_E2E_RELAY === '1';
+const relayEnv = relay
+  ? [
+      ['MTX_WEBRTCIPSFROMINTERFACES', 'false'],
+      ['MTX_WEBRTCADDITIONALHOSTS', '192.0.2.1'],
+      ['MTX_WEBRTCICESERVERS2_0_URL', 'turn:127.0.0.1:3479?transport=udp'],
+      ['MTX_WEBRTCICESERVERS2_0_USERNAME', 'rs'],
+      ['MTX_WEBRTCICESERVERS2_0_PASSWORD', 'rs-e2e-relay'],
+    ].flatMap(([k, v]) => ['-e', `${k}=${v}`])
+  : [];
+if (relay) {
+  docker([
+    'run',
+    '-d',
+    '--name',
+    'rs-e2e-turn',
+    '--network',
+    'host',
+    'coturn/coturn:4.7',
+    '-n',
+    '--listening-ip=127.0.0.1',
+    '--relay-ip=127.0.0.1',
+    '--listening-port=3479',
+    '--min-port=49160',
+    '--max-port=49200',
+    '--lt-cred-mech',
+    '--user=rs:rs-e2e-relay',
+    '--realm=raelstream.test',
+    '--allow-loopback-peers',
+    // MediaMTX's host candidates are private addresses; refusing them leaves relay ↔ relay as the only
+    // route, as in a Codespace where the media node is not reachable from outside.
+    '--denied-peer-ip=10.0.0.0-10.255.255.255',
+    '--denied-peer-ip=172.16.0.0-172.31.255.255',
+    '--denied-peer-ip=192.168.0.0-192.168.255.255',
+    '--denied-peer-ip=192.0.2.0-192.0.2.255',
+    '--no-tls',
+    '--no-dtls',
+    '--no-cli',
+  ]);
+}
 
 if (!process.env.RS_E2E_EXTERNAL_MEDIAMTX) {
   const slates = mkdtempSync(join(tmpdir(), 'rs-e2e-slates-'));
@@ -66,6 +112,7 @@ if (!process.env.RS_E2E_EXTERNAL_MEDIAMTX) {
     'MTX_AUTHHTTPADDRESS=http://127.0.0.1:3000/internal/mediamtx/auth',
     '-e',
     'MTX_WEBRTCLOCALTCPADDRESS=',
+    ...relayEnv,
     'bluenviron/mediamtx:1.21.1-ffmpeg',
   ]);
   if (process.env.RS_E2E_BROADCAST === '1') {

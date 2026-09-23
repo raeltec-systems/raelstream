@@ -38,6 +38,8 @@ export const IngestResponse = z.object({
   whipUrl: z.string().url(),
   bearer: z.string(),
   expiresAt: z.string(),
+  /** 'relay' forces the contribution through TURN (diagnostics; the Codespaces topology). */
+  iceTransportPolicy: z.enum(['all', 'relay']).optional(),
   iceServers: z.array(
     z.object({
       urls: z.union([z.string(), z.array(z.string())]),

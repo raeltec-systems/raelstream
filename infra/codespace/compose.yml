@@ -1,0 +1,36 @@
+# Codespaces overrides on top of infra/compose/docker-compose.yml (docs/runbooks/codespaces.md).
+# Relative paths resolve from infra/compose (the first Compose file).
+services:
+  control:
+    environment:
+      NODE_ENV: codespace
+      RS_DEST_TEST_SINKS: '1'
+
+  supervisor:
+    environment:
+      NODE_ENV: codespace
+      RS_DEST_TEST_SINKS: '1'
+
+  mediamtx:
+    # A Codespace has no public UDP/TCP ports: MediaMTX reaches the studio only through TURN.
+    # start.sh writes fresh Cloudflare TURN credentials into this file on every start.
+    env_file: [./.env.mediamtx-turn]
+    environment:
+      MTX_WEBRTCADDITIONALHOSTS: ''
+    ports: !reset []
+
+  caddy:
+    ports: !override ['8080:8080']
+    volumes:
+      - ../codespace/Caddyfile:/etc/caddy/Caddyfile:ro
+
+  # Stand-in "platform": accepts the programme over RTMP and serves it as HLS on /watch/.
+  rs-test-platform:
+    image: bluenviron/mediamtx:1.21.1-ffmpeg
+    restart: unless-stopped
+    volumes:
+      - ../media/test-sink.yml:/mediamtx.yml:ro
+    environment:
+      MTX_HLS: 'yes'
+      MTX_HLSADDRESS: ':8888'
+      MTX_APIADDRESS: '127.0.0.1:9998'

@@ -1,8 +1,15 @@
-{$DOMAIN} {
+# Codespaces: GitHub's port forwarding terminates HTTPS in front of port 8080, so Caddy serves plain
+# HTTP here. Same application routes as production, plus the stand-in platform's watch page.
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
 	encode zstd gzip
 
-	header {
-		Strict-Transport-Security "max-age=31536000"
+	@app not path /watch/*
+	header @app {
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
 		Cross-Origin-Opener-Policy "same-origin"
@@ -11,4 +18,9 @@
 	}
 
 	import app-routes.caddy
+
+	# What viewers would see: HLS from the stand-in RTMP "platform" (MediaMTX's own player page).
+	handle /watch/* {
+		reverse_proxy rs-test-platform:8888
+	}
 }

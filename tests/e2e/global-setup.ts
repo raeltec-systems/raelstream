@@ -7,7 +7,15 @@ export default async function globalSetup(): Promise<() => void> {
     try {
       execFileSync(
         'docker',
-        ['rm', '-f', 'rs-e2e-mediamtx', 'rs-e2e-sink-a', 'rs-e2e-sink-b', 'rs-e2e-supervisor'],
+        [
+          'rm',
+          '-f',
+          'rs-e2e-mediamtx',
+          'rs-e2e-sink-a',
+          'rs-e2e-sink-b',
+          'rs-e2e-supervisor',
+          'rs-e2e-turn',
+        ],
         { stdio: 'ignore' },
       );
     } catch {

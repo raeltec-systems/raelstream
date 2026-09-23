@@ -160,6 +160,13 @@ describe('destination validation (A41)', () => {
     expect(() =>
       validateServerUrl('youtube', 'rtmp://127.0.0.1:1935/yt', undefined, true),
     ).not.toThrow();
+    expect(() =>
+      validateServerUrl('youtube', 'rtmp://rs-test-platform:1935/watch/yt', undefined, true),
+    ).not.toThrow();
+    expect(() => validateServerUrl('youtube', 'rtmp://rs-test-platform:1935/watch/yt')).toThrow();
+    expect(() =>
+      validateServerUrl('youtube', 'rtmp://evil.example:1935/yt', undefined, true),
+    ).toThrow();
   });
   it('rejects private, loopback, link-local and CGNAT addresses', () => {
     for (const ip of [

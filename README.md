@@ -17,9 +17,15 @@ and one stream goes to Facebook and YouTube.
   services (presets), server-side rundown and audio settings, and the studio lease with a confirmed
   take-over.
 
-All of this is built and tested with synthetic media and local RTMP sinks. **M3**, the owner's
-hardware run on the real devices and real platform test events (`docs/runbooks/wp0-hardware-run.md`),
-is still to do. See PLAN.md.
+All of this is built and tested with synthetic media and local RTMP sinks.
+
+## Try it without a server
+
+The whole stack runs in a **GitHub Codespace** (free allowance, browser only). The studio's upload goes
+through Cloudflare's free TURN relay, and two stand-in "platforms" show exactly what viewers would see.
+Follow [docs/runbooks/codespaces.md](docs/runbooks/codespaces.md). For the one real check from
+Johannesburg, see [docs/runbooks/gcp-johannesburg.md](docs/runbooks/gcp-johannesburg.md). See PLAN.md for
+what comes next.
 
 ## Layout
 

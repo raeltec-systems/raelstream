@@ -20,6 +20,7 @@ export interface WhipTarget {
   whipUrl: string;
   bearer: string;
   iceServers: RTCIceServer[];
+  iceTransportPolicy?: RTCIceTransportPolicy;
 }
 
 /**
@@ -53,7 +54,11 @@ export class WhipPublisher extends Observable<WhipState> {
   async start(target: WhipTarget): Promise<void> {
     await this.stop();
     this.set({ status: 'connecting', error: null });
-    const pc = new RTCPeerConnection({ iceServers: target.iceServers, bundlePolicy: 'max-bundle' });
+    const pc = new RTCPeerConnection({
+      iceServers: target.iceServers,
+      iceTransportPolicy: target.iceTransportPolicy ?? 'all',
+      bundlePolicy: 'max-bundle',
+    });
     this.pc = pc;
     const stream = new MediaStream([this.videoTrack, this.audioTrack]);
     const v = pc.addTransceiver(this.videoTrack, { direction: 'sendonly', streams: [stream] });
@@ -81,7 +86,8 @@ export class WhipPublisher extends Observable<WhipState> {
       '$1;stereo=1;sprop-stereo=1;maxaveragebitrate=192000',
     );
     await pc.setLocalDescription(offer);
-    await waitForIceGathering(pc);
+    // Relay candidates (TURN over TCP/TLS) take longer to gather than host ones.
+    await waitForIceGathering(pc, target.iceServers.length > 0 ? 6000 : 2000);
 
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 10_000);

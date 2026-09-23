@@ -527,6 +527,7 @@ export class StudioRuntime extends Observable<StudioState> {
       whipUrl: ingest.whipUrl,
       bearer: ingest.bearer,
       iceServers: ingest.iceServers as RTCIceServer[],
+      iceTransportPolicy: ingest.iceTransportPolicy ?? 'all',
     });
   }
 

@@ -39,6 +39,12 @@ jobs:
       - run: pnpm test:e2e
         env:
           CI: '1'
+      # The same spine with the contribution forced through a TURN relay (the Codespaces topology).
+      - run: docker pull coturn/coturn:4.7
+      - run: pnpm exec playwright test wp0-spine
+        env:
+          CI: '1'
+          RS_E2E_RELAY: '1'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

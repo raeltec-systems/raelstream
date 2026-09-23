@@ -168,3 +168,33 @@ real UMC channel mapping, laptop CPU/memory, any Facebook or YouTube output.
 - Operators were offered Take over from the owner, which the server correctly refuses. The banner
   now asks them to contact the owner.
 - The home screen never noticed a service started by someone else. It now checks every 5 s.
+
+### Test environment without a server: built 23 Sep 2026
+
+The Dell is a managed work laptop (no Docker), and paying for a server during development was ruled
+out, as was Oracle Cloud. Instead:
+
+| Area | State |
+|---|---|
+| TURN relay | Done: the control service mints Cloudflare TURN credentials server side (`RS_TURN_CF_KEY_ID` / `RS_TURN_CF_API_TOKEN`; or a static `RS_ICE_SERVERS`) and returns them with each WHIP contribution. Port-53 URLs are dropped (browsers time out on them). If the API fails, the contribution tries direct only rather than failing. `RS_ICE_TRANSPORT_POLICY=relay` forces the relay. MediaMTX takes its own relay credentials through `MTX_WEBRTCICESERVERS2_n_*`. This is also the production fallback for studios behind restrictive networks (SPEC §11.1). |
+| Codespaces | Done: `.devcontainer/` and `infra/codespace/`. One click starts the whole stack behind GitHub's HTTPS port forwarding (Caddy on :8080, shared routes in `infra/proxy/app-routes.caddy`). Secrets are generated on first start and never committed. Includes an owner-account script with a terminal QR code and two stand-in platforms (`rs-test-platform`, HLS on `/watch/`). |
+| Johannesburg check | Documented: `docs/runbooks/gcp-johannesburg.md` (Google Cloud free trial, africa-south1, sslip.io name). |
+
+**Verified:**
+- A new e2e mode (`RS_E2E_RELAY=1`, in CI) runs the spine with coturn standing in for Cloudflare.
+  Private addresses are refused by the relay, so studio → MediaMTX can only flow through TURN.
+  MediaMTX's WebRTC session shows a relay remote candidate and >500 KB of media.
+- The Codespaces `start.sh` was rehearsed end to end on local images, with Docker Hub rate-limited here:
+  - fresh secrets and the stack up;
+  - owner created through the script;
+  - sign-in, start service, Go live to both stand-ins, ON AIR, both rows sending;
+  - HLS decoded through Caddy's `/watch/` (H.264 Main 1280×720 30 fps + AAC 44.1 kHz stereo);
+  - Stop, then "This service has ended".
+
+**Bugs found and fixed through the rehearsal:**
+- **Production:** the runbook's `chmod 400` on `secrets/seal_secret` made the file unreadable by
+  the non-root supervisor, which then restarted forever. Now the folder is `chmod 700` and the files
+  `644`, and the runbook says so.
+- Compose `!reset` on Caddy's ports removed the port entirely. It needed `!override`.
+- The relay test first passed through a direct path. The test now refuses private peers, so it proves
+  the relay-only route.

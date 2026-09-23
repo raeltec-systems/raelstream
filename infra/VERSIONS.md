@@ -18,6 +18,8 @@ passed the gate evidence is the qualified release.
 | ESLint | 10.x | |
 | PostgreSQL | 18 (image `postgres:18`, observed 18.6) | Pin the digest at deploy time |
 | MediaMTX | 1.21.1 (`bluenviron/mediamtx:1.21.1-ffmpeg`) | Pin the digest at deploy time |
+| coturn (tests only) | 4.7 (`coturn/coturn:4.7`) | Stands in for Cloudflare TURN in the relay-only e2e run |
+| Codespaces base | `mcr.microsoft.com/devcontainers/base:ubuntu-24.04` + Node 24 + docker-in-docker features | `.devcontainer/devcontainer.json` |
 | Caddy | 2.11 (`caddy:2.11`) | Pin the digest at deploy time |
 | Supervisor image | `bluenviron/mediamtx:1.21.1-ffmpeg` + Node from `node:24-alpine` (both Alpine 3.24.2) | `infra/compose/supervisor.Dockerfile` |
 | libsodium-wrappers | 0.8.x | Sealed boxes for stream keys |

@@ -5,5 +5,5 @@ COPY . .
 RUN pnpm install --frozen-lockfile && pnpm --filter @raelstream/web build
 
 FROM caddy:2.11
-COPY infra/proxy/Caddyfile /etc/caddy/Caddyfile
+COPY infra/proxy/Caddyfile infra/proxy/app-routes.caddy /etc/caddy/
 COPY --from=web /src/apps/web/dist /srv/web

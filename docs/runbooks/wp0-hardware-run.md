@@ -21,7 +21,9 @@ evidence, and pass/fail/blocked.
 7. Build the bundles: `corepack enable && pnpm install && pnpm build`.
 8. Generate the stream-key sealing keys: `node apps/control/dist/cli.js keys:generate`. Put the
    `RS_SEAL_PUBLIC_KEY=` line in `.env` and the secret line in `infra/compose/secrets/seal_secret`
-   (`chmod 400`). Keep a copy of the secret in your password manager. It is **not** in backups.
+   (`chmod 700 infra/compose/secrets && chmod 644 infra/compose/secrets/*`: the supervisor runs as a
+   non-root user and Docker mounts the file with these permissions, so the folder is what protects it).
+   Keep a copy of the secret in your password manager. It is **not** in backups.
 9. `docker compose -f infra/compose/docker-compose.yml up -d --build`
 10. Create your owner account. The password is read from the terminal without echoing:
 

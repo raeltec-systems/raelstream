@@ -142,6 +142,28 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   )!;
   expect(path.tracks.some((t) => /H264|VP8/.test(t))).toBe(true);
   expect(path.tracks).toContain('Opus');
+  if (E2E.relay) {
+    // Private host routes are refused, so everything flows through the TURN server: the studio sends
+    // from its relay allocation, and MediaMTX answers from its relay allocation or from the address the
+    // TURN server saw (server-reflexive). Both exist in a Codespace; never a direct host path.
+    const webrtcSessions = async () => {
+      const r = await studio.request.get(`${E2E.mediamtxApi}/v3/webrtcsessions/list`, {
+        headers: { Authorization: auth },
+      });
+      return (await r.json()).items as Array<{
+        localCandidate: string;
+        remoteCandidate: string;
+        bytesReceived: number;
+      }>;
+    };
+    const [first] = await webrtcSessions();
+    expect(first!.localCandidate).toMatch(/^(relay|srflx)\//);
+    expect(first!.remoteCandidate).toMatch(/^relay\//);
+    // media keeps flowing through the relay, not just the first packets
+    await expect
+      .poll(async () => (await webrtcSessions())[0]?.bytesReceived ?? 0, { timeout: 15_000 })
+      .toBeGreaterThan(500_000);
+  }
   await studio.waitForTimeout(3000); // let stats accumulate for the screenshot
   await studio.screenshot({ path: info.outputPath('04-studio-live-private-test.png') });
   await cam.screenshot({ path: info.outputPath('05-camera-live.png') });

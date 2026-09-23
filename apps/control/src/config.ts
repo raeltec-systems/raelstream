@@ -1,4 +1,5 @@
 import { loadTotpKey } from './sealing.js';
+import { transportPolicy, turnConfigFromEnv, type TurnConfig } from './turn.js';
 
 export interface Config {
   port: number;
@@ -17,6 +18,9 @@ export interface Config {
   loginRateLimit: number;
   /** Sealed-box public key for stream keys (control can encrypt, never decrypt). */
   sealPublicKey: string | null;
+  /** Relay for the WHIP contribution: Cloudflare TURN, a static list, or none (SPEC §11.1). */
+  turn: TurnConfig;
+  iceTransportPolicy: 'all' | 'relay';
   /** Pairing preview/claim requests per IP per minute (SPEC §14.4). */
   pairRateLimit: number;
   production: boolean;
@@ -46,6 +50,8 @@ export function loadConfig(env = process.env): Config {
     loginRateLimit: Number(env.RS_LOGIN_RATE_LIMIT ?? 20),
     pairRateLimit: Number(env.RS_PAIR_RATE_LIMIT ?? 10),
     sealPublicKey: env.RS_SEAL_PUBLIC_KEY || null,
+    turn: turnConfigFromEnv(env),
+    iceTransportPolicy: transportPolicy(env, turnConfigFromEnv(env)),
     production,
     migrationsDir:
       env.MIGRATIONS_DIR ?? new URL('../../../infra/migrations', import.meta.url).pathname,

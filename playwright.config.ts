@@ -9,6 +9,8 @@ export const E2E = {
   dbAdmin:
     process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://raelstream:dev@localhost:55432/raelstream',
   broadcast: process.env.RS_E2E_BROADCAST === '1',
+  /** Contribution only through a TURN relay (the Codespaces topology); needs the coturn image. */
+  relay: process.env.RS_E2E_RELAY === '1',
   // TEST-ONLY sealed-box keypair for the broadcast e2e run. Never used outside automated tests.
   sealPublicKey: 'jYpBKnSnxZqDHCwq9fg-qyqIwEo8gyOz9mMDW3PIXh8',
   sealSecretKey: 'YVuLOwVF8VFS-ZGdja17j1_gdwMTyxR3MsfQkkbEsJw',
@@ -58,6 +60,19 @@ export default defineConfig({
         RS_E2E_SEAL_SECRET_KEY: E2E.sealSecretKey,
         RS_DEST_TEST_SINKS: '1',
         RS_E2E_BROADCAST: E2E.broadcast ? '1' : '0',
+        RS_E2E_RELAY: E2E.relay ? '1' : '0',
+        ...(E2E.relay ? { RS_ICE_TRANSPORT_POLICY: 'relay' } : {}),
+        ...(E2E.relay
+          ? {
+              RS_ICE_SERVERS: JSON.stringify([
+                {
+                  urls: ['turn:127.0.0.1:3479?transport=udp', 'turn:127.0.0.1:3479?transport=tcp'],
+                  username: 'rs',
+                  credential: 'rs-e2e-relay',
+                },
+              ]),
+            }
+          : {}),
         PORT: '3000',
         HOST: '127.0.0.1',
       },
