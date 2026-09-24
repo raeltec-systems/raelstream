@@ -9,7 +9,12 @@ import {
 } from '@raelstream/contracts';
 import type { DB } from './db.js';
 import { eventsSince, snapshot } from './sessions.js';
-import { renewCredential, sourceByCredential } from './pairing.js';
+import {
+  forgetPendingCredential,
+  recoverAdmission,
+  renewCredential,
+  sourceByCredential,
+} from './pairing.js';
 import { RateLimiter } from './ratelimit.js';
 import { readObserved } from './observed.js';
 import type { ObservedState, SessionLifecycle } from '@raelstream/contracts';
@@ -166,7 +171,10 @@ export class Hub {
           this.send(ws, { type: 'observed', lifecycle: obs.lifecycle, observed: obs.observed });
         return;
       }
-      const src = await sourceByCredential(this.db, msg.credential);
+      let src = await sourceByCredential(this.db, msg.credential);
+      // A phone that missed its "admitted" message presents its pending credential once (recoverAdmission).
+      const recovered = src ? null : await recoverAdmission(this.db, msg.credential);
+      if (recovered) src = await sourceByCredential(this.db, recovered.credential);
       if (!src) return void ws.close(4403, 'invalid credential');
       // A reconnecting phone replaces its own previous socket, never another device's slot (B§8.3).
       for (const [other, c] of this.conns)
@@ -184,6 +192,13 @@ export class Hub {
         sourceStatus: src.status,
         serviceName: src.service_name,
       });
+      if (recovered)
+        this.send(ws, {
+          type: 'admitted',
+          credential: recovered.credential,
+          expiresAt: recovered.expiresAt,
+        });
+      else if (src.status === 'admitted') await forgetPendingCredential(this.db, src.id);
       this.toStudios(src.session_id, { type: 'peer', sourceId: src.id, present: true });
       return;
     }

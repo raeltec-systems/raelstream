@@ -77,6 +77,8 @@ export interface DB {
     created_at: Generated<Date>;
     admitted_at: TsNull;
     revoked_at: TsNull;
+    pending_credential_hash: Buffer | null;
+    pending_valid_until: TsNull;
   };
   ingest_tokens: {
     token_hash: Buffer;

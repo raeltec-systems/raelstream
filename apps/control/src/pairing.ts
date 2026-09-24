@@ -5,6 +5,8 @@ import { randomToken, sha256, verificationPhrase } from './crypto.js';
 
 export const INVITATION_TTL_MS = 120_000; // PAIR-01
 export const CONTRIBUTOR_TTL_MS = 15 * 60_000; // PAIR-05
+/** How long after admission a phone may still exchange its pending credential (recoverAdmission). */
+export const ADMISSION_RECOVERY_MS = 10 * 60_000;
 
 /** Create a one-time invitation for slot 1; older unconsumed invitations for the slot are closed. */
 export async function createInvitation(
@@ -173,12 +175,16 @@ export async function admitSource(
   const expiresAt = new Date(now.getTime() + CONTRIBUTOR_TTL_MS);
   const r = await db
     .updateTable('camera_sources')
-    .set({
+    .set((eb) => ({
       status: 'admitted',
       admitted_at: now,
       credential_hash: sha256(credential),
       credential_expires_at: expiresAt,
-    })
+      // The phone may miss the "admitted" message (screen locked, tab in the background, proxy
+      // dropped the socket); let its pending credential be exchanged once, shortly (recoverAdmission).
+      pending_credential_hash: eb.ref('credential_hash'),
+      pending_valid_until: new Date(now.getTime() + ADMISSION_RECOVERY_MS),
+    }))
     .where('id', '=', sourceId)
     .where('session_id', '=', sessionId)
     .where('status', '=', 'pending')
@@ -186,6 +192,43 @@ export async function admitSource(
     .executeTakeFirst();
   if (!r) throw new AppError('NOT_FOUND', 'camera');
   return { credential, expiresAt: expiresAt.toISOString() };
+}
+
+/**
+ * Exchange a just-admitted phone's pending credential for a fresh contributor credential, once and only
+ * within the recovery window. Atomic, so two racing reconnects cannot both succeed.
+ */
+export async function recoverAdmission(
+  db: Kysely<DB>,
+  pendingCredential: string,
+  now = new Date(),
+) {
+  const credential = randomToken(32);
+  const expiresAt = new Date(now.getTime() + CONTRIBUTOR_TTL_MS);
+  const r = await db
+    .updateTable('camera_sources')
+    .set({
+      credential_hash: sha256(credential),
+      credential_expires_at: expiresAt,
+      pending_credential_hash: null,
+      pending_valid_until: null,
+    })
+    .where('pending_credential_hash', '=', sha256(pendingCredential))
+    .where('pending_valid_until', '>', now)
+    .where('status', '=', 'admitted')
+    .returning(['id'])
+    .executeTakeFirst();
+  return r ? { credential, expiresAt: expiresAt.toISOString() } : null;
+}
+
+/** The phone connected with its contributor credential: the pending one is no longer needed. */
+export async function forgetPendingCredential(db: Kysely<DB>, sourceId: string): Promise<void> {
+  await db
+    .updateTable('camera_sources')
+    .set({ pending_credential_hash: null, pending_valid_until: null })
+    .where('id', '=', sourceId)
+    .where('pending_credential_hash', 'is not', null)
+    .execute();
 }
 
 /** Renew an admitted contributor credential in place (rotated secret). */
