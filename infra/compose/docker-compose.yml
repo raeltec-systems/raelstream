@@ -24,6 +24,7 @@ services:
     env_file: [.env]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      RS_APP_VERSION: ${RS_APP_VERSION:-dev}
       PORT: '3000'
       MIGRATIONS_DIR: /app/migrations
     depends_on:
@@ -80,7 +81,10 @@ services:
     depends_on: [control]
 
   caddy:
-    build: { context: ../.., dockerfile: infra/compose/caddy.Dockerfile }
+    build:
+      context: ../..
+      dockerfile: infra/compose/caddy.Dockerfile
+      args: { RS_APP_VERSION: '${RS_APP_VERSION:-dev}' }
     restart: unless-stopped
     env_file: [.env]
     ports: ['80:80', '443:443']

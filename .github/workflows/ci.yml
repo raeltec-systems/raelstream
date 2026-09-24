@@ -103,3 +103,17 @@ jobs:
           const b = await s({create:{width:8,height:8,channels:3,background:'red'}}).jpeg().toBuffer();
           console.log('sharp ok', s.versions.sharp, b.length) })"
       - run: docker build -q -f infra/compose/caddy.Dockerfile -t rs-caddy:ci .
+
+  backup-drill:
+    # A46: an encrypted backup restores into an empty database with every row intact.
+    runs-on: ubuntu-24.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get install -y -qq age
+      - run: infra/scripts/test-backup-restore.sh

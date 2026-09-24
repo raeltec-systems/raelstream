@@ -5,6 +5,7 @@ import { t } from '@raelstream/i18n';
 import { api, ApiFailure } from '../lib/api.js';
 import { router } from '../lib/router.js';
 import type { Me } from '../auth/SignIn.js';
+import { UpdateBanner } from './UpdateBanner.js';
 import s from './StudioApp.module.css';
 
 interface Preset {
@@ -83,6 +84,7 @@ export function Home({
             {t('home.signOut')}
           </Button>
         </div>
+        <UpdateBanner />
         <div className="rs-overline">{t('home.signedInAs', { name: me.name })}</div>
         <h1 className="rs-h1">{t('home.title')}</h1>
         <p className={s.note}>{t('home.noBroadcast')}</p>

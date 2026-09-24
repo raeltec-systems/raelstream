@@ -276,3 +276,19 @@ list; and a missing Facebook key blocked opening the Studio (now a reminder: it 
 **Verified:** 88 unit (6 new for the controller and signals), 72 integration (5 new: report defaults,
 aggregation, unknown fields refused, studio events whitelist, grace cap), 8 Playwright runs (the spine
 now opens the report and checks real measurements).
+
+### M9: built 24 Sep 2026 (WP6)
+
+| Area | State |
+|---|---|
+| CSP (§14.1) | Done: a Playwright run against the **production build** with the exact CSP from `infra/proxy/Caddyfile` walks sign-in, Settings, pairing, the phone page, audio meters and the WHIP upload, and fails on any policy violation. It found two more issues: zod's `eval` probe (now `jitless`, set before any schema is built) and the WHIP URL being answered on a different origin than the studio's (now the request's own allowed origin). Fonts and scripts are never inlined as `data:` URLs. |
+| Updates (A43) | Done (no service worker, SPEC §14.3 decision): the deployed SHA is in `/api/health`; an open studio offers **Reload now** after a deploy, never while live. |
+| Deploy (§16.2) | Done: `deploy.yml` (manual, `production` environment with owner approval) → SSH → `infra/scripts/deploy.sh`: guard (`cli.js deploy:guard`: refuses while sending/recovering or while a studio is open), checkout, build, up, smoke (health reports the SHA, MediaMTX API, WHIP route), automatic rollback to the last good SHA. Integration-tested guard. |
+| Backups (A46) | Done: `backup.sh` (pg_dump → age to the owner's key, 30-day retention, optional rclone copy) and `restore.sh`; `test-backup-restore.sh` restores into an empty PostgreSQL 18 and compares every table, in CI. |
+| Runbooks | `docs/runbooks/sunday-operator.md` (volunteer checklist) and `owner-operations.md` (server, deploys, backups, restore, incidents). |
+| Soak (A26, synthetic) | `RS_SOAK_MINUTES=N pnpm exec playwright test soak`: 4-minute local run passed (heap 33–56 MB with no growth, programme moving, upload connected, no false slate); evidence JSON written. The qualifying 3-hour run is on the real hardware. |
+
+**Verified:** 88 unit, 73 integration, 9 Playwright runs + the soak, the backup/restore drill.
+
+**What remains is the owner's:** M3 (the real phone, Dell, UMC and church network; G1–G5), the 3-hour
+soak on that hardware (A26) and two real services (A47).

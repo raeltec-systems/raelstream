@@ -1098,6 +1098,8 @@ The page loads no third-party scripts and no analytics.
 
 ### 14.3 Service worker
 
+**[DECISION, M9]** No service worker in R1. The studio loads everything when it opens, deploys never run during a service (§16.2 deploy guard), and an open studio polls `/api/health` for the deployed version: after a deploy it shows **Update available → Reload now**, never while a service is live, and never reloads by itself (A43). A service worker adds a cache that can serve stale code with no offline benefit for a live-only app.
+
 - Caches only the hashed static bundle and fonts. The fetch handler never caches `/api/*`, `/ws`, `/whip/*`, `/cam#…`, or anything with an `Authorization` header or `Set-Cookie`.
 - **Updates during a session:** the new SW waits. The page shows "Update available after this service" and calls `skipWaiting` only when the session is ENDED or when no session is active (B§28.3, A43).
 
@@ -1204,6 +1206,8 @@ The route map, positions and dead zones (B§7.4) live in `docs/evidence/venue/`.
 Every command also runs locally (`pnpm ci:local`), so the owner does not depend on hosted CI (B§22.3).
 
 ### 16.2 `deploy.yml` (manual `workflow_dispatch`, input `sha`)
+
+**[DECISION, M9]** The deploy guard is a CLI check run on the VM over SSH (`cli.js deploy:guard`), not a public endpoint. It blocks while a service is sending/recovering, or while someone holds a studio lease on a service being prepared; a forgotten, idle draft does not block. Images are built on the VM from the checked-out commit (no registry), and the smoke test checks that `/api/health` reports the new SHA. Runbook: `docs/runbooks/owner-operations.md`.
 
 1. SSH to the VM using a deploy key held in a GitHub environment `production` that requires owner approval.
 2. **Deploy guard:** `curl https://{host}/internal/deploy-guard`, authenticated with a deploy token. It returns `409` if any session is in PREPARING…RECOVERING **or** has been STARTING within the last 5 min. The workflow fails with "Active service; deploy after it ends".

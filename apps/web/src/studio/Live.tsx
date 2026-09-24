@@ -14,6 +14,7 @@ import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from 
 import { CameraPreview } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
 import { LeaseBanner } from './LeaseBanner.js';
+import { UpdateBanner } from './UpdateBanner.js';
 import s from './Live.module.css';
 
 const SCENES: { kind: SceneKind; key: string; label: string }[] = [
@@ -138,6 +139,7 @@ export function Live() {
 
       <div className={s.banners}>
         <LeaseBanner compact />
+        <UpdateBanner />
         <BroadcastBanners />
       </div>
       <main className={s.main}>

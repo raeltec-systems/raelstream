@@ -122,7 +122,9 @@ export async function buildApp(
     data: Record<string, unknown> = {},
   ) => hub.broadcastEvent(id, await sessions.appendEvent(db, id, kind, 'info', actor, data));
 
-  app.get('/api/health', async () => ({ ok: true }));
+  // The deployed build (git SHA, set by infra/scripts/deploy.sh); the studio compares it with its own.
+  const version = process.env.RS_APP_VERSION || 'dev';
+  app.get('/api/health', async () => ({ ok: true, version }));
   registerAccountRoutes(app, cfg, auth);
   registerContentRoutes(app, cfg, db, auth, lease);
   registerDestinationRoutes(app, cfg, db, auth, lease);
@@ -319,14 +321,17 @@ export async function buildApp(
     await lease(req, id);
     const s = await sessions.getSession(db, id);
     if (s.mode === 'rehearsal') throw new AppError('FORBIDDEN', 'contribution');
+    // WHIP is served by the same site (Caddy /whip). Answer on the origin the studio actually uses
+    // (an allowed one), so the contribution stays same-origin under the CSP (connect-src 'self').
+    const origin = req.headers.origin;
+    const whipBase =
+      origin &&
+      cfg.allowedOrigins.includes(origin) &&
+      cfg.whipPublicBase.startsWith(cfg.publicOrigin)
+        ? origin + cfg.whipPublicBase.slice(cfg.publicOrigin.length)
+        : cfg.whipPublicBase;
     const r = {
-      ...(await createIngest(
-        db,
-        id,
-        s.generation,
-        cfg.whipPublicBase,
-        await ice.forContribution(),
-      )),
+      ...(await createIngest(db, id, s.generation, whipBase, await ice.forContribution())),
       iceTransportPolicy: cfg.iceTransportPolicy,
     };
     await event(id, 'contribution.created', operatorOf(req).name, { generation: s.generation });

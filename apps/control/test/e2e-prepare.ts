@@ -38,6 +38,8 @@ for (const key of [
   'reconnect',
   'content',
   'destinations',
+  'csp',
+  'soak',
 ]) {
   const email = `${key}@e2e.test`;
   const password = 'correct horse battery staple';

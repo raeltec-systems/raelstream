@@ -6,6 +6,8 @@ const executablePath =
   process.env.RS_CHROMIUM_PATH ?? (process.env.CI ? undefined : '/opt/pw-browsers/chromium');
 export const E2E = {
   web: 'http://localhost:5173',
+  /** The production build under the production CSP (vite preview, RS_PREVIEW_CSP=1). */
+  prod: 'http://localhost:4173',
   control: 'http://127.0.0.1:3000',
   mediamtxApi: 'http://127.0.0.1:9997',
   dbAdmin:
@@ -61,6 +63,7 @@ export default defineConfig({
         RS_SEAL_PUBLIC_KEY: E2E.sealPublicKey,
         RS_E2E_SEAL_SECRET_KEY: E2E.sealSecretKey,
         RS_DEST_TEST_SINKS: '1',
+        RS_EXTRA_ALLOWED_ORIGINS: E2E.prod,
         RS_RECORDINGS_DIR: join(tmpdir(), 'rs-e2e-recordings'),
         RS_E2E_BROADCAST: E2E.broadcast ? '1' : '0',
         RS_E2E_RELAY: E2E.relay ? '1' : '0',
@@ -85,6 +88,14 @@ export default defineConfig({
       url: E2E.web,
       reuseExistingServer: false,
       timeout: 60_000,
+    },
+    {
+      command:
+        'pnpm --filter @raelstream/web exec sh -c "vite build --logLevel warn && vite preview"',
+      url: E2E.prod,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: { RS_PREVIEW_CSP: '1' },
     },
   ],
 });

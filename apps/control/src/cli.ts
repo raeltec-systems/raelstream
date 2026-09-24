@@ -6,6 +6,7 @@
  *   destination:list
  *   user:create-owner --email owner@church.org --name "Israel"   (password from stdin)
  *   user:reset-mfa --email someone@church.org
+ *   deploy:guard     exits 3 while any service is open (SPEC §16.2: never deploy during a service)
  */
 import { parseArgs } from 'node:util';
 import { generateKeypair, last4, seal } from '@raelstream/secrets';
@@ -54,7 +55,39 @@ const cfg = loadConfig();
 const db = createDb(cfg.databaseUrl);
 await migrate(db, cfg.migrationsDir);
 
-if (cmd === 'destination:add') {
+if (cmd === 'deploy:guard') {
+  // A service that is sending or recovering always blocks a deploy (B§28.3); one being prepared blocks
+  // it while someone has its studio open (a live lease). A forgotten, idle draft does not.
+  const open = await db
+    .selectFrom('stream_sessions')
+    .leftJoin('studio_leases', 'studio_leases.session_id', 'stream_sessions.id')
+    .select(['stream_sessions.name', 'stream_sessions.lifecycle'])
+    .where((eb) =>
+      eb.or([
+        eb('stream_sessions.lifecycle', 'in', [
+          'STARTING',
+          'SENDING',
+          'PARTIAL',
+          'RECOVERING',
+          'STOPPING',
+        ]),
+        eb.and([
+          eb('stream_sessions.lifecycle', 'not in', ['ENDED', 'INTERRUPTED']),
+          eb('studio_leases.expires_at', '>', new Date()),
+        ]),
+      ]),
+    )
+    .execute();
+  await db.destroy();
+  if (open.length) {
+    console.error(
+      `Active service; deploy after it ends: ${open.map((s) => `${s.name} (${s.lifecycle})`).join(', ')}`,
+    );
+    process.exit(3);
+  }
+  console.log('No active service: safe to deploy.');
+  process.exit(0);
+} else if (cmd === 'destination:add') {
   const { values } = parseArgs({
     args: rest,
     options: {
@@ -126,7 +159,7 @@ if (cmd === 'destination:add') {
     );
 } else {
   console.error(
-    'usage: cli.js keys:generate | destination:add ... | destination:list | user:create-owner ... | user:reset-mfa ...',
+    'usage: cli.js keys:generate | destination:add ... | destination:list | user:create-owner ... | user:reset-mfa ... | deploy:guard',
   );
   process.exitCode = 2;
 }

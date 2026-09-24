@@ -10,6 +10,7 @@ import { RundownStep } from './steps/RundownStep.js';
 import { DestinationsStep } from './steps/DestinationsStep.js';
 import { UplinkStep } from './steps/UplinkStep.js';
 import { LeaseBanner } from './LeaseBanner.js';
+import { UpdateBanner } from './UpdateBanner.js';
 import s from './Preparation.module.css';
 
 const STEPS = ['devices', 'uplink', 'destinations', 'rundown', 'audio'] as const;
@@ -93,6 +94,7 @@ export function Preparation({
       <div className={s.main}>
         <div className={s.content}>
           <LeaseBanner />
+          <UpdateBanner />
           <div className="rs-overline">{`${st.session?.name ?? ''} · ${date}`.toUpperCase()}</div>
           {step === 'devices' && <DevicesStep />}
           {step === 'uplink' && <UplinkStep />}

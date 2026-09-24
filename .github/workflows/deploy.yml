@@ -1,0 +1,40 @@
+name: Deploy
+
+# Manual deploy of one commit to the production VM (SPEC §16.2). The `production` environment must
+# require the owner's approval (GitHub → Settings → Environments). The VM refuses while a service is
+# live or a studio is open (deploy guard), and rolls back if the smoke test fails.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to deploy (full SHA, already on main and green in CI)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Check the input is a full commit SHA
+        run: '[[ "${{ inputs.sha }}" =~ ^[0-9a-f]{40}$ ]] || { echo "sha must be 40 hex characters"; exit 1; }'
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes "$USER_NAME@$HOST" \
+            "cd /opt/raelstream && git fetch --quiet origin && infra/scripts/deploy.sh '$SHA'"
