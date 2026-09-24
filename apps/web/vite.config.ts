@@ -15,5 +15,10 @@ export default defineConfig({
       '/whip': { target: mediamtx, rewrite: (p) => p.replace(/^\/whip/, '') },
     },
   },
-  build: { target: 'es2023', sourcemap: true },
+  build: {
+    target: 'es2023',
+    sourcemap: true,
+    // Worklet modules must stay same-origin files: the CSP (script-src 'self') blocks data: URLs.
+    assetsInlineLimit: (file) => (file.endsWith('.js') ? false : undefined),
+  },
 });

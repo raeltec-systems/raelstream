@@ -6,7 +6,9 @@ import { e2eUser, endService, signIn } from './auth.js';
  * nothing (seen on the owner's Dell). The studio must ask for access first. The pre-permission state is
  * simulated in the page so the test does not depend on how a given Chromium build grants permissions.
  */
-test('audio inputs appear by name after allowing microphone access', async ({ browser }) => {
+test('audio inputs appear by name after allowing access, and the meters run under the CSP', async ({
+  browser,
+}) => {
   const ctx = await browser.newContext({ permissions: ['microphone'] });
   await ctx.addInitScript(() => {
     const md = navigator.mediaDevices;
@@ -24,6 +26,19 @@ test('audio inputs appear by name after allowing microphone access', async ({ br
         : (await enumerate()).map(
             (d) => ({ kind: d.kind, deviceId: '', label: '', groupId: '' }) as MediaDeviceInfo,
           );
+  });
+  // The production CSP's script rules (the dev server needs its inline preamble, hence 'unsafe-inline').
+  // It blocks worklets loaded from blob: or data: URLs, which left the meters dead in the Codespace.
+  await ctx.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.fallback();
+    const res = await route.fetch();
+    await route.fulfill({
+      response: res,
+      headers: {
+        ...res.headers(),
+        'content-security-policy': "script-src 'self' 'unsafe-inline'; worker-src 'self' blob:",
+      },
+    });
   });
   const page = await ctx.newPage();
   try {
@@ -49,6 +64,9 @@ test('audio inputs appear by name after allowing microphone access', async ({ br
     await select.selectOption(value);
     await expect(select).toHaveValue(value); // it stays selected
     await expect(page.getByText(/Sound detected|No sound yet/)).toBeVisible();
+    // Chromium's fake microphone plays a tone: the meters must move and the step must count as done.
+    await expect(page.getByText('Sound detected')).toBeVisible();
+    await expect(page.getByText(/choose the mixer audio input/)).toHaveCount(0);
   } finally {
     // Never leave a service open for the next spec, even when this one fails.
     await endService(page).catch(() => undefined);

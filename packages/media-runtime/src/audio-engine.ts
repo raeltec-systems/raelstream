@@ -182,6 +182,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
       this.programmeMeter.port.onmessage = (e) =>
         this.set({ programme: this.reading(e.data, this.programmeHold) });
     });
+    this.ready.catch(() => undefined); // reported by selectDevice
     navigator.mediaDevices?.addEventListener?.('devicechange', this.onDeviceChange);
   }
 
@@ -211,11 +212,12 @@ export class AudioEngine extends Observable<AudioEngineState> {
 
   /** Capture the selected device with processing off (B§12.1). Must be called from a user gesture on first use. */
   async selectDevice(deviceId: string): Promise<void> {
-    await this.ready;
     this.set({ status: 'starting', error: null });
-    await this.ctx.resume();
     this.releaseSource();
     try {
+      // Without the meters there is no way to check sound, so a failed load is a visible error.
+      await this.ready;
+      await this.ctx.resume();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: false,
         audio: {
