@@ -135,6 +135,10 @@ from scratch. That also deletes the accounts and secrets in it.
 
 ## Troubleshooting
 
+- **Sign-in says "You don't have permission to do that":** check the address bar. It must be the
+  `https://…-8080.app.github.dev` address from the banner, not `127.0.0.1:8080` or `localhost:8080` (VS Code
+  desktop opens those when you click the port). The phone's pairing link and the studio's upload both use
+  the public address.
 - **The studio loads but the phone's pairing link does not open:** port 8080 is not public (step 4).
 - **Private test / Go live stays on "Starting" and then fails:** the TURN secrets are missing or wrong.
   The banner says `TURN relay: NOT configured`. Fix the secrets (step 2), then **stop and restart** the
