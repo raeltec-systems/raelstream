@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { TEXT_MAX_LINES, TEXT_MIN_PX, layoutTextCard, wrapText } from './overlays.js';
+import {
+  LOWER_THIRD_IN_MS,
+  LOWER_THIRD_OUT_MS,
+  TEXT_MAX_LINES,
+  TEXT_MIN_PX,
+  layoutTextCard,
+  lowerThirdMotion,
+  wrapText,
+} from './overlays.js';
 
 /** A canvas stand-in whose glyphs are half as wide as the font size. */
 function fakeCtx() {
@@ -47,5 +55,22 @@ describe('text card layout (SPEC §10.3)', () => {
     expect(l.lines.length).toBeLessThanOrEqual(TEXT_MAX_LINES);
     const tooLong = layoutTextCard(fakeCtx(), { title: 'x', detail: 'word '.repeat(600) }, 'x');
     expect(tooLong).toMatchObject({ fits: false, bodyPx: TEXT_MIN_PX });
+  });
+});
+
+describe('lowerThirdMotion', () => {
+  it('slides in from the left and settles in place', () => {
+    const start = lowerThirdMotion(0);
+    expect(start.alpha).toBe(0);
+    expect(start.dx).toBeLessThan(0);
+    const mid = lowerThirdMotion(LOWER_THIRD_IN_MS / 2);
+    expect(mid.alpha).toBeGreaterThan(0.5); // ease-out: most of the way there by half time
+    expect(lowerThirdMotion(LOWER_THIRD_IN_MS)).toEqual({ alpha: 1, dx: -0 });
+    expect(lowerThirdMotion(10_000)).toEqual({ alpha: 1, dx: -0 });
+  });
+
+  it('fades out in place', () => {
+    expect(lowerThirdMotion(0, true)).toEqual({ alpha: 1, dx: 0 });
+    expect(lowerThirdMotion(LOWER_THIRD_OUT_MS, true).alpha).toBe(0);
   });
 });

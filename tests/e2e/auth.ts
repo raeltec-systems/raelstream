@@ -20,6 +20,7 @@ export function e2eUser(
     | 'audio'
     | 'phone'
     | 'reconnect'
+    | 'resume'
     | 'content'
     | 'destinations'
     | 'csp'

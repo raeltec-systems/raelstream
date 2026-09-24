@@ -275,9 +275,18 @@ export async function buildApp(
     ipLimited(req);
     const body = ClaimRequest.parse(req.body);
     const r = await pairing.claimInvitation(db, { ...body, userAgent: req.headers['user-agent'] });
-    await event(r.sessionId, 'camera.pending', 'camera', { label: body.label });
+    await event(r.sessionId, r.reclaimed ? 'camera.reclaimed' : 'camera.pending', 'camera', {
+      label: body.label,
+    });
     await hub.broadcastSnapshot(r.sessionId);
     return r;
+  });
+  // "Try again" after the direct link failed: the phone starts a fresh connection to this studio.
+  app.post('/api/sessions/:id/camera/retry', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
+    hub.notifyStudioChanged(id);
+    return { ok: true };
   });
   app.post('/api/sessions/:id/sources/:src/admit', { preHandler: user }, async (req) => {
     const { id, src } = SourceParams.parse(req.params);

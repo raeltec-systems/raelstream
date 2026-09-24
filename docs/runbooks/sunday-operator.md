@@ -32,9 +32,10 @@ Pick this week's saved service, or **Start without a saved service**.
    - No UMC today? Choose **Phone sound** to use the phone's microphone (or an iRig in the phone). Tap
      **Allow** on the phone if it asks.
    - Wear headphones and turn on **Listen (headphones)** to hear exactly what viewers hear.
-   - **Lip-sync:** if the badge says *Recheck recommended*, record a test clip: someone claps in front of
-     the camera near a mixer microphone. Step to the frame where the hands meet, press **The hands meet
-     in this frame**, then **Use … ms** and **Save calibration**.
+   - **Lip-sync:** if the badge says *Recheck recommended*, record a test clip: someone claps once in
+     front of the camera near a mixer microphone. Press **Play the clap with sound** (or ¼ speed) to see
+     and hear it, then tap the picture in the strip where the hands first touch. Press **Use … ms** and
+     **Save calibration**.
 
 When the footer says **All ready**, press **Open the Studio**.
 
@@ -59,6 +60,11 @@ it**. Wait for "server receiving", check the Health panel, then **Stop private t
 - Switching tabs is fine; the programme keeps running.
 - **"Camera dropped · slate on"**: the phone lost its link. Viewers see the slate. The phone reconnects
   by itself; press **Camera ready: Cut back** when it appears.
+  - If someone pressed Back or closed the browser on the phone: reopen the browser and the camera tab
+    (or the camera page from the browser's history). It carries on by itself, no code needed.
+  - If that doesn't work: press **Show reconnect code** under the camera on the studio screen and scan it
+    with **the same phone**. It is straight back in; you don't need to let it in again. Never press
+    **Remove camera** for this.
 - **"Only YouTube is receiving the service"**: Facebook stopped. Press **Retry** in its row. If it says
   the key was rejected, press **Fix key** and paste a fresh key from Live Producer.
 - **"Mixer audio has been silent for 15 seconds"**: check the mixer. If the silence is intentional

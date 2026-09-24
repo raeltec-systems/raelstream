@@ -4,7 +4,13 @@ import { AppError } from './errors.js';
 import { randomToken, sha256, verificationPhrase } from './crypto.js';
 
 export const INVITATION_TTL_MS = 120_000; // PAIR-01
-export const CONTRIBUTOR_TTL_MS = 15 * 60_000; // PAIR-05
+/**
+ * PAIR-05: renewed (rotated) every 5 min while the phone is connected. The lifetime is what a phone that
+ * dropped out (browser closed, back pressed, battery swap) has to come back without a new code, so it
+ * covers a whole service; the credential is session-bound and dies when the service ends or the
+ * operator removes the camera.
+ */
+export const CONTRIBUTOR_TTL_MS = 3 * 60 * 60_000;
 /** How long after admission a phone may still exchange its pending credential (recoverAdmission). */
 export const ADMISSION_RECOVERY_MS = 10 * 60_000;
 
@@ -114,6 +120,37 @@ export async function claimInvitation(
       .returning(['id', 'session_id', 'slot'])
       .executeTakeFirst();
     if (!inv) throw new AppError('PAIR_INVALID', 'camera');
+    // The same phone scanning a fresh code takes its own slot back (its page was closed, the browser
+    // was cleared, or the credential expired while it was away). The code on the studio screen proves
+    // the operator is offering it; a different phone still needs the slot freed first (B§8.3).
+    const held = await trx
+      .selectFrom('camera_sources')
+      .select(['id', 'status', 'device_fingerprint', 'verification_phrase'])
+      .where('session_id', '=', inv.session_id)
+      .where('slot', '=', inv.slot)
+      .where('status', 'in', ['pending', 'admitted'])
+      .executeTakeFirst();
+    if (held) {
+      if (!held.device_fingerprint.equals(sha256(input.deviceId)))
+        throw new AppError('PAIR_SLOT_TAKEN', 'camera');
+      await trx
+        .updateTable('camera_sources')
+        .set({
+          credential_hash: sha256(credential),
+          credential_expires_at: new Date(now.getTime() + CONTRIBUTOR_TTL_MS),
+          pending_credential_hash: null,
+          pending_valid_until: null,
+        })
+        .where('id', '=', held.id)
+        .execute();
+      return {
+        sourceId: held.id,
+        sessionId: inv.session_id,
+        verificationPhrase: held.verification_phrase,
+        credential,
+        reclaimed: held.status === 'admitted',
+      };
+    }
     try {
       const src = await trx
         .insertInto('camera_sources')
@@ -136,6 +173,7 @@ export async function claimInvitation(
         sessionId: inv.session_id,
         verificationPhrase: phrase,
         credential,
+        reclaimed: false,
       };
     } catch (e) {
       if ((e as { code?: string }).code === '23505')

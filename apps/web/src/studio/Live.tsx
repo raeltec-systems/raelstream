@@ -11,7 +11,7 @@ import { useStore } from '../lib/useStore.js';
 import { router } from '../lib/router.js';
 import { PROFILE_SIZE, studioRuntime } from './runtime.js';
 import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from './Broadcast.js';
-import { CameraPreview } from './steps/DevicesStep.js';
+import { CameraPreview, ReconnectPanel } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
 import { LeaseBanner } from './LeaseBanner.js';
 import { UpdateBanner } from './UpdateBanner.js';
@@ -156,6 +156,7 @@ export function Live() {
                 {cam.summary?.rttMs != null ? `${Math.round(cam.summary.rttMs)} ms` : '—'}
               </span>
             </div>
+            {src?.status === 'admitted' && !st.cameraPresent[src.id] && <ReconnectPanel />}
           </div>
           <div className="rs-overline">{t('live.scenes')}</div>
           {comp.autoCutAt &&

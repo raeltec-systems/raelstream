@@ -31,6 +31,7 @@ export function DevicesStep() {
   const cam = useStore(rt.camera);
   const audio = useStore(rt.audio);
   const src = st.session?.sources[0] ?? null;
+  const present = !!src && !!st.cameraPresent[src.id];
   const cameraOk = cam.connection === 'connected';
   const res = cam.summary?.height ? `${cam.summary.height}p` : '—';
 
@@ -56,6 +57,7 @@ export function DevicesStep() {
           )}
           {src?.status === 'admitted' && (
             <>
+              {!present && <ReconnectPanel />}
               <CameraPreview />
               <StatusRow
                 tone={cameraOk ? 'ready' : cam.connection === 'idle' ? 'off' : 'standby'}
@@ -129,13 +131,20 @@ export function DevicesStep() {
           <p className={s.muted}>{t('devices.framingNote')}</p>
         </Card>
       </div>
-      {cam.directLinkFailed && (
+      {cam.directLinkFailed && present && (
         <Banner
           title={t('directFail.title')}
           actions={
-            <Button size="dense" variant="primary" onClick={() => void rt.createInvitation()}>
-              {t('directFail.repair')}
-            </Button>
+            present && (
+              <Button
+                size="dense"
+                variant="primary"
+                disabled={!st.lease?.mine}
+                onClick={() => void rt.retryCamera()}
+              >
+                {t('directFail.retry')}
+              </Button>
+            )
           }
         >
           {t('directFail.body', { ssid: st.productionSsid || t('directFail.productionWifi') })}
@@ -151,7 +160,40 @@ export function DevicesStep() {
   );
 }
 
-function PairPanel() {
+/**
+ * The phone left (Back, browser closed, battery swap). It normally comes back by itself when its page
+ * is reopened; if not, the same phone scans this code and takes its place again without being let in
+ * a second time. A different phone is refused until this camera is removed.
+ */
+export function ReconnectPanel() {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={s.reconnect} data-testid="reconnect-panel">
+      <p className={s.warn}>{t('reconnect.away')}</p>
+      {open ? (
+        <PairPanel reconnect />
+      ) : (
+        <div className={s.row}>
+          <Button
+            size="dense"
+            variant="primary"
+            disabled={!st.lease?.mine}
+            onClick={() => {
+              setOpen(true);
+              void rt.createInvitation();
+            }}
+          >
+            {t('reconnect.show')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PairPanel({ reconnect = false }: { reconnect?: boolean }) {
   const rt = studioRuntime();
   const st = useStore(rt);
   const [qr, setQr] = useState<string | null>(null);
@@ -184,9 +226,11 @@ function PairPanel() {
         <img src={qr} alt={t('pair.qrAlt')} data-testid="pair-qr" data-url={st.invitation.url} />
       )}
       <div className={s.meters}>
-        <div className={s.headTitle}>{t('pair.scan')}</div>
+        <div className={s.headTitle}>{reconnect ? t('reconnect.scan') : t('pair.scan')}</div>
         <p className={s.muted}>
-          {t('pair.instructions', { ssid: st.productionSsid || t('directFail.productionWifi') })}
+          {reconnect
+            ? t('reconnect.instructions')
+            : t('pair.instructions', { ssid: st.productionSsid || t('directFail.productionWifi') })}
         </p>
         <div className={s.mono}>{t('pair.expiresIn', { s: left })}</div>
         <div className={s.row}>

@@ -8,6 +8,58 @@ import s from './steps.module.css';
 
 const CLIP_S = 20;
 const FRAME_S = 1 / 30;
+/** Filmstrip around the detected clap: 10 frames before it, 10 from it on. */
+const STRIP_BEFORE = 10;
+const STRIP_AFTER = 10;
+
+interface StripFrame {
+  t: number;
+  url: string;
+}
+
+/** Seek a video and wait until that frame is ready to draw. */
+function seekTo(v: HTMLVideoElement, t: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      v.removeEventListener('seeked', done);
+      resolve();
+    };
+    v.addEventListener('seeked', done);
+    v.currentTime = t;
+  });
+}
+
+/**
+ * Still pictures of the frames around the clap sound, taken from a hidden copy of the clip, so the
+ * operator only has to pick the one where the hands meet.
+ */
+async function filmstrip(url: string, centreS: number, duration: number): Promise<StripFrame[]> {
+  const v = document.createElement('video');
+  v.muted = true;
+  v.preload = 'auto';
+  v.src = url;
+  await new Promise<void>((resolve, reject) => {
+    v.onloadeddata = () => resolve();
+    v.onerror = () => reject(new Error('clip'));
+  });
+  await settleDuration(v);
+  const c = document.createElement('canvas');
+  c.width = 192;
+  c.height = 108;
+  const g = c.getContext('2d')!;
+  const out: StripFrame[] = [];
+  for (let i = -STRIP_BEFORE; i < STRIP_AFTER; i++) {
+    const t = centreS + i * FRAME_S;
+    if (t < 0 || t > duration) continue;
+    await seekTo(v, t);
+    g.drawImage(v, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.8));
+    if (blob) out.push({ t, url: URL.createObjectURL(blob) });
+  }
+  v.removeAttribute('src');
+  v.load();
+  return out;
+}
 
 interface Clip {
   url: string;
@@ -48,6 +100,7 @@ export function SyncTool() {
   const [visualS, setVisualS] = useState<number | null>(null);
   const [saved, setSaved] = useState<'ok' | 'audio_late' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [strip, setStrip] = useState<StripFrame[] | null>(null);
   const video = useRef<HTMLVideoElement>(null);
   const wave = useRef<HTMLCanvasElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
@@ -119,8 +172,30 @@ export function SyncTool() {
     const v = video.current;
     if (!clip || !v) return;
     v.src = clip.url;
-    v.onloadedmetadata = () => void settleDuration(v);
+    v.onloadedmetadata = () =>
+      void settleDuration(v).then(() => {
+        if (clip.onsetS !== null) v.currentTime = Math.max(0, clip.onsetS - FRAME_S * 3);
+      });
     v.ontimeupdate = null;
+  }, [clip]);
+
+  // The frames around the clap sound, to pick from.
+  useEffect(() => {
+    setStrip(null);
+    if (!clip || clip.onsetS === null) return;
+    let frames: StripFrame[] = [];
+    let cancelled = false;
+    filmstrip(clip.url, clip.onsetS, clip.duration)
+      .then((f) => {
+        frames = f;
+        if (cancelled) f.forEach((x) => URL.revokeObjectURL(x.url));
+        else setStrip(f);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      frames.forEach((x) => URL.revokeObjectURL(x.url));
+    };
   }, [clip]);
 
   // Waveform strip with the detected clap (red), the marked frame (blue) and the playhead.
@@ -148,6 +223,32 @@ export function SyncTool() {
     if (visualS !== null) mark(visualS, '#6ea2f0');
     mark(now, '#ffffff');
   }, [clip, now, visualS]);
+
+  /** Play the moment of the clap with its sound: from 1 s before, at normal or quarter speed. */
+  function playClap(rate: number) {
+    const v = video.current;
+    if (!v || !clip || clip.onsetS === null) return;
+    v.playbackRate = rate;
+    v.currentTime = Math.max(0, clip.onsetS - 1);
+    void v.play();
+    const stopAt = clip.onsetS + 0.8;
+    v.ontimeupdate = () => {
+      if (v.currentTime >= stopAt) {
+        v.pause();
+        v.ontimeupdate = null;
+        v.playbackRate = 1;
+      }
+    };
+  }
+
+  function pickFrame(t: number) {
+    const v = video.current;
+    if (v) {
+      v.pause();
+      v.currentTime = t;
+    }
+    setVisualS(t);
+  }
 
   function step(frames: number) {
     const v = video.current;
@@ -225,7 +326,6 @@ export function SyncTool() {
           <video
             ref={video}
             className={s.syncVideo}
-            muted
             playsInline
             controls={false}
             onTimeUpdate={(e) => setNow(e.currentTarget.currentTime)}
@@ -239,6 +339,46 @@ export function SyncTool() {
             className={s.syncWave}
             aria-label={t('sync.tool.waveLabel')}
           />
+          {clip.onsetS !== null && (
+            <>
+              <p className={s.muted}>{t('sync.tool.pickHelp')}</p>
+              <div className={s.row}>
+                <Button size="dense" onClick={() => playClap(1)}>
+                  {t('sync.tool.playClap')}
+                </Button>
+                <Button size="dense" onClick={() => playClap(0.25)}>
+                  {t('sync.tool.playClapSlow')}
+                </Button>
+              </div>
+              <div
+                className={s.strip}
+                role="listbox"
+                aria-label={t('sync.tool.stripLabel')}
+                data-testid="sync-strip"
+              >
+                {strip === null ? (
+                  <span className={s.muted}>{t('sync.tool.stripLoading')}</span>
+                ) : (
+                  strip.map((f) => (
+                    <button
+                      key={f.t}
+                      type="button"
+                      role="option"
+                      aria-selected={visualS === f.t}
+                      className={s.stripFrame}
+                      onClick={() => pickFrame(f.t)}
+                      title={t('sync.tool.frameAt', { s: f.t.toFixed(3) })}
+                    >
+                      <img src={f.url} alt={t('sync.tool.frameAt', { s: f.t.toFixed(3) })} />
+                      <span>
+                        {Math.round((f.t - clip.onsetS!) * 1000)} {t('units.ms')}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
+          )}
           <div className={s.row}>
             <Button size="dense" onClick={() => step(-1)}>
               {t('sync.tool.prevFrame')}

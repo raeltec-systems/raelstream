@@ -540,6 +540,12 @@ export class StudioRuntime extends Observable<StudioState> {
       invitation: await api<CreatePairingResponse>('POST', `/api/sessions/${s.id}/pairings`),
     });
   }
+  /** Ask the phone to open a fresh connection (after "Camera can't reach this laptop directly"). */
+  async retryCamera(): Promise<void> {
+    const s = this.state.session;
+    if (!s) return;
+    await api('POST', `/api/sessions/${s.id}/camera/retry`);
+  }
   async admit(sourceId: string): Promise<void> {
     await api('POST', `/api/sessions/${this.state.session!.id}/sources/${sourceId}/admit`);
     this.set({ invitation: null });

@@ -197,6 +197,70 @@ describe('pairing (PAIR-01..05)', () => {
     });
   });
 
+  it('the same phone scanning a new code takes its admitted slot back without a new approval', async () => {
+    const claim = async (deviceId: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/pairings/claim',
+        payload: { token: await invite(), deviceId, label: 'Pulpit' },
+      });
+    const first = await claim(DEVICE);
+    expect(first.statusCode).toBe(200);
+    expect(first.json().reclaimed).toBe(false);
+    const src = first.json().sourceId as string;
+    await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sessionId}/sources/${src}/admit`,
+      headers,
+    });
+
+    // The browser was closed and its storage lost: the phone scans the reconnect code.
+    const back = await claim(DEVICE);
+    expect(back.statusCode).toBe(200);
+    expect(back.json()).toMatchObject({
+      sourceId: src,
+      reclaimed: true,
+      verificationPhrase: first.json().verificationPhrase,
+    });
+    const row = await db
+      .selectFrom('camera_sources')
+      .selectAll()
+      .where('id', '=', src)
+      .executeTakeFirstOrThrow();
+    expect(row.status).toBe('admitted');
+    const { sourceByCredential } = await import('../src/pairing.js');
+    expect((await sourceByCredential(db, back.json().credential))?.id).toBe(src);
+    expect(await sourceByCredential(db, first.json().credential)).toBeNull();
+
+    // A different phone is still refused.
+    const other = await claim(DEVICE2);
+    expect(other.statusCode).toBe(409);
+    expect(other.json().code).toBe('PAIR_SLOT_TAKEN');
+    const events = await db
+      .selectFrom('session_events')
+      .select('kind')
+      .where('session_id', '=', sessionId)
+      .where('kind', '=', 'camera.reclaimed')
+      .execute();
+    expect(events).toHaveLength(1);
+    await app.inject({ method: 'DELETE', url: `/api/sessions/${sessionId}/sources/${src}`, headers });
+  });
+
+  it('"Try again" asks the phone for a fresh connection, only from the studio holding the lease', async () => {
+    const ok = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sessionId}/camera/retry`,
+      headers,
+    });
+    expect(ok.statusCode).toBe(200);
+    const anon = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sessionId}/camera/retry`,
+      headers: { origin: ORIGIN },
+    });
+    expect(anon.statusCode).toBe(401);
+  });
+
   it('admission rotates the credential; revocation invalidates it (A12)', async () => {
     const token = await invite();
     const c = (

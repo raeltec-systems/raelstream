@@ -1,6 +1,13 @@
 import { FrameClock } from './clock.js';
 import { Observable } from './emitter.js';
-import { REF_H, REF_W, drawOverlay } from './overlays.js';
+import {
+  REF_H,
+  REF_W,
+  drawLowerThird,
+  drawOverlay,
+  lowerThirdMotion,
+  LOWER_THIRD_OUT_MS,
+} from './overlays.js';
 import { DEFAULT_THEME, type ProgrammeTheme, type SceneState, fitRect } from './scenes.js';
 
 export const CAMERA_STALL_MS = 2000;
@@ -34,6 +41,9 @@ export class Compositor extends Observable<CompositorState> {
   private video: RvfcVideo | null = null;
   private theme: ProgrammeTheme = DEFAULT_THEME;
   private overlay: OffscreenCanvas | null = null;
+  /** The name bar, on its own layer so it can slide in and fade out. */
+  private lowerThird: { layer: OffscreenCanvas; key: string; at: number } | null = null;
+  private lowerThirdLeaving: { layer: OffscreenCanvas; at: number } | null = null;
   private pendingAck: Array<{ version: number; resolve: () => void }> = [];
   private version = 0;
 
@@ -58,7 +68,9 @@ export class Compositor extends Observable<CompositorState> {
     this.canvas = document.createElement('canvas');
     this.canvas.width = width;
     this.canvas.height = height;
-    const g = this.canvas.getContext('2d', { alpha: false, desynchronized: true });
+    // Not `desynchronized`: this canvas is also the on-screen programme monitor, and a desynchronized
+    // canvas can be shown half-drawn (camera without its lower third), which flickers.
+    const g = this.canvas.getContext('2d', { alpha: false });
     if (!g) throw new Error('Canvas 2D unavailable');
     this.g = g;
     this.stream = this.canvas.captureStream(30);
@@ -178,13 +190,43 @@ export class Compositor extends Observable<CompositorState> {
       const r = fitRect(scene.image.width, scene.image.height, REF_W, REF_H, scene.imageFit);
       g.drawImage(scene.image, r.x, r.y, r.w, r.h);
     }
+    const now = performance.now();
+    const out = this.lowerThirdLeaving;
+    if (out) {
+      if (now - out.at >= LOWER_THIRD_OUT_MS) this.lowerThirdLeaving = null;
+      else this.drawLayer(out.layer, lowerThirdMotion(now - out.at, true));
+    }
+    if (this.lowerThird)
+      this.drawLayer(this.lowerThird.layer, lowerThirdMotion(now - this.lowerThird.at));
     if (this.overlay) g.drawImage(this.overlay, 0, 0);
+  }
+
+  private drawLayer(layer: OffscreenCanvas, m: { alpha: number; dx: number }): void {
+    if (m.alpha <= 0) return;
+    this.g.globalAlpha = m.alpha;
+    this.g.drawImage(layer, m.dx, 0);
+    this.g.globalAlpha = 1;
   }
 
   /** Pre-render static graphics once per change so each tick is at most a few drawImage calls. */
   private renderOverlay(): void {
+    const { scene } = this.state;
     const o = new OffscreenCanvas(REF_W, REF_H);
-    drawOverlay(o.getContext('2d')!, this.state.scene, this.theme);
+    drawOverlay(o.getContext('2d')!, scene, this.theme, false);
     this.overlay = o;
+
+    const lt = scene.kind === 'camera_lower_third' ? scene.lowerThird : null;
+    const key = lt ? JSON.stringify([lt.line1, lt.line2]) : null;
+    const prev = this.lowerThird;
+    const now = performance.now();
+    if (prev && prev.key !== key) this.lowerThirdLeaving = { layer: prev.layer, at: now };
+    if (!key) {
+      this.lowerThird = null;
+      return;
+    }
+    const layer = new OffscreenCanvas(REF_W, REF_H);
+    drawLowerThird(layer.getContext('2d')!, scene, this.theme);
+    // A theme change redraws the same name in place; only a new name animates in.
+    this.lowerThird = { layer, key, at: prev?.key === key ? prev.at : now };
   }
 }

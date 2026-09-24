@@ -28,6 +28,8 @@ export const ClaimResponse = z.object({
   verificationPhrase: z.string(),
   /** Pending credential: only allows the camera WS channel while pending/admitted. */
   credential: z.string(),
+  /** The same phone took back a slot it was already admitted to: no new approval needed. */
+  reclaimed: z.boolean().optional(),
 });
 export type ClaimResponse = z.infer<typeof ClaimResponse>;
 

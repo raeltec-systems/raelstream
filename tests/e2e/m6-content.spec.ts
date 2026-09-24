@@ -111,8 +111,12 @@ test('church look, uploaded images, and the lip-sync clip tool', async ({ browse
     await studio.getByRole('button', { name: 'Stop early' }).click();
     await expect(studio.getByTestId('sync-clip')).toBeVisible({ timeout: 15_000 });
     await expect(studio.getByText(/Clap sound detected at/)).toBeVisible();
-    for (let i = 0; i < 20; i++) await studio.getByRole('button', { name: /Frame ▶/ }).click();
-    await studio.getByRole('button', { name: 'The hands meet in this frame' }).click();
+    // The clip plays with its sound, and the pictures around the clap are offered to pick from.
+    await expect(studio.getByTestId('sync-clip')).toHaveJSProperty('muted', false);
+    const frames = studio.getByTestId('sync-strip').getByRole('option');
+    await expect(frames).toHaveCount(20, { timeout: 15_000 });
+    await frames.nth(12).click();
+    await expect(frames.nth(12)).toHaveAttribute('aria-selected', 'true');
     const result = studio.getByTestId('sync-result');
     await expect(result).toBeVisible();
     const use = studio.getByRole('button', { name: /^Use \d+ ms$/ });

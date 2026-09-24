@@ -107,11 +107,73 @@ function drawLogo(g: Ctx, th: ProgrammeTheme): void {
   g.drawImage(th.logo, x + r.x, y + r.y, r.w, r.h);
 }
 
+export const LOWER_THIRD_IN_MS = 450;
+export const LOWER_THIRD_OUT_MS = 250;
+
+/**
+ * Lower-third motion: slides in from the left while fading in (ease-out), and fades out when it is
+ * taken off. `sinceMs` is the time since it was put on (or taken off, for the way out).
+ */
+export function lowerThirdMotion(sinceMs: number, leaving = false): { alpha: number; dx: number } {
+  if (leaving) {
+    const p = Math.min(1, Math.max(0, sinceMs / LOWER_THIRD_OUT_MS));
+    return { alpha: 1 - p, dx: 0 };
+  }
+  const p = Math.min(1, Math.max(0, sinceMs / LOWER_THIRD_IN_MS));
+  const e = 1 - (1 - p) ** 3;
+  return { alpha: e, dx: -(1 - e) * 60 };
+}
+
+/** The name bar on its own layer, so the compositor can animate it in and out. */
+export function drawLowerThird(g: Ctx, scene: SceneState, th: ProgrammeTheme): void {
+  if (scene.kind !== 'camera_lower_third' || !scene.lowerThird) return;
+  const font = th.font;
+  const l1 = shortenForAir(scene.lowerThird.line1);
+  const l2 = shortenForAir(scene.lowerThird.line2);
+  const x = REF_W * 0.06;
+  // A bottom-left logo would sit under the bar: lift the bar above it.
+  const logo = th.logoCorner === 'bl' ? logoBox(th) : null;
+  const bottom = Math.min(REF_H * (1 - 0.09), logo ? REF_H - LOGO_MARGIN - logo.h - 24 : REF_H);
+  g.font = `700 60px ${font}`;
+  const w1 = g.measureText(l1).width;
+  g.font = `700 38px ${font}`;
+  const w2 = l2 ? g.measureText(l2).width : 0;
+  const padX = 54;
+  const barW = 22;
+  const w = Math.min(Math.max(w1, w2) + padX * 2, REF_W - x - SAFE - barW);
+  const h = l2 ? 170 : 118;
+  const y = bottom - h;
+  g.save();
+  g.beginPath();
+  g.roundRect(x, y, barW + w, h, 34);
+  g.clip();
+  g.fillStyle = th.accent;
+  g.fillRect(x, y, barW, h);
+  g.fillStyle = '#FFFFFF';
+  g.fillRect(x + barW, y, w, h);
+  g.restore();
+  g.textBaseline = 'alphabetic';
+  g.textAlign = 'left';
+  g.fillStyle = th.secondary;
+  g.font = `700 60px ${font}`;
+  g.fillText(l1, x + barW + padX, y + (l2 ? 82 : 78), w - padX * 2);
+  if (l2) {
+    g.fillStyle = th.accent;
+    g.font = `700 38px ${font}`;
+    g.fillText(l2, x + barW + padX, y + 136, w - padX * 2);
+  }
+}
+
 /**
  * Static graphics for a scene, drawn once per change into a 1920×1080 layer (the compositor then
  * draws at most video + this layer per tick). Also used for previews in Settings.
  */
-export function drawOverlay(g: Ctx, scene: SceneState, th: ProgrammeTheme): void {
+export function drawOverlay(
+  g: Ctx,
+  scene: SceneState,
+  th: ProgrammeTheme,
+  withLowerThird = true,
+): void {
   const font = th.font;
   if (scene.kind === 'slate') {
     g.fillStyle = th.background;
@@ -138,41 +200,8 @@ export function drawOverlay(g: Ctx, scene: SceneState, th: ProgrammeTheme): void
     g.fillRect(0, REF_H - 18, REF_W, 18);
     return;
   }
-  if (scene.kind === 'camera_lower_third' && scene.lowerThird) {
-    const l1 = shortenForAir(scene.lowerThird.line1);
-    const l2 = shortenForAir(scene.lowerThird.line2);
-    const x = REF_W * 0.06;
-    // A bottom-left logo would sit under the bar: lift the bar above it.
-    const logo = th.logoCorner === 'bl' ? logoBox(th) : null;
-    const bottom = Math.min(REF_H * (1 - 0.09), logo ? REF_H - LOGO_MARGIN - logo.h - 24 : REF_H);
-    g.font = `700 60px ${font}`;
-    const w1 = g.measureText(l1).width;
-    g.font = `700 38px ${font}`;
-    const w2 = l2 ? g.measureText(l2).width : 0;
-    const padX = 54;
-    const barW = 22;
-    const w = Math.min(Math.max(w1, w2) + padX * 2, REF_W - x - SAFE - barW);
-    const h = l2 ? 170 : 118;
-    const y = bottom - h;
-    g.save();
-    g.beginPath();
-    g.roundRect(x, y, barW + w, h, 34);
-    g.clip();
-    g.fillStyle = th.accent;
-    g.fillRect(x, y, barW, h);
-    g.fillStyle = '#FFFFFF';
-    g.fillRect(x + barW, y, w, h);
-    g.restore();
-    g.textBaseline = 'alphabetic';
-    g.textAlign = 'left';
-    g.fillStyle = th.secondary;
-    g.font = `700 60px ${font}`;
-    g.fillText(l1, x + barW + padX, y + (l2 ? 82 : 78), w - padX * 2);
-    if (l2) {
-      g.fillStyle = th.accent;
-      g.font = `700 38px ${font}`;
-      g.fillText(l2, x + barW + padX, y + 136, w - padX * 2);
-    }
+  if (scene.kind === 'camera_lower_third') {
+    if (withLowerThird) drawLowerThird(g, scene, th);
   } else if (scene.kind === 'text' && scene.text) {
     const t = scene.text;
     const lay = layoutTextCard(g, t, font);

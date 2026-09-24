@@ -292,3 +292,15 @@ now opens the report and checks real measurements).
 
 **What remains is the owner's:** M3 (the real phone, Dell, UMC and church network; G1–G5), the 3-hour
 soak on that hardware (A26) and two real services (A47).
+
+### Owner testing round 2: 24 Sep 2026
+
+| Report | Fix |
+|---|---|
+| Lower third flickers | The programme canvas was created `desynchronized`, which lets the screen show a half-drawn frame (camera without its lower third). Removed. The lower third is now its own layer: it slides in from the left (450 ms, ease-out) and fades out (250 ms); a theme change redraws it in place without re-animating. |
+| Lip-sync clip has no sound and is hard to use | The clip plays with its sound. **Play the clap with sound** (and at ¼ speed) plays the second around the detected clap; a strip of the 20 pictures around the clap sound, each labelled with its distance from the sound in ms, replaces stepping frame by frame from the start. |
+| Phone closed / Back pressed cuts the feed and "Pair again" does nothing | The phone keeps its camera link in `localStorage` and the link lasts 3 hours (rotated every 5 min while connected; it still dies when the service ends or the camera is removed). Reopening the camera page (browser tabs or history) reconnects and restarts the camera without a tap; Back asks "Stop camera?" instead of leaving; closing warns where the browser allows. The studio shows **Show reconnect code** (Devices and the live screen) whenever the camera phone is away: the same phone scans it and is straight back in, without a second approval (`claimInvitation` reclaims the slot for the same device fingerprint, event `camera.reclaimed`); another phone is still refused. The direct-link banner's action is now **Try again** (the phone opens a fresh connection), shown only while the phone is connected. |
+
+**Verified:** 90 unit, 75 integration; Playwright: both camera-reconnect runs (the new one closes the phone page mid-service, reopens it, then wipes its saved link and rescans the reconnect code), phone audio, invite/lease, the lip-sync filmstrip.
+
+**Backlog (asked for later):** more lower-third styles (wipe, fade only, none) chosen in Settings → Church look.
