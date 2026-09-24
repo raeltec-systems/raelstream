@@ -27,6 +27,7 @@ import { registerAccountRoutes } from './routes/account.js';
 import { registerContentRoutes } from './routes/content.js';
 import { registerDestinationRoutes } from './routes/destinations.js';
 import { registerRecordingRoutes } from './routes/recordings.js';
+import { registerObservabilityRoutes } from './routes/observability.js';
 
 const Uuid = z.string().uuid();
 const SessionParams = z.object({ id: Uuid });
@@ -126,6 +127,7 @@ export async function buildApp(
   registerContentRoutes(app, cfg, db, auth, lease);
   registerDestinationRoutes(app, cfg, db, auth, lease);
   registerRecordingRoutes(app, cfg, auth);
+  registerObservabilityRoutes(app, cfg, db, auth, hub, lease);
 
   // ---- presets ----
   app.get('/api/presets', { preHandler: user }, async () => presets.listPresets(db));

@@ -862,6 +862,8 @@ The result is stored in `stream_sessions.uplink_test` and shown in the report. T
 
 ### 11.5 Contribution adaptation (B§14)
 
+**[DECISION, M8]** Built as one `StepController` rule set (`packages/media-runtime/src/adaptation.ts`) used by both controllers. Upload congestion = `qualityLimitationReason` bandwidth, or `availableOutgoingBitrate` below 90 % of the current ceiling. The camera controller acts on loss > 2 %, freezes, or received fps below 80 % of what the phone reports capturing, so a dim room (the phone itself at 15 fps) never lowers the camera bitrate. `cam.setResolution` is not built; the bitrate steps stop at 2 Mb/s. Each change is a session event and appears in the report.
+
 The camera controller and contribution controller are independent state machines, each evaluated at 1 Hz.
 
 **Contribution controller signals:**
@@ -1371,7 +1373,7 @@ B§17 still applies. This table adds implementation-specific cases found during 
 | E18 | Operator double-clicks Start, or a network retry replays it | Idempotency key → the same operation result (A32). |
 | E19 | Stop is pressed during reconnect storms | `stopRequestedAt` set → the supervisor kills everything and ignores timers (A34). |
 | E20 | Control container restarts | The supervisor keeps running processes (desired state unchanged). The studio reconnects the WS (A38). |
-| E21 | Supervisor restarts | On boot it discovers orphan FFmpeg processes by PID file + generation tag. It **adopts** processes whose generation matches the desired state and kills the rest. Publishers restart if they cannot be adopted, and a brief destination interruption is reported honestly. |
+| E21 | Supervisor restarts | **[DECISION, M8]** No adoption: FFmpeg runs as the supervisor's child in the same container, so a supervisor restart (container restart) ends them too. On boot the supervisor rebuilds from the unchanged desired state: the slate covers the programme path, the normaliser and publishers restart, destinations show RECONNECTING, and the report shows the reconnects. A control restart (E20) does not touch media at all. |
 | E22 | VM reboots | Honest outage. The session becomes INTERRUPTED if it doesn't recover within grace. After boot, the supervisor sees desired=running with no contribution, and does not auto-publish the slate after grace (B§17: no HA claim). |
 | E23 | A second studio tab opens | Read-only (§9.10). |
 | E24 | Owner opens the studio on a phone | Unsupported layout. A warning, with read-only suggested. |

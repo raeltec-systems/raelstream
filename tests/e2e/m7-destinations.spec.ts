@@ -66,7 +66,9 @@ test('destinations, Facebook per-service key and the uplink test', async ({ brow
       page.getByRole('button', { name: 'Paste' }),
     );
     await expect(page.getByText('••••9876')).toBeVisible();
-    await expect(page.getByRole('status')).not.toContainText("paste Facebook's key for this service");
+    await expect(page.getByRole('status')).not.toContainText(
+      "paste Facebook's key for this service",
+    );
     await expect(page.getByText('YouTube waits for you')).toBeVisible();
     await page.screenshot({ path: info.outputPath('02-prep-destinations.png'), fullPage: true });
 

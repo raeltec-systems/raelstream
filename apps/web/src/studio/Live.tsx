@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, KeyChip, Logo, Meter, StatusDot, cx } from '@raelstream/ui';
 import { t } from '@raelstream/i18n';
-import { meterPosition, type SceneKind } from '@raelstream/media-runtime';
+import {
+  CAMERA_STEPS,
+  UPLOAD_STEPS,
+  meterPosition,
+  type SceneKind,
+} from '@raelstream/media-runtime';
 import { useStore } from '../lib/useStore.js';
 import { router } from '../lib/router.js';
 import { PROFILE_SIZE, studioRuntime } from './runtime.js';
@@ -376,6 +381,7 @@ export function Live() {
           <span className="rs-overline" style={{ gridColumn: '1 / -1' }}>
             {t('live.health')}
           </span>
+          <HealthNotes now={now} />
           <div>
             <div className={s.hLabel}>{t('health.uplink')}</div>
             <div className={s.hValue}>
@@ -408,3 +414,33 @@ export function Live() {
 }
 
 const NULL_STORE = { subscribe: () => () => {}, snapshot: null };
+
+/**
+ * What the automatic quality steps did (SPEC §11.5), and whether the media server's status is fresh
+ * (SPEC §9.3: stale after 5 s without an update while sending).
+ */
+function HealthNotes({ now }: { now: number }) {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  const notes: string[] = [];
+  const q = st.quality;
+  if (q.upload > 0)
+    notes.push(
+      t('health.uploadReduced', {
+        mbps: (UPLOAD_STEPS[st.profile][q.upload]! / 1e6).toFixed(1),
+      }),
+    );
+  if (q.cpu > 0) notes.push(t('health.cpuReduced'));
+  if (q.camera > 0) notes.push(t('health.cameraReduced', { mbps: CAMERA_STEPS[q.camera]! / 1e6 }));
+  const updated = st.observed?.updatedAt ? Date.parse(st.observed.updatedAt) : null;
+  const age = updated ? Math.round((now - updated) / 1000) : null;
+  if (rt.isLive && age !== null && age > 5) notes.push(t('health.stale', { s: age }));
+  if (notes.length === 0) return null;
+  return (
+    <div className={s.healthNotes} style={{ gridColumn: '1 / -1' }} role="status">
+      {notes.map((n) => (
+        <div key={n}>{n}</div>
+      ))}
+    </div>
+  );
+}

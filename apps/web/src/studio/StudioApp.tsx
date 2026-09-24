@@ -8,6 +8,7 @@ import { Preparation } from './Preparation.js';
 import { Live } from './Live.js';
 import { Home } from './Home.js';
 import { Settings } from './Settings.js';
+import { ServiceReport } from './Report.js';
 
 /** Studio shell: sign-in gate → service home / settings → Preparation / Live for the active service. */
 export function StudioApp({ path }: { path: string }) {
@@ -52,6 +53,8 @@ export function StudioApp({ path }: { path: string }) {
   if (me === undefined) return null;
   if (me === null) return <SignIn onDone={loadMe} />;
   if (path.startsWith('/studio/settings') && me.role === 'owner') return <Settings me={me} />;
+  const report = /^\/studio\/report\/([0-9a-f-]{36})$/.exec(path);
+  if (report) return <ServiceReport id={report[1]!} />;
   if (session === undefined) return null;
   if (session === null)
     return (

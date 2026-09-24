@@ -189,6 +189,12 @@ export interface DB {
     created_by: string | null;
     created_at: Generated<Ts>;
   };
+  diagnostic_summaries: {
+    session_id: string;
+    window_start: Ts;
+    window_s: number;
+    metrics: ColumnType<Record<string, unknown>, string, string>;
+  };
   sync_calibrations: {
     id: Generated<string>;
     session_id: string | null;

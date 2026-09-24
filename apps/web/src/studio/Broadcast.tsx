@@ -260,6 +260,14 @@ export function BroadcastBanners() {
         actions={
           <>
             <Recordings />
+            {st.session && (
+              <Button
+                size="dense"
+                onClick={() => window.location.assign(`/studio/report/${st.session!.id}`)}
+              >
+                {t('banner.viewReport')}
+              </Button>
+            )}
             <Button
               size="dense"
               variant="primary"
@@ -276,7 +284,18 @@ export function BroadcastBanners() {
   }
   if (st.lifecycle === 'RECOVERING') {
     return (
-      <Banner compact tone="standby" title={t('banner.slateTitle')}>
+      <Banner
+        compact
+        tone="standby"
+        title={t('banner.slateTitle')}
+        actions={
+          st.lease?.mine && (
+            <Button size="dense" onClick={() => void studioRuntime().extendGrace()}>
+              {t('banner.extendGrace')}
+            </Button>
+          )
+        }
+      >
         {t('banner.slateBody')}
       </Banner>
     );

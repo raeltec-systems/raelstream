@@ -4,7 +4,7 @@ import type { DB } from './db.js';
 import { AppError } from './errors.js';
 import { getSession } from './sessions.js';
 
-async function notifyDesired(db: Kysely<DB>, sessionId: string): Promise<void> {
+export async function notifyDesired(db: Kysely<DB>, sessionId: string): Promise<void> {
   await sql`select pg_notify('desired_changed', ${sessionId})`.execute(db);
 }
 

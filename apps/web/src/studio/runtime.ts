@@ -24,6 +24,12 @@ import {
   type SceneKind,
   type TextCard,
   textCardFits,
+  CAMERA_STEPS,
+  CPU_STEPS,
+  StepController,
+  UPLOAD_STEPS,
+  cameraLinkStruggling,
+  uploadCongested,
 } from '@raelstream/media-runtime';
 import { api, ApiFailure, clientId, getCsrf } from '../lib/api.js';
 import { FONT_FAMILY, assetBitmap, programmeTheme } from '../lib/theme.js';
@@ -65,6 +71,8 @@ export interface StudioState {
   selectedDestinationIds: string[];
   /** Per-service destination state: Facebook's key ending, the operator's live confirmation. */
   sessionDestinations: SessionDestination[];
+  /** Automatic quality steps (SPEC §11.5): index 0 = full quality. */
+  quality: { upload: number; cpu: number; camera: number };
   uplink: {
     status: 'idle' | 'running' | 'done' | 'error';
     progressMbps: number | null;
@@ -180,6 +188,7 @@ export class StudioRuntime extends Observable<StudioState> {
       selectedDestinationIds: [],
       sessionDestinations: [],
       uplink: { status: 'idle', progressMbps: null, result: null },
+      quality: { upload: 0, cpu: 0, camera: 0 },
       commandError: null,
       lease: null,
       presetId: null,
@@ -203,6 +212,162 @@ export class StudioRuntime extends Observable<StudioState> {
       this.syncTally();
       this.syncPhoneAudio();
     });
+    setInterval(() => this.adaptTick(), 1000);
+    document.addEventListener('visibilitychange', () => {
+      // E11: switching tabs is fine now, but the report should show it happened while sending.
+      if (document.visibilityState === 'hidden' && this.isLive) void this.logEvent('studio.hidden');
+    });
+  }
+
+  // ---- adaptation (SPEC §11.5): two independent controllers, 1 Hz; audio is never touched ----
+  private uploadCtl = new StepController(UPLOAD_STEPS.reliable_hd.length);
+  private cpuCtl = new StepController(CPU_STEPS.length);
+  private cameraCtl = new StepController(CAMERA_STEPS.length);
+
+  // ---- statistics for the report (SPEC §19): 1 Hz samples, uploaded as 10 s aggregates ----
+  private samples: Array<Record<string, number | string | null>> = [];
+  private windowStart = Date.now();
+  private lastClips = 0;
+
+  private sample(): void {
+    const cam = this.camera.snapshot;
+    const w = this.whip?.snapshot;
+    const a = this.audio.snapshot;
+    const active = cam.connection === 'connected' || w?.status === 'connected';
+    if (!active || !this.state.session || !this.state.lease?.mine) {
+      this.samples = [];
+      this.windowStart = Date.now();
+      return;
+    }
+    this.samples.push({
+      cameraFps: cam.summary?.fps ?? null,
+      cameraLossPct: cam.summary?.lossPct ?? null,
+      cameraRttMs: cam.summary?.rttMs ?? null,
+      jitterBufferMs: cam.summary?.jitterBufferMs ?? null,
+      uploadMbps: w?.bitrateBps != null ? w.bitrateBps / 1e6 : null,
+      uploadRttMs: w?.rttMs ?? null,
+      encodeFps: w?.framesPerSecond ?? null,
+      ql: w?.qualityLimitation ?? null,
+      peakDb: a.status === 'running' ? Math.max(...a.programme.peakDb) : null,
+      silent: a.silent ? 1 : 0,
+    });
+    if (this.samples.length >= 10) void this.flushWindow();
+  }
+
+  private async flushWindow(): Promise<void> {
+    const rows = this.samples;
+    const start = this.windowStart;
+    this.samples = [];
+    this.windowStart = Date.now();
+    const stat = (k: string) => {
+      const v = rows.map((r) => r[k]).filter((x): x is number => typeof x === 'number');
+      if (!v.length) return { min: null, avg: null, max: null };
+      const r1 = (n: number) => Math.round(n * 100) / 100;
+      return {
+        min: r1(Math.min(...v)),
+        avg: r1(v.reduce((x, y) => x + y, 0) / v.length),
+        max: r1(Math.max(...v)),
+      };
+    };
+    const ql: Record<string, number> = {};
+    for (const r of rows) if (typeof r.ql === 'string') ql[r.ql] = (ql[r.ql] ?? 0) + 1;
+    const peaks = rows.map((r) => r.peakDb).filter((x): x is number => typeof x === 'number');
+    const clips = this.audio.snapshot.clipCount;
+    const body = {
+      windowStart: new Date(start).toISOString(),
+      windowS: rows.length,
+      metrics: {
+        cameraFps: stat('cameraFps'),
+        cameraLossPct: stat('cameraLossPct'),
+        cameraRttMs: stat('cameraRttMs'),
+        jitterBufferMs: stat('jitterBufferMs'),
+        uploadMbps: stat('uploadMbps'),
+        uploadRttMs: stat('uploadRttMs'),
+        encodeFps: stat('encodeFps'),
+        qualityLimitation: ql,
+        audioPeakMaxDb: peaks.length ? Math.round(Math.max(...peaks) * 10) / 10 : null,
+        clips: Math.max(0, clips - this.lastClips),
+        silenceS: rows.reduce((n, r) => n + (r.silent === 1 ? 1 : 0), 0),
+        qualitySteps: this.state.quality,
+      },
+    };
+    this.lastClips = clips;
+    const s = this.state.session;
+    if (s) await api('POST', `/api/sessions/${s.id}/diagnostics`, body).catch(() => undefined);
+  }
+
+  private adaptTick(now = performance.now()): void {
+    this.sample();
+    const w = this.whip?.snapshot;
+    if (w?.status === 'connected') {
+      const steps = UPLOAD_STEPS[this.state.profile];
+      if (this.uploadCtl.steps !== steps.length) this.uploadCtl = new StepController(steps.length);
+      const ceiling = steps[this.uploadCtl.index]!;
+      const up = this.uploadCtl.update(
+        uploadCongested({ ...w, sentBps: w.bitrateBps }, ceiling),
+        now,
+      );
+      const cpu = this.cpuCtl.update(w.qualityLimitation === 'cpu', now);
+      if (up || cpu) {
+        const e = CPU_STEPS[this.cpuCtl.index]!;
+        void this.whip?.setEncoding({ maxBitrate: steps[this.uploadCtl.index]!, ...e });
+        this.set({
+          quality: { ...this.state.quality, upload: this.uploadCtl.index, cpu: this.cpuCtl.index },
+        });
+        if (up)
+          void this.logEvent(
+            up.direction === 'down' ? 'quality.upload_reduced' : 'quality.upload_restored',
+            {
+              mbps: steps[this.uploadCtl.index]! / 1e6,
+            },
+          );
+        if (cpu)
+          void this.logEvent(
+            cpu.direction === 'down' ? 'quality.cpu_reduced' : 'quality.cpu_restored',
+            {
+              step: this.cpuCtl.index,
+            },
+          );
+      }
+    } else if (this.uploadCtl.index || this.cpuCtl.index) {
+      this.uploadCtl.reset();
+      this.cpuCtl.reset();
+      this.set({ quality: { ...this.state.quality, upload: 0, cpu: 0 } });
+    }
+
+    const cam = this.camera.snapshot;
+    if (cam.connection === 'connected' && cam.summary) {
+      const ch = this.cameraCtl.update(
+        cameraLinkStruggling({
+          receivedFps: cam.summary.fps,
+          captureFps: cam.camState?.frameRate ?? null,
+          lossPct: cam.summary.lossPct,
+          freezesDelta: null,
+        }),
+        now,
+      );
+      if (ch) {
+        const bps = CAMERA_STEPS[this.cameraCtl.index]!;
+        this.camera.setCameraBitrate(bps);
+        this.set({ quality: { ...this.state.quality, camera: this.cameraCtl.index } });
+        void this.logEvent(
+          ch.direction === 'down' ? 'quality.camera_reduced' : 'quality.camera_restored',
+          {
+            mbps: bps / 1e6,
+          },
+        );
+      }
+    } else if (this.cameraCtl.index) {
+      this.cameraCtl.reset();
+      this.set({ quality: { ...this.state.quality, camera: 0 } });
+    }
+  }
+
+  /** Studio-side events for the service timeline and report (SPEC §19). Best effort. */
+  async logEvent(kind: string, data: Record<string, unknown> = {}): Promise<void> {
+    const s = this.state.session;
+    if (!s || !this.state.lease?.mine) return;
+    await api('POST', `/api/sessions/${s.id}/events`, { kind, data }).catch(() => undefined);
   }
 
   // ---- audio source ----
@@ -348,8 +513,10 @@ export class StudioRuntime extends Observable<StudioState> {
 
   /** The compositor cuts to the slate by itself when the camera stops (B§17): show that in the scenes. */
   private onCompositor(): void {
-    if (this.compositor.snapshot.autoCutAt && this.state.scene !== 'slate')
+    if (this.compositor.snapshot.autoCutAt && this.state.scene !== 'slate') {
       this.set({ scene: 'slate', onAirIndex: null });
+      void this.logEvent('camera.auto_slate');
+    }
     this.syncTally();
   }
 
@@ -951,6 +1118,13 @@ export class StudioRuntime extends Observable<StudioState> {
     await this.whip?.stop();
     this.whip = null;
     this.set({ contribution: 'idle', sendingSince: null });
+  }
+
+  /** Keep the slate up 5 more minutes while the studio comes back (SPEC §12.5; at most 20 min). */
+  async extendGrace(): Promise<void> {
+    await this.command('grace/extend').catch((e) =>
+      this.set({ commandError: (e as Error).message }),
+    );
   }
 
   async retryDestination(id: string): Promise<void> {

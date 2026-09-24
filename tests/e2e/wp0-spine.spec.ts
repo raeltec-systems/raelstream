@@ -191,6 +191,26 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   await studio.getByRole('button', { name: 'Stop private test' }).click();
   await expect(studio.getByText('Not sending')).toBeVisible();
 
+  // The service report (SPEC §19): the studio's 10 s statistics windows arrived; what was not measured
+  // says so in words (A45).
+  await expect
+    .poll(
+      async () =>
+        (await (await studio.request.get(`/api/sessions/${sessionId}/report`)).json()).stats
+          .cameraFps,
+      { timeout: 25_000 },
+    )
+    .not.toBeNull();
+  await studio.goto(`/studio/report/${sessionId}`);
+  const checks = studio.getByTestId('report-checks');
+  await expect(checks.getByRole('listitem').filter({ hasText: 'Uplink test' })).toContainText(
+    'Not tested',
+  );
+  await expect(
+    studio.getByTestId('report-stats').getByRole('listitem').filter({ hasText: 'Camera frames' }),
+  ).toContainText(/min \d+(\.\d+)? · avg/);
+  await studio.screenshot({ path: info.outputPath('06-report.png'), fullPage: true });
+
   await camCtx.close();
   await studioCtx.close();
 });

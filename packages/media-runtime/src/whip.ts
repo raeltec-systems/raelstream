@@ -13,7 +13,15 @@ export interface WhipState {
   rttMs: number | null;
   qualityLimitation: string | null;
   framesPerSecond: number | null;
+  /** The browser's estimate of upload capacity on the selected path. */
+  availableOutgoingBps: number | null;
   route: 'udp' | 'tcp' | 'relay' | 'unknown';
+}
+
+export interface VideoEncoding {
+  maxBitrate: number;
+  scaleResolutionDownBy: number;
+  maxFramerate: number;
 }
 
 export interface WhipTarget {
@@ -47,8 +55,25 @@ export class WhipPublisher extends Observable<WhipState> {
       rttMs: null,
       qualityLimitation: null,
       framesPerSecond: null,
+      availableOutgoingBps: null,
       route: 'unknown',
     });
+  }
+
+  /** Adaptation (SPEC §11.5): change the programme encoding in place; the track is never replaced. */
+  async setEncoding(e: VideoEncoding): Promise<void> {
+    const sender = this.pc?.getSenders().find((x) => x.track?.kind === 'video');
+    if (!sender) return;
+    const p = sender.getParameters();
+    p.encodings = [
+      {
+        ...(p.encodings?.[0] ?? {}),
+        maxBitrate: Math.min(e.maxBitrate, this.maxVideoBps),
+        scaleResolutionDownBy: e.scaleResolutionDownBy,
+        maxFramerate: e.maxFramerate,
+      },
+    ];
+    await sender.setParameters(p).catch(() => undefined);
   }
 
   async start(target: WhipTarget): Promise<void> {
@@ -155,6 +180,7 @@ export class WhipPublisher extends Observable<WhipState> {
     let ql: string | null = null;
     let rtt: number | null = null;
     let route: WhipState['route'] = 'unknown';
+    let available: number | null = null;
     for (const s of r.values()) {
       if (s.type === 'outbound-rtp' && s.kind === 'video') {
         bytes = typeof s.bytesSent === 'number' ? s.bytesSent : null;
@@ -164,6 +190,8 @@ export class WhipPublisher extends Observable<WhipState> {
       if (s.type === 'transport' && typeof s.selectedCandidatePairId === 'string') {
         const pair = r.get(s.selectedCandidatePairId);
         if (typeof pair?.currentRoundTripTime === 'number') rtt = pair.currentRoundTripTime * 1000;
+        if (typeof pair?.availableOutgoingBitrate === 'number')
+          available = pair.availableOutgoingBitrate;
         const local = pair ? r.get(pair.localCandidateId as string) : undefined;
         if (local?.candidateType === 'relay') route = 'relay';
         else if (local?.protocol === 'udp') route = 'udp';
@@ -180,6 +208,7 @@ export class WhipPublisher extends Observable<WhipState> {
       framesPerSecond: fps,
       qualityLimitation: ql,
       rttMs: rtt,
+      availableOutgoingBps: available,
       route,
     });
     this.prevBytes = bytes;

@@ -425,3 +425,10 @@
   text-underline-offset: 3px;
   white-space: nowrap;
 }
+
+.healthNotes {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--standby-text, #f0c36b);
+  font-weight: 700;
+}

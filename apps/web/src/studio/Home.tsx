@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { SessionSnapshot } from '@raelstream/contracts';
-import { Button, Card, Logo, TextField } from '@raelstream/ui';
+import { Button, Card, Logo, StatusDot, TextField } from '@raelstream/ui';
 import { t } from '@raelstream/i18n';
 import { api, ApiFailure } from '../lib/api.js';
 import { router } from '../lib/router.js';
@@ -125,7 +125,50 @@ export function Home({
         <Button variant="ghost" onClick={() => void start(null)}>
           {t('home.startBlank')}
         </Button>
+        <RecentServices />
       </Card>
     </main>
+  );
+}
+
+interface Recent {
+  id: string;
+  name: string;
+  lifecycle: string;
+  createdAt: string;
+  wasLive: boolean;
+}
+
+/** The last services and how they ended, each with its report (S01, SPEC §9.1). */
+function RecentServices() {
+  const [recent, setRecent] = useState<Recent[]>([]);
+  useEffect(() => {
+    void api<Recent[]>('GET', '/api/sessions/recent')
+      .then(setRecent)
+      .catch(() => setRecent([]));
+  }, []);
+  if (recent.length === 0) return null;
+  return (
+    <>
+      <h2 className="rs-title">{t('home.recent')}</h2>
+      <ul className={s.list} aria-label={t('home.recent')}>
+        {recent.map((r) => (
+          <li key={r.id} className={s.row}>
+            <StatusDot tone={r.lifecycle === 'ENDED' ? 'ready' : 'live'} />
+            <span className={s.rowText}>
+              <span className={s.rowTitle}>{r.name}</span>
+              <span className={s.rowSub}>
+                {t(r.lifecycle === 'ENDED' ? 'home.outcome.ended' : 'home.outcome.interrupted', {
+                  date: new Date(r.createdAt).toLocaleDateString('en-GB'),
+                })}
+              </span>
+            </span>
+            <Button size="dense" onClick={() => router.go(`/studio/report/${r.id}`)}>
+              {t('home.report')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

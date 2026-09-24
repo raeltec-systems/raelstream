@@ -36,7 +36,8 @@ export const DesiredState = z.object({
     z.string().uuid(),
     z.object({ state: z.enum(['running', 'stopped']), retryNonce: z.number().int() }),
   ),
-  fallbackGraceS: z.number().int().min(60).max(600),
+  /** 60–600 s from the preset; the operator may extend it to at most 1200 s while recovering. */
+  fallbackGraceS: z.number().int().min(60).max(1200),
   stopRequestedAt: z.string().nullable(),
   endOnStop: z.boolean(),
   /** Record a private copy of the public output (SPEC §12.7). */

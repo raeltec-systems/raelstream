@@ -261,3 +261,18 @@ playback and downloads a valid 720p H.264/AAC file).
 
 **Bug found:** new destinations were not ticked for the service if the studio had already loaded the
 list; and a missing Facebook key blocked opening the Studio (now a reminder: it only blocks going live).
+
+### M8: built 24 Sep 2026 (WP5)
+
+| Area | State |
+|---|---|
+| Adaptation (A39) | Done: one step controller (5 s evidence, 20 s between changes, 60 s stable to step back up) drives the programme upload (8→6→4.5→3→1.5 Mb/s; 720p 4.5→3→2→1.5), CPU relief (1.5× smaller, then 15 fps) and the phone's bitrate (8→5→3→2 Mb/s). Dim light (the phone itself at 15 fps) never lowers the camera bitrate. Audio is never touched. Each change is an event, shown in the health panel and the report. |
+| Camera stall → slate (A10) | Done in M5/M6; an automatic slate cut is now logged for the report. |
+| Grace / extend (A36) | Done: "Keep the slate up 5 more minutes" while RECOVERING (lease holder), at most 20 min in total; the supervisor reads it on its next tick. |
+| Supervisor restart (A38, E21) | Decision recorded (SPEC §20): no adoption; a restart rebuilds from the desired state and the reconnects show in the report. A control restart does not touch media. |
+| Health staleness | Done: "Media server status not updated for N s" while live; quality-step notes in the health panel. |
+| Report (S06, A45) | Done: `/studio/report/:id` and JSON download: checks in words (Passed/Failed/Not tested/Inconclusive), destinations with final state, reconnects and the operator's playback check, measurements from the studio's 10 s windows (missing = "unavailable"), quality changes, recordings with expiry, timeline. Home lists recent services with their outcome. |
+
+**Verified:** 88 unit (6 new for the controller and signals), 72 integration (5 new: report defaults,
+aggregation, unknown fields refused, studio events whitelist, grace cap), 8 Playwright runs (the spine
+now opens the report and checks real measurements).
