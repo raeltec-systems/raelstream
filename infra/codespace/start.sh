@@ -49,6 +49,9 @@ fi
     # Nothing is reachable directly in a Codespace; skip straight to the relay.
     echo "RS_ICE_TRANSPORT_POLICY=relay"
   fi
+  # GitHub's port forwarding rewrites every browser Origin to http://localhost:8080. The CSRF header
+  # and SameSite=Strict cookies still protect state-changing requests.
+  echo "RS_EXTRA_ALLOWED_ORIGINS=http://localhost:8080"
 } > "$C/.env"
 chmod 600 "$C/.env"
 node infra/codespace/turn-env.mjs "$C/.env.mediamtx-turn"

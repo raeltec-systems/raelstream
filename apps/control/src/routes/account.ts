@@ -18,11 +18,11 @@ const Token = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export function registerAccountRoutes(app: FastifyInstance, cfg: Config, auth: AuthService): void {
   const loginLimit = new RateLimiter(cfg.loginRateLimit, 10 * 60_000);
   const inviteLimit = new RateLimiter(20, 10 * 60_000);
-  const user = requireUser(auth, cfg.publicOrigin);
-  const owner = requireUser(auth, cfg.publicOrigin, 'owner');
+  const user = requireUser(auth, cfg.allowedOrigins);
+  const owner = requireUser(auth, cfg.allowedOrigins, 'owner');
   const secure = cfg.publicOrigin.startsWith('https:');
   const sameOrigin = (origin: string | undefined) => {
-    if (origin !== cfg.publicOrigin) throw new AppError('FORBIDDEN', 'auth');
+    if (!cfg.allowedOrigins.includes(origin ?? '')) throw new AppError('FORBIDDEN', 'auth');
   };
 
   app.post('/api/auth/login', async (req) => {

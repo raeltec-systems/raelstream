@@ -400,3 +400,43 @@ describe('operator invites and roles (SPEC §6.2)', () => {
     ).toBe(200);
   });
 });
+
+describe('Codespaces origin rewrite (RS_EXTRA_ALLOWED_ORIGINS)', () => {
+  it('accepts the rewritten origin only when configured, never in production', async () => {
+    const f = await freshDb('rs_test_origins');
+    const proxied = 'http://localhost:8080';
+    const { app: cs, auth: csAuth } = await buildApp(
+      testConfig(f.url, { RS_EXTRA_ALLOWED_ORIGINS: `${proxied}/` }),
+      f.db,
+    );
+    await createTestUser(csAuth, 'cs@church.test', 'owner');
+    const try_ = (origin: string) =>
+      cs.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        headers: { origin },
+        payload: { email: 'cs@church.test', password: PASSWORD },
+      });
+    expect((await try_(proxied)).statusCode).toBe(200);
+    expect((await try_(ORIGIN)).statusCode).toBe(200);
+    expect((await try_('https://evil.test')).statusCode).toBe(403);
+    // the default configuration still refuses the rewritten origin
+    expect((await login('owner@church.test', PASSWORD)).statusCode).toBe(200);
+    const plain = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: { origin: proxied },
+      payload: { email: 'owner@church.test', password: PASSWORD },
+    });
+    expect(plain.statusCode).toBe(403);
+    expect(() =>
+      testConfig(f.url, {
+        NODE_ENV: 'production',
+        RS_EXTRA_ALLOWED_ORIGINS: proxied,
+        RS_TOTP_KEY: Buffer.alloc(32).toString('base64'),
+      }),
+    ).toThrow(/RS_EXTRA_ALLOWED_ORIGINS/);
+    await cs.close();
+    await f.db.destroy();
+  });
+});

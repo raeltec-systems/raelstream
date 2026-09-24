@@ -53,7 +53,7 @@ export async function buildApp(
   const hub = new Hub(db, app.log);
   const pairLimit = new RateLimiter(cfg.pairRateLimit, 60_000);
   const ice = createIceProvider(cfg.turn, app.log);
-  const user = requireUser(auth, cfg.publicOrigin);
+  const user = requireUser(auth, cfg.allowedOrigins);
   /** Privileged session commands: current lease holder only (SPEC §17.3). */
   const lease = (req: FastifyRequest, id: string) => requireLease(db, id, clientIdOf(req));
 
@@ -371,7 +371,8 @@ export async function buildApp(
 
   app.register(async (scope) => {
     scope.get('/ws', { websocket: true }, (socket, req) => {
-      if (req.headers.origin !== cfg.publicOrigin) return socket.close(4403, 'origin');
+      if (!cfg.allowedOrigins.includes(req.headers.origin ?? ''))
+        return socket.close(4403, 'origin');
       // Attach synchronously so no early message is lost; the principal resolves in the background.
       hub.attach(
         socket,

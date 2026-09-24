@@ -7,6 +7,12 @@ export interface Config {
   databaseUrl: string;
   /** Public origin of the app (used for pairing URLs and Origin/CSRF checks). */
   publicOrigin: string;
+  /**
+   * Origins accepted on state-changing requests and the WebSocket: the public origin, plus
+   * RS_EXTRA_ALLOWED_ORIGINS outside production. GitHub Codespaces' port forwarding rewrites every
+   * browser Origin to http://localhost:<port>, so the Codespace stack must accept that one.
+   */
+  allowedOrigins: string[];
   /** Public base for WHIP, e.g. https://stream.example.org/whip */
   whipPublicBase: string;
   /** Shared secret MediaMTX's internal readers (supervisor) present. */
@@ -33,6 +39,12 @@ export function loadConfig(env = process.env): Config {
     throw new Error(
       'RS_DEV_AUTH was removed in M4; create an owner with `cli.js user:create-owner`',
     );
+  const extraOrigins = (env.RS_EXTRA_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  if (production && extraOrigins.length)
+    throw new Error('RS_EXTRA_ALLOWED_ORIGINS must not be set in production');
   const need = (k: string, fallback?: string) => {
     const v = env[k] ?? fallback;
     if (v === undefined || v === '') throw new Error(`missing env ${k}`);
@@ -43,6 +55,7 @@ export function loadConfig(env = process.env): Config {
     host: env.HOST ?? '0.0.0.0',
     databaseUrl: need('DATABASE_URL'),
     publicOrigin: need('PUBLIC_ORIGIN').replace(/\/$/, ''),
+    allowedOrigins: [need('PUBLIC_ORIGIN').replace(/\/$/, ''), ...extraOrigins],
     whipPublicBase: need('WHIP_PUBLIC_BASE').replace(/\/$/, ''),
     mediamtxInternalUser: need('MEDIAMTX_INTERNAL_USER', production ? undefined : 'supervisor'),
     mediamtxInternalPass: need('MEDIAMTX_INTERNAL_PASS', production ? undefined : 'dev-internal'),

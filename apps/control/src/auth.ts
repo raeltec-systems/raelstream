@@ -444,14 +444,14 @@ export function cookieOptions(secure: boolean) {
  * Require a signed-in user (optionally a role). State-changing methods also need the same Origin and
  * the per-session CSRF header (SPEC §6.1).
  */
-export function requireUser(auth: AuthService, publicOrigin: string, role?: Role) {
+export function requireUser(auth: AuthService, allowedOrigins: readonly string[], role?: Role) {
   return async (req: FastifyRequest, _reply: FastifyReply) => {
     const p = await auth.fromCookie(req.cookies[SESSION_COOKIE]);
     if (!p) throw new AppError('AUTH_REQUIRED', 'auth');
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const csrf = req.headers['x-rs-csrf'];
       if (
-        req.headers.origin !== publicOrigin ||
+        !allowedOrigins.includes(req.headers.origin ?? '') ||
         typeof csrf !== 'string' ||
         !safeEqual(csrf, p.csrf)
       )
