@@ -80,3 +80,17 @@ jobs:
         with:
           name: m2-media-evidence
           path: test-results/m2-media-evidence.json
+
+  images:
+    # The deployable images build, and the control image's native image library loads (SPEC §10.6).
+    runs-on: ubuntu-24.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -q -f infra/compose/control.Dockerfile -t rs-control:ci .
+      - run: >-
+          docker run --rm --entrypoint node rs-control:ci -e
+          "import('sharp').then(async ({default: s}) => {
+          const b = await s({create:{width:8,height:8,channels:3,background:'red'}}).jpeg().toBuffer();
+          console.log('sharp ok', s.versions.sharp, b.length) })"
+      - run: docker build -q -f infra/compose/caddy.Dockerfile -t rs-caddy:ci .

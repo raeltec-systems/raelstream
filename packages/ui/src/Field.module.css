@@ -74,3 +74,12 @@
   background: var(--accent-ui);
   color: var(--on-accent-ui);
 }
+
+.textarea {
+  height: auto;
+  min-height: 120px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.45;
+  resize: vertical;
+}

@@ -9,6 +9,7 @@ passed the gate evidence is the qualified release.
 | pnpm | 12.5.1 | `packageManager` in package.json |
 | TypeScript | 6.0.3 | **Not 7.x:** typescript-eslint 8.70 supports `<6.1`. This is the fallback §4.3.1 allows. Revisit when typescript-eslint supports 7. |
 | React / React DOM | 19.x (lockfile) | |
+| sharp | 0.35.4 | Image checks and re-encoding for uploads (SPEC §10.6). Native; installed separately in `control.Dockerfile` (`SHARP_VERSION`): keep in step with `apps/control/package.json`. |
 | Vite | 8.x (lockfile) | |
 | Fastify | 5.12.x | |
 | Kysely | 0.29.x | |

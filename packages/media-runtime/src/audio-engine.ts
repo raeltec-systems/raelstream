@@ -21,6 +21,7 @@ export interface MeterReading {
 const PEAK_HOLD_MS = 1500;
 const SOUND_RECENT_MS = 3000;
 const SOUND_THRESHOLD_DB = -60;
+const SILENCE_SNOOZE_MS = 5 * 60_000;
 
 class PeakHold {
   private db: [number, number] = [-90, -90];
@@ -60,6 +61,8 @@ export interface AudioEngineState {
   silent: boolean;
   /** Input above −60 dBFS within the last 3 s (for the "Sound detected" chip). */
   soundRecent: boolean;
+  /** The lost interface is plugged in again: offer "Reconnect" (A18). */
+  deviceBack: { deviceId: string; label: string } | null;
   error: string | null;
 }
 
@@ -101,6 +104,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
   private inputHold = new PeakHold();
   private programmeHold = new PeakHold();
   private lastSoundAt = 0;
+  private silenceMutedUntil = 0;
   private ready: Promise<void>;
   private onDeviceChange = () => void this.checkDevicePresent();
 
@@ -125,6 +129,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
       clipCount: 0,
       silent: false,
       soundRecent: false,
+      deviceBack: null,
       error: null,
     });
     const ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
@@ -219,7 +224,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
 
   /** Capture the selected device with processing off (B§12.1). Must be called from a user gesture on first use. */
   async selectDevice(deviceId: string): Promise<void> {
-    this.set({ status: 'starting', error: null });
+    this.set({ status: 'starting', error: null, deviceBack: null });
     this.releaseSource();
     try {
       // Without the meters there is no way to check sound, so a failed load is a visible error.
@@ -387,9 +392,19 @@ export class AudioEngine extends Observable<AudioEngineState> {
     this.set({ monitor: on });
   }
 
-  acknowledgeSilence(): void {
+  /** "This is intentional": no silence warning for 5 minutes (SPEC §10.4.6). Never changes gain. */
+  acknowledgeSilence(now = performance.now()): void {
     this.silence.reset();
+    this.silenceMutedUntil = now + SILENCE_SNOOZE_MS;
     this.set({ silent: false });
+  }
+
+  /** The lost interface is back (A18): reselect it by its new id. Only on the operator's click. */
+  async reconnectDevice(): Promise<void> {
+    const back = this.state.deviceBack;
+    if (!back) return;
+    this.set({ deviceBack: null });
+    await this.selectDevice(back.deviceId);
   }
 
   dispose(): void {
@@ -437,8 +452,8 @@ export class AudioEngine extends Observable<AudioEngineState> {
     const input = this.reading(d, this.inputHold);
     if (Math.max(...input.peakDb) > SOUND_THRESHOLD_DB) this.lastSoundAt = now;
     const running = this.state.status === 'running';
-    const silent =
-      running && !this.state.muted && this.silence.update(Math.max(...input.rmsDb), now);
+    const quiet = this.silence.update(Math.max(...input.rmsDb), now);
+    const silent = running && !this.state.muted && now >= this.silenceMutedUntil && quiet;
     const soundRecent = running && now - this.lastSoundAt < SOUND_RECENT_MS;
     this.set({ input, silent, soundRecent, clipCount: this.state.clipCount + (d.clip ? 1 : 0) });
   }
@@ -458,9 +473,12 @@ export class AudioEngine extends Observable<AudioEngineState> {
   }
 
   private async checkDevicePresent(): Promise<void> {
-    if (this.state.status !== 'running' || !this.state.deviceLabel) return;
-    if (this.state.source !== 'device') return;
+    if (this.state.source !== 'device' || !this.state.deviceLabel) return;
     const inputs = await this.listInputs();
-    if (!inputs.some((d) => d.label === this.state.deviceLabel)) this.handleLoss();
+    const match = inputs.find((d) => d.label === this.state.deviceLabel);
+    if (this.state.status === 'running' && !match) this.handleLoss();
+    // Offer the same interface back when it reappears; never select it (or anything) by itself.
+    if (this.state.status === 'device_lost' && match?.deviceId)
+      this.set({ deviceBack: { deviceId: match.deviceId, label: match.label } });
   }
 }

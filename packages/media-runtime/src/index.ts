@@ -11,3 +11,4 @@ export type { WhipState, WhipTarget } from './whip.js';
 export { CameraReceiver, DIRECT_CONNECT_DEADLINE_MS } from './camera-receiver.js';
 export type { CameraReceiverState } from './camera-receiver.js';
 export { preferCodecs, waitForIceGathering } from './sdp.js';
+export * from './overlays.js';

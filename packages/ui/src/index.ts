@@ -6,7 +6,7 @@ export type { Tone } from './Status.js';
 export { Toggle } from './Toggle.js';
 export { Segmented } from './Segmented.js';
 export type { SegmentOption } from './Segmented.js';
-export { TextField, SecretField } from './Field.js';
+export { TextField, TextArea, SecretField } from './Field.js';
 export { Modal } from './Modal.js';
 export { StopModal } from './StopModal.js';
 export type { LiveDestination } from './StopModal.js';

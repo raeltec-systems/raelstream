@@ -50,3 +50,23 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   if (!res.ok) throw new ApiFailure(res.status, data ?? {});
   return data as T;
 }
+
+/** Upload an image file as-is; the server sniffs, checks and re-encodes it (SPEC §10.6). */
+export async function uploadAsset(
+  file: Blob,
+): Promise<{ id: string; width: number; height: number; mime: string }> {
+  const res = await fetch('/api/assets', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-RS-CSRF': csrf,
+      'X-RS-Client': clientId,
+    },
+    body: file,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new ApiFailure(res.status, data ?? {});
+  return data;
+}

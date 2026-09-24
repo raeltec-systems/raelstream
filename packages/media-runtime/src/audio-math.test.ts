@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   SilenceDetector,
+  detectOnset,
+  suggestDelay,
   availableModes,
   clampDelayMs,
   meterPosition,
@@ -60,5 +62,40 @@ describe('SilenceDetector', () => {
     expect(d.update(-80, 15_000)).toBe(true);
     expect(d.update(-20, 15_500)).toBe(false);
     expect(d.update(-80, 16_000)).toBe(false);
+  });
+});
+
+describe('sync tool maths (SPEC §11.4)', () => {
+  const rate = 48000;
+  const clip = (clapAtS: number, noiseDb = -60) => {
+    const x = new Float32Array(rate * 2);
+    const n = 10 ** (noiseDb / 20);
+    for (let i = 0; i < x.length; i++) x[i] = (i % 2 ? 1 : -1) * n;
+    const at = Math.round(clapAtS * rate);
+    for (let i = at; i < at + 480; i++) x[i] = 0.8 * Math.exp(-(i - at) / 100);
+    return x;
+  };
+
+  it('finds the clap after quiet, to within a millisecond', () => {
+    expect(detectOnset(clip(1.234), rate)! - 1.234).toBeCloseTo(0, 3);
+  });
+  it('ignores a loud start with no quiet before it, and finds nothing in silence', () => {
+    const loud = clip(0.0, -10);
+    expect(detectOnset(loud, rate)).toBeNull();
+    expect(detectOnset(new Float32Array(rate), rate)).toBeNull();
+  });
+  it('turns the marked frame and the clap into a delay', () => {
+    // Sound 120 ms before the picture with no delay: add 120 ms.
+    expect(suggestDelay(0, 1.0, 0.88)).toEqual({
+      measuredOffsetMs: -120,
+      suggestedMs: 120,
+      result: 'ok',
+    });
+    // Already delayed 200 ms and now 40 ms late: back off to 160.
+    expect(suggestDelay(200, 1.0, 1.04)).toMatchObject({ suggestedMs: 160, result: 'ok' });
+    // Sound 150 ms after the picture even at 0 ms: cannot be fixed with a delay.
+    expect(suggestDelay(0, 1.0, 1.15)).toMatchObject({ result: 'audio_late' });
+    // Within one frame late at 0 ms: fine, stay at 0.
+    expect(suggestDelay(0, 1.0, 1.03)).toMatchObject({ suggestedMs: 0, result: 'ok' });
   });
 });

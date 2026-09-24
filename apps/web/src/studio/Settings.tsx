@@ -4,6 +4,7 @@ import { t } from '@raelstream/i18n';
 import { api, ApiFailure } from '../lib/api.js';
 import { router } from '../lib/router.js';
 import type { Me } from '../auth/SignIn.js';
+import { ThemeEditor } from './ThemeEditor.js';
 import s from './StudioApp.module.css';
 
 interface User {
@@ -15,7 +16,7 @@ interface User {
   mfaConfirmed: boolean;
 }
 
-/** Owner settings: operators and invites (SPEC §6.1–6.2). */
+/** Owner settings: operators and invites (SPEC §6.1–6.2), and the church's on-air look (§10.5). */
 export function Settings({ me }: { me: Me }) {
   const [users, setUsers] = useState<User[]>([]);
   const [invite, setInvite] = useState<{ url: string; expiresAt: string } | null>(null);
@@ -116,6 +117,9 @@ export function Settings({ me }: { me: Me }) {
             {t('settings.createInvite')}
           </Button>
         )}
+      </Card>
+      <Card className={`${s.card} ${s.wide}`}>
+        <ThemeEditor />
       </Card>
     </main>
   );

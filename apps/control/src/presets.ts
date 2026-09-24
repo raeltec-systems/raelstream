@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { DB } from './db.js';
 import { AppError } from './errors.js';
 
-/** Rundown items as stored on the server; images are not uploaded until the asset pipeline (M6). */
+/** Rundown items as stored on the server (SPEC §10.3). Images reference an uploaded asset (§10.6). */
 export const RundownItem = z.discriminatedUnion('type', [
   z.object({
     id: z.string().uuid(),
@@ -15,14 +15,16 @@ export const RundownItem = z.discriminatedUnion('type', [
   z.object({
     id: z.string().uuid(),
     type: z.literal('text'),
-    title: z.string().max(60),
-    detail: z.string().max(120),
+    title: z.string().max(80),
+    detail: z.string().max(600),
+    reference: z.string().max(60).optional(),
   }),
   z.object({
     id: z.string().uuid(),
     type: z.literal('image'),
     title: z.string().max(60),
     fit: z.enum(['contain', 'fill']),
+    assetId: z.string().uuid().nullable().optional(),
   }),
 ]);
 export const Rundown = z.array(RundownItem).max(40);

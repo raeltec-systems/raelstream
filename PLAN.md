@@ -227,3 +227,18 @@ Found by the owner in the Codespace, each with a regression test that fails on t
 
 **Verified:** 76 unit, 56 integration, 6 Playwright runs (new: camera drop → slate → automatic
 reconnect → Cut back; it fails with the reconnect watchdog disabled).
+
+### M6: built 24 Sep 2026 (WP3)
+
+| Area | State |
+|---|---|
+| Assets (A24) | Done: `POST /api/assets`; magic bytes, full decode with sharp, no SVG/animation, ≤10 MB and ≤4096 px, EXIF/GPS stripped, sRGB, PNG only with transparency; stored in PostgreSQL (backed up with it); served same-origin, private, immutable. Rundown images are uploads now and survive a reload. |
+| Church look (I-10) | Done: Settings → Church look (owner): logo, corner, size, main/name/slate colours with a live 4.5:1 contrast check (server enforces it too), three bundled fonts, optional holding image. Live preview uses the programme's own drawing code. Church-wide (SPEC §10.5 decision). |
+| Rundown | Done: text cards up to 600 characters with a reference, wrapped and auto-fitted 64→36 px; a card that cannot fit is refused before it goes on air. Image framing Fit/Fill. |
+| Audio (A17, A18, A21) | Done: "This is intentional" snoozes the silence warning for 5 min (never touches gain); when the lost interface reappears the operator gets "‹label› is back: Reconnect" (never automatic), which also asks for a sync recheck. |
+| Lip-sync tool (SYNC-03/04) | Done: record the outgoing programme (in the browser, SPEC §11.4 decision), frame-step (`,` `.`), waveform with the detected clap, mark the clap frame, suggested delay, the 80 ms "audio late" rule, save to `sync_calibrations`; status shows Calibrated or Recheck recommended when the camera, input, routing, profile or delay changes. |
+| Build | The control image installs sharp separately (native); a new CI job builds the images and checks sharp loads. |
+
+**Verified:** 82 unit, 62 integration (6 new for assets/theme), 7 Playwright runs (new: church look →
+logo in the chosen corner of the real programme; SVG refused; image survives reload; scripture card
+fit; clip recorded, clap found, calibration saved).

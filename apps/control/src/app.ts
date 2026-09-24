@@ -24,6 +24,7 @@ import { createIceProvider } from './turn.js';
 import { idempotent, listDestinations, retryDestination, startMedia, stopMedia } from './media.js';
 import { acquireLease, requireLease, takeover } from './leases.js';
 import { registerAccountRoutes } from './routes/account.js';
+import { registerContentRoutes } from './routes/content.js';
 
 const Uuid = z.string().uuid();
 const SessionParams = z.object({ id: Uuid });
@@ -62,7 +63,7 @@ export async function buildApp(
 
   app.addHook('onSend', async (_req, reply) => {
     reply.header('Referrer-Policy', 'no-referrer');
-    reply.header('Cache-Control', 'no-store');
+    if (!reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'no-store');
     reply.header('X-Content-Type-Options', 'nosniff');
   });
 
@@ -73,6 +74,19 @@ export async function buildApp(
         message: err.message,
         component: err.component,
         retryable: err.retryable,
+        requestId: req.id,
+      });
+    }
+    const fst = (err as { code?: string }).code;
+    if (fst === 'FST_ERR_CTP_BODY_TOO_LARGE' || fst === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
+      const e = new AppError(
+        fst === 'FST_ERR_CTP_BODY_TOO_LARGE' ? 'ASSET_TOO_LARGE' : 'ASSET_UNSUPPORTED',
+      );
+      return reply.status(e.status).send({
+        code: e.code,
+        message: e.message,
+        component: e.component,
+        retryable: false,
         requestId: req.id,
       });
     }
@@ -107,6 +121,7 @@ export async function buildApp(
 
   app.get('/api/health', async () => ({ ok: true }));
   registerAccountRoutes(app, cfg, auth);
+  registerContentRoutes(app, cfg, db, auth, lease);
 
   // ---- presets ----
   app.get('/api/presets', { preHandler: user }, async () => presets.listPresets(db));

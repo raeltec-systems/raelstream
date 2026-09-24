@@ -225,3 +225,30 @@
     grid-template-columns: 1fr;
   }
 }
+
+.syncTool {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.syncReview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  outline: none;
+}
+.syncVideo {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 10px;
+}
+.syncWave {
+  width: 100%;
+  max-width: 640px;
+  height: 64px;
+  border-radius: 8px;
+}

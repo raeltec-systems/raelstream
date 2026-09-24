@@ -18,6 +18,10 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   DEST_NOT_CONFIGURED: 409,
   DEST_KEY_MISSING: 409,
   NOT_SENDING: 409,
+  ASSET_TOO_LARGE: 413,
+  ASSET_UNSUPPORTED: 415,
+  ASSET_CORRUPT: 422,
+  THEME_CONTRAST: 400,
 };
 
 /** Safe, volunteer-readable messages; never include internals (B§21.4). */
@@ -40,6 +44,13 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   DEST_NOT_CONFIGURED: 'A selected destination is not set up. Set it up or deselect it.',
   DEST_KEY_MISSING: 'A selected destination has no stream key. Paste the key or deselect it.',
   NOT_SENDING: 'That destination is not part of this broadcast.',
+  ASSET_TOO_LARGE:
+    'That image is too big. Use one under 10 MB and at most 4096 pixels on each side.',
+  ASSET_UNSUPPORTED:
+    'That file type is not supported. Use a still PNG, JPEG or WebP image (no SVG or animations).',
+  ASSET_CORRUPT: 'That image could not be read. It may be damaged. Export it again and retry.',
+  THEME_CONTRAST:
+    'White text is hard to read on that colour. Choose a darker main colour (contrast at least 4.5:1).',
 };
 
 export class AppError extends Error {

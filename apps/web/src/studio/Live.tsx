@@ -343,7 +343,19 @@ export function Live() {
               {audio.source === 'phone' ? t('audio.phoneLost') : t('audio.deviceLost')}
             </div>
           )}
-          {audio.silent && <div className={s.alert}>{t('audio.silent')}</div>}
+          {audio.deviceBack && (
+            <Button size="dense" variant="primary" onClick={() => void rt.reconnectAudio()}>
+              {t('audio.deviceBack', { label: audio.deviceBack.label })}
+            </Button>
+          )}
+          {audio.silent && (
+            <div className={s.alert}>
+              {t('audio.silent')}{' '}
+              <Button size="dense" onClick={() => rt.audio.acknowledgeSilence()}>
+                {t('audio.silentIntentional')}
+              </Button>
+            </div>
+          )}
         </div>
         <div className={s.panel}>
           <span className="rs-overline">{t('live.destinations')}</span>

@@ -1,15 +1,8 @@
 import { FrameClock } from './clock.js';
 import { Observable } from './emitter.js';
-import {
-  DEFAULT_THEME,
-  type ProgrammeTheme,
-  type SceneState,
-  fitRect,
-  shortenForAir,
-} from './scenes.js';
+import { REF_H, REF_W, drawOverlay } from './overlays.js';
+import { DEFAULT_THEME, type ProgrammeTheme, type SceneState, fitRect } from './scenes.js';
 
-const REF_W = 1920;
-const REF_H = 1080;
 export const CAMERA_STALL_MS = 2000;
 export const CAMERA_HOLD_EXTRA_MS = 1000;
 
@@ -191,81 +184,7 @@ export class Compositor extends Observable<CompositorState> {
   /** Pre-render static graphics once per change so each tick is at most a few drawImage calls. */
   private renderOverlay(): void {
     const o = new OffscreenCanvas(REF_W, REF_H);
-    const g = o.getContext('2d')!;
-    const { scene } = this.state;
-    const th = this.theme;
-    const font = th.font;
-    if (scene.kind === 'slate') {
-      g.fillStyle = th.background;
-      g.fillRect(0, 0, REF_W, REF_H);
-      if (th.logo) {
-        const r = fitRect(th.logo.width, th.logo.height, 220, 220, 'contain');
-        g.drawImage(th.logo, (REF_W - 220) / 2 + r.x, 250 + r.y, r.w, r.h);
-      }
-      g.fillStyle = '#F7F6F0';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.font = `700 124px ${font}`;
-      g.fillText("We'll be right back", REF_W / 2, 580);
-      g.fillStyle = '#B9BFB9';
-      g.font = `400 44px ${font}`;
-      const sub = [th.churchName, th.serviceName].filter(Boolean).join(' · ');
-      if (sub) g.fillText(sub, REF_W / 2, 690);
-      g.fillStyle = th.accent;
-      g.fillRect(0, REF_H - 18, REF_W, 18);
-    } else if (scene.kind === 'camera_lower_third' && scene.lowerThird) {
-      const l1 = shortenForAir(scene.lowerThird.line1);
-      const l2 = shortenForAir(scene.lowerThird.line2);
-      const x = REF_W * 0.06;
-      const bottom = REF_H * (1 - 0.09);
-      g.font = `700 60px ${font}`;
-      const w1 = g.measureText(l1).width;
-      g.font = `700 38px ${font}`;
-      const w2 = l2 ? g.measureText(l2).width : 0;
-      const padX = 54;
-      const barW = 22;
-      const w = Math.max(w1, w2) + padX * 2;
-      const h = l2 ? 170 : 118;
-      const y = bottom - h;
-      g.save();
-      g.beginPath();
-      g.roundRect(x, y, barW + w, h, 34);
-      g.clip();
-      g.fillStyle = th.accent;
-      g.fillRect(x, y, barW, h);
-      g.fillStyle = '#FFFFFF';
-      g.fillRect(x + barW, y, w, h);
-      g.restore();
-      g.textBaseline = 'alphabetic';
-      g.textAlign = 'left';
-      g.fillStyle = '#1F2320';
-      g.font = `700 60px ${font}`;
-      g.fillText(l1, x + barW + padX, y + (l2 ? 82 : 78));
-      if (l2) {
-        g.fillStyle = th.accent;
-        g.font = `700 38px ${font}`;
-        g.fillText(l2, x + barW + padX, y + 136);
-      }
-    } else if (scene.kind === 'text' && scene.text) {
-      g.fillStyle = '#FFFFFF';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      let size = 110;
-      g.font = `700 ${size}px ${font}`;
-      while (size > 60 && g.measureText(scene.text.title).width > REF_W * 0.84) {
-        size -= 6;
-        g.font = `700 ${size}px ${font}`;
-      }
-      g.fillText(scene.text.title, REF_W / 2, REF_H / 2 - (scene.text.detail ? 50 : 0));
-      if (scene.text.detail) {
-        g.font = `400 48px ${font}`;
-        g.fillText(scene.text.detail, REF_W / 2, REF_H / 2 + 80, REF_W * 0.84);
-      }
-    }
-    if (th.logo && scene.kind !== 'slate') {
-      const r = fitRect(th.logo.width, th.logo.height, 160, 160, 'contain');
-      g.drawImage(th.logo, REF_W - 48 - 160 + r.x, 48 + r.y, r.w, r.h);
-    }
+    drawOverlay(o.getContext('2d')!, this.state.scene, this.theme);
     this.overlay = o;
   }
 }

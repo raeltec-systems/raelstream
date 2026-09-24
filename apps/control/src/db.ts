@@ -163,6 +163,33 @@ export interface DB {
     id: Generated<number>;
     production_ssid: string;
     wan_block_test_passed_at: TsNull;
+    theme: Generated<Record<string, unknown>>;
+  };
+  assets: {
+    id: Generated<string>;
+    sha256: Buffer;
+    mime: 'image/png' | 'image/jpeg';
+    width: number;
+    height: number;
+    bytes: number;
+    data: Buffer;
+    created_by: string | null;
+    created_at: Generated<Ts>;
+  };
+  sync_calibrations: {
+    id: Generated<string>;
+    session_id: string | null;
+    source_fingerprint: string;
+    audio_mapping: string;
+    audio_device_label: string;
+    profile: string;
+    app_version: string;
+    offset_ms: number;
+    measured_offset_ms: number | null;
+    result: 'ok' | 'audio_late';
+    method: string;
+    measured_at: Generated<Ts>;
+    measured_by: string | null;
   };
 }
 

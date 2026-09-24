@@ -4,6 +4,7 @@ import { t } from '@raelstream/i18n';
 import { DELAY_MAX_MS, meterPosition, type RoutingMode } from '@raelstream/media-runtime';
 import { useStore } from '../../lib/useStore.js';
 import { studioRuntime } from '../runtime.js';
+import { SyncTool } from './SyncTool.js';
 import s from './steps.module.css';
 
 /** Select value for the camera phone's sound (device IDs are opaque strings, never this). */
@@ -118,6 +119,23 @@ export function AudioStep() {
           <p className={s.warn}>
             {a.source === 'phone' ? t('audio.phoneLost') : t('audio.deviceLost')}
           </p>
+        )}
+        {a.deviceBack && (
+          <div className={s.row}>
+            <Button variant="primary" onClick={() => void rt.reconnectAudio()}>
+              {t('audio.deviceBack', { label: a.deviceBack.label })}
+            </Button>
+          </div>
+        )}
+        {a.silent && (
+          <div className={s.row}>
+            <p className={s.warn} style={{ flex: 1 }}>
+              {t('audio.silent')}
+            </p>
+            <Button size="dense" onClick={() => rt.audio.acknowledgeSilence()}>
+              {t('audio.silentIntentional')}
+            </Button>
+          </div>
         )}
         {a.status === 'error' && <p className={s.warn}>{t('audio.captureError')}</p>}
         {a.processingNotDisabled.length > 0 && (
@@ -256,6 +274,7 @@ function LipSync() {
       </div>
       <p className={s.mono}>{t('sync.applied', { ms: a.delayMs, max: DELAY_MAX_MS })}</p>
       <p className={s.muted}>{t('sync.method')}</p>
+      <SyncTool />
     </Card>
   );
 }

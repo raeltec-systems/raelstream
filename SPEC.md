@@ -757,6 +757,8 @@ Browser media objects never enter React state (B§22.2). A test runs a mount/unm
 
 ### 10.5 Theme (I-10)
 
+**[DECISION, M6]** One **church-wide** theme (stored on `venue_profile.theme`, edited by the owner in Settings → Church look) instead of one per preset. There is one church and one brand, and a service started without a preset must still carry the logo. Schema: `packages/contracts/src/theme.ts`. The on-air drawing code (`packages/media-runtime/src/overlays.ts`) also renders the Settings preview. A bottom-left logo lifts the lower third above it.
+
 `preset.theme`:
 
 - `logoAssetId`, `logoCorner` (tl, tr, bl, br), `logoScale` (0.06–0.15 of the width)
@@ -771,6 +773,8 @@ Fixed layouts:
 - Logo safe margin: 48 px.
 
 ### 10.6 Assets (B§11.4)
+
+**[DECISION, M6]** Upload is `POST /api/assets` with the raw image as the body (not multipart), CSRF-checked like every change. Re-encoded images are stored **in PostgreSQL** (`assets.data`), not on a volume: they are small, and the database backup then covers them (§M9). Everything else below stands: magic bytes, full decode with `sharp`, no animation or SVG, ≤10 MB and ≤4096 px, metadata stripped, sRGB, PNG only when there is transparency.
 
 - Upload is `POST /api/assets` (multipart). The limits are 10 MB and ≤4096 px on each side. Accepted types are PNG, JPEG and WebP, detected by **magic bytes** and a full decode with `sharp`. Animated images and SVG are rejected.
 - `sharp` re-encodes the image, which strips metadata, and normalises it to sRGB. Output:
@@ -838,6 +842,8 @@ Rules:
 The result is stored in `stream_sessions.uplink_test` and shown in the report. The data uses about 40 MB plus ~20 MB per test, and the UI says so.
 
 ### 11.4 Private ingest test and sync calibration (SYNC-03, SYNC-05, B§18.3)
+
+**[DECISION, M6]** The test clip is recorded **in the studio browser** from the outgoing programme tracks (canvas video + delayed programme audio, `MediaRecorder`), not by the supervisor. It is exactly what is sent, it needs no consent for storage because it never leaves the browser, and it works in any test environment. The media node's own A/V offset is measured separately (2–6 ms, ADR-0003). The frame-step player, waveform strip, automatic clap suggestion (operator-confirmed), the 80 ms "audio late" rule and `sync_calibrations` are as below. A calibration is valid for the camera label + received height + codec, the audio input, routing, profile and the delay; any change shows **Recheck recommended**.
 
 - **Private ingest test** mode creates a real contribution and a normaliser but **no publishers**. The operator can press **Record a 20 s test clip**, which requires explicit consent. The supervisor records the normalised output to `data/diag/{sessionId}/{ts}.mp4` and serves it back through `GET /api/sessions/{id}/diag/{clip}` for in-browser playback, with frame-stepping controls (`,` and `.` step one frame at 30 fps).
 - Calibration procedure (shown in-app):

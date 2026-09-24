@@ -7,18 +7,29 @@ export interface LowerThird {
 }
 export interface TextCard {
   title: string;
+  /** Body text: announcements, a scripture passage (≤600 characters). */
   detail: string;
+  /** e.g. "Psalm 23:1–3" */
+  reference?: string;
 }
 
 export interface ProgrammeTheme {
+  /** Main colour: text-card background, lower-third bar and second line (white text reaches 4.5:1). */
   accent: string;
   accentDark: string;
+  /** Lower-third name colour, on white. */
+  secondary: string;
   /** Font family for on-air graphics (church theme font). */
   font: string;
   background: string;
   churchName: string;
   serviceName: string;
   logo: ImageBitmap | null;
+  logoCorner: 'tl' | 'tr' | 'bl' | 'br';
+  /** Logo width as a fraction of the frame width (0.06–0.15). */
+  logoScale: number;
+  /** Optional full-frame image for the holding scene. */
+  holding: ImageBitmap | null;
 }
 
 export interface SceneState {
@@ -33,11 +44,15 @@ export interface SceneState {
 export const DEFAULT_THEME: ProgrammeTheme = {
   accent: '#2F6FCF',
   accentDark: '#6EA2F0',
+  secondary: '#1F2320',
   font: "'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif",
   background: '#161A18',
   churchName: '',
   serviceName: '',
   logo: null,
+  logoCorner: 'tr',
+  logoScale: 0.08,
+  holding: null,
 };
 
 /** Characters beyond this are shortened on air (design: Rundown helper). */

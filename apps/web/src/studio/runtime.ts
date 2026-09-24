@@ -8,6 +8,7 @@ import type {
   DestinationSummary,
   ObservedState,
   SessionLifecycle,
+  Theme,
 } from '@raelstream/contracts';
 import {
   AudioEngine,
@@ -15,10 +16,15 @@ import {
   Compositor,
   Observable,
   WhipPublisher,
+  type ProgrammeTheme,
   type RoutingMode,
   type SceneKind,
+  type TextCard,
+  textCardFits,
 } from '@raelstream/media-runtime';
 import { api, ApiFailure, clientId } from '../lib/api.js';
+import { FONT_FAMILY, assetBitmap, programmeTheme } from '../lib/theme.js';
+import { t } from '@raelstream/i18n';
 import { SessionSocket } from '../lib/ws.js';
 import { fromServerRundown, toServerRundown, type RundownItem } from './rundown.js';
 
@@ -66,7 +72,29 @@ export interface StudioState {
   savedAudioDevice: string | null;
   /** Camera framing in the 16:9 programme (A13): fit shows the whole picture, fill crops to the frame. */
   framing: 'contain' | 'fill';
+  /** The church theme as saved (for layout checks and previews). */
+  churchTheme: Theme | null;
+  /** Latest good lip-sync calibration (SPEC §11.4). */
+  calibration: SyncCalibration | null;
+  /** Set when something changed that calls for a new sync check (A18, A20). */
+  syncRecheck: string | null;
 }
+
+export interface SyncCalibration {
+  sourceFingerprint: string;
+  audioMapping: string;
+  audioDeviceLabel: string;
+  profile: string;
+  offsetMs: number;
+  measuredAt: string;
+}
+export interface SyncFingerprint {
+  source: string;
+  audioDeviceLabel: string;
+  audioMapping: string;
+  profile: string;
+}
+const APP_VERSION = '0.6.0';
 
 export interface SessionConfig {
   presetId: string | null;
@@ -83,6 +111,10 @@ export interface SessionConfig {
     compressor?: boolean;
     delayMs?: number;
   };
+}
+
+function textOf(item: { title: string; detail: string; reference?: string }): TextCard {
+  return { title: item.title, detail: item.detail, reference: item.reference || undefined };
 }
 
 export const LIVE_STATES: SessionLifecycle[] = [
@@ -138,6 +170,9 @@ export class StudioRuntime extends Observable<StudioState> {
       presetName: null,
       savedAudioDevice: null,
       framing: 'contain',
+      churchTheme: null,
+      calibration: null,
+      syncRecheck: null,
     });
     this.audio = new AudioEngine();
     this.compositor = new Compositor(PROFILE_SIZE.reliable_hd.w, PROFILE_SIZE.reliable_hd.h);
@@ -160,6 +195,12 @@ export class StudioRuntime extends Observable<StudioState> {
     if (this.camera.phoneAudioWanted) this.camera.setPhoneAudio(false);
     this.phoneAudioStream = null;
     await this.audio.selectDevice(deviceId);
+  }
+
+  /** The interface is back: reselect it, and ask for a sync recheck (A18). */
+  async reconnectAudio(): Promise<void> {
+    await this.audio.reconnectDevice();
+    this.markSyncRecheck('audio_reconnected');
   }
 
   /**
@@ -212,6 +253,8 @@ export class StudioRuntime extends Observable<StudioState> {
   async attach(session: SessionSnapshot): Promise<void> {
     this.set({ session });
     this.compositor.setTheme({ serviceName: session.name });
+    void this.loadTheme();
+    void this.loadCalibration();
     try {
       const v = await api<{ productionSsid: string; wanBlockTestPassedAt: string | null }>(
         'GET',
@@ -334,11 +377,129 @@ export class StudioRuntime extends Observable<StudioState> {
     const scene = this.compositor.snapshot.scene;
     this.compositor.dispose();
     this.compositor = new Compositor(w, h);
-    this.compositor.setTheme({ serviceName: this.state.session?.name ?? '' });
+    this.compositor.setTheme({ ...this.theme, serviceName: this.state.session?.name ?? '' });
     this.compositor.setCamera(this.camera.video);
     this.compositor.subscribe(() => this.onCompositor());
     void this.compositor.applyScene(scene);
     this.set({ profile });
+  }
+
+  /** SPEC §10.3: a card that does not fit at the smallest size is never put on air. */
+  private textFits(item: Extract<RundownItem, { type: 'text' }>): boolean {
+    const ok = textCardFits(textOf(item), FONT_FAMILY[this.state.churchTheme?.font ?? 'inter']);
+    if (!ok) this.set({ commandError: t('rundown.textTooLong') });
+    return ok;
+  }
+
+  // ---- lip-sync calibration (SPEC §11.4, SYNC-03/04) ----
+  /** What a calibration is valid for: camera, received picture, audio input, routing and profile. */
+  syncFingerprint(): SyncFingerprint {
+    const cam = this.camera.snapshot.summary;
+    const a = this.audio.snapshot;
+    return {
+      source: `${this.admittedSource?.label ?? 'none'}|${cam?.height ?? 0}p|${cam?.codec ?? '-'}`,
+      audioDeviceLabel: a.deviceLabel ?? '',
+      audioMapping: a.mode,
+      profile: this.state.profile,
+    };
+  }
+
+  async loadCalibration(): Promise<void> {
+    const c = await api<SyncCalibration | null>('GET', '/api/calibrations/latest').catch(
+      () => null,
+    );
+    this.set({ calibration: c });
+  }
+
+  /** Calibrated for exactly this setup, or "Recheck recommended" (SYNC-04, A18, A20). */
+  syncStatus(): 'none' | 'ok' | 'recheck' {
+    const c = this.state.calibration;
+    if (!c) return 'none';
+    if (this.state.syncRecheck) return 'recheck';
+    const f = this.syncFingerprint();
+    const same =
+      c.sourceFingerprint === f.source &&
+      c.audioDeviceLabel === f.audioDeviceLabel &&
+      c.audioMapping === f.audioMapping &&
+      c.profile === f.profile &&
+      c.offsetMs === this.audio.snapshot.delayMs;
+    return same ? 'ok' : 'recheck';
+  }
+
+  markSyncRecheck(reason: string): void {
+    if (this.state.calibration) this.set({ syncRecheck: reason });
+  }
+
+  async saveCalibration(
+    measuredOffsetMs: number | null,
+    result: 'ok' | 'audio_late',
+  ): Promise<void> {
+    const s = this.state.session;
+    if (!s) return;
+    const f = this.syncFingerprint();
+    const body = {
+      sourceFingerprint: f.source,
+      audioMapping: f.audioMapping,
+      audioDeviceLabel: f.audioDeviceLabel,
+      profile: f.profile,
+      appVersion: APP_VERSION,
+      offsetMs: this.audio.snapshot.delayMs,
+      measuredOffsetMs,
+      result,
+    };
+    const r = await api<{ id: string; measuredAt: string }>(
+      'POST',
+      `/api/sessions/${s.id}/calibrations`,
+      body,
+    );
+    if (result === 'ok')
+      this.set({
+        calibration: {
+          sourceFingerprint: f.source,
+          audioMapping: f.audioMapping,
+          audioDeviceLabel: f.audioDeviceLabel,
+          profile: f.profile,
+          offsetMs: body.offsetMs,
+          measuredAt: r.measuredAt,
+        },
+        syncRecheck: null,
+      });
+  }
+
+  /** The outgoing programme (after the audio delay), for the test clip. */
+  programmeStream(): MediaStream {
+    return new MediaStream([this.compositor.track, this.audio.track]);
+  }
+
+  // ---- church theme and images (SPEC §10.5–10.6) ----
+  private theme: Partial<ProgrammeTheme> = {};
+
+  /** Load (or reload, after Settings saves it) the church theme into the programme. */
+  async loadTheme(): Promise<void> {
+    try {
+      const theme = await api<Theme>('GET', '/api/theme');
+      this.theme = await programmeTheme(theme);
+      this.set({ churchTheme: theme });
+      this.compositor.setTheme({ ...this.theme, serviceName: this.state.session?.name ?? '' });
+    } catch {
+      /* keep the default look */
+    }
+  }
+
+  /** Decode rundown images from their uploaded assets. */
+  private async loadImages(): Promise<void> {
+    const pending = this.state.rundown.filter(
+      (i): i is Extract<RundownItem, { type: 'image' }> =>
+        i.type === 'image' && !!i.assetId && !i.bitmap,
+    );
+    for (const item of pending) {
+      const bitmap = await assetBitmap(item.assetId);
+      if (!bitmap) continue;
+      this.bitmaps.set(item.id, bitmap);
+      this.set({
+        rundown: this.state.rundown.map((x) => (x.id === item.id ? { ...item, bitmap } : x)),
+      });
+    }
   }
 
   async setFraming(framing: 'contain' | 'fill'): Promise<void> {
@@ -361,7 +522,8 @@ export class StudioRuntime extends Observable<StudioState> {
       const i = this.state.lastText ?? r.findIndex((x) => x.type === 'text');
       const item = r[i];
       if (!item || item.type !== 'text') return;
-      await this.compositor.applyScene({ kind, text: { title: item.title, detail: item.detail } });
+      if (!this.textFits(item)) return;
+      await this.compositor.applyScene({ kind, text: textOf(item) });
       this.set({ scene: kind, onAirIndex: i, lastText: i });
     } else {
       await this.compositor.applyScene({ kind });
@@ -397,10 +559,8 @@ export class StudioRuntime extends Observable<StudioState> {
       });
       this.set({ scene: 'camera_lower_third', onAirIndex: i, lastLowerThird: i });
     } else if (item.type === 'text') {
-      await this.compositor.applyScene({
-        kind: 'text',
-        text: { title: item.title, detail: item.detail },
-      });
+      if (!this.textFits(item)) return;
+      await this.compositor.applyScene({ kind: 'text', text: textOf(item) });
       this.set({ scene: 'text', onAirIndex: i, lastText: i });
     } else {
       if (!item.bitmap) return;
@@ -457,6 +617,7 @@ export class StudioRuntime extends Observable<StudioState> {
         rundown: fromServerRundown(c.rundown, this.bitmaps),
         savedAudioDevice: c.audio.deviceLabel ?? null,
       });
+      void this.loadImages();
       if (c.profile !== this.state.profile) this.setProfile(c.profile);
       this.applyAudio(c.audio);
     } catch {
