@@ -324,7 +324,11 @@ export function Live() {
               {t('audio.listen')}
             </button>
           </div>
-          {audio.status === 'device_lost' && <div className={s.alert}>{t('audio.deviceLost')}</div>}
+          {audio.status === 'device_lost' && (
+            <div className={s.alert}>
+              {audio.source === 'phone' ? t('audio.phoneLost') : t('audio.deviceLost')}
+            </div>
+          )}
           {audio.silent && <div className={s.alert}>{t('audio.silent')}</div>}
         </div>
         <div className={s.panel}>

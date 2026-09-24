@@ -337,6 +337,15 @@ function LiveCamera({ sender, label }: { sender: CameraSender; label: string }) 
           }
           detail={snd.battery ? `${Math.round(snd.battery.level * 100)}%` : undefined}
         />
+        {snd.audio.state !== 'off' && (
+          <StatusRow
+            tone={
+              snd.audio.state === 'on' ? 'live' : snd.audio.state === 'starting' ? 'standby' : 'off'
+            }
+            label={t(`cam.audio.${snd.audio.state}` as never)}
+            detail={snd.audio.state === 'on' ? (snd.audio.label ?? undefined) : undefined}
+          />
+        )}
         <p className={s.note}>
           {snd.wakeLock === 'active' ? t('cam.keepOpen') : t('cam.keepOpenNoLock')}
         </p>

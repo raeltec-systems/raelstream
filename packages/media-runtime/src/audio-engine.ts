@@ -38,6 +38,8 @@ class PeakHold {
 
 export interface AudioEngineState {
   status: 'idle' | 'starting' | 'running' | 'device_lost' | 'error';
+  /** Where the sound comes from: a USB/built-in input on this laptop, or the camera phone. */
+  source: 'device' | 'phone' | null;
   deviceLabel: string | null;
   channelCount: number | null;
   sampleRate: number | null;
@@ -79,6 +81,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
   readonly ctx: AudioContext;
   private readonly dest: MediaStreamAudioDestinationNode;
   private stream: MediaStream | null = null;
+  private ownsStream = false;
   private source: MediaStreamAudioSourceNode | null = null;
   private splitter: ChannelSplitterNode;
   private matrix: GainNode[];
@@ -104,6 +107,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
   constructor() {
     super({
       status: 'idle',
+      source: null,
       deviceLabel: null,
       channelCount: null,
       sampleRate: null,
@@ -238,26 +242,98 @@ export class AudioEngine extends Observable<AudioEngineState> {
       if (st.echoCancellation) notOff.push('echoCancellation');
       if (st.autoGainControl) notOff.push('autoGainControl');
       if (st.noiseSuppression) notOff.push('noiseSuppression');
-      const channels = st.channelCount ?? 1;
-      track.addEventListener('ended', () => this.handleLoss());
-      this.stream = stream;
-      this.source = this.ctx.createMediaStreamSource(stream);
-      this.source.connect(this.splitter);
-      const modes = availableModes(channels);
-      const mode = modes.includes(this.state.mode) ? this.state.mode : 'in1_both';
-      this.applyRouting(mode);
-      this.set({
-        status: 'running',
-        deviceLabel: track.label,
-        channelCount: channels,
+      this.attach(stream, {
+        source: 'device',
+        label: track.label,
+        channels: st.channelCount ?? 1,
         sampleRate: st.sampleRate ?? this.ctx.sampleRate,
         processingNotDisabled: notOff,
-        availableModes: modes,
-        mode,
       });
     } catch (e) {
       this.set({ status: 'error', error: (e as Error).name });
     }
+  }
+
+  /**
+   * Use the camera phone's sound (SPEC §8.8 decision). Only on the operator's explicit choice; the
+   * engine never falls back to it (C-04). The phone reports its own channel count and processing.
+   */
+  async selectPhone(
+    stream: MediaStream,
+    info: { label: string; channels: number; processingNotDisabled: string[] },
+  ): Promise<void> {
+    this.set({ status: 'starting', error: null });
+    this.releaseSource();
+    try {
+      await this.ready;
+      await this.ctx.resume();
+      this.attach(stream, {
+        source: 'phone',
+        label: info.label,
+        channels: info.channels,
+        sampleRate: this.ctx.sampleRate,
+        processingNotDisabled: info.processingNotDisabled,
+      });
+    } catch (e) {
+      this.set({ status: 'error', error: (e as Error).name });
+    }
+  }
+
+  /** The phone's report changed (channels, processing, name) while it is the source. */
+  updatePhoneInfo(info: {
+    label: string;
+    channels: number;
+    processingNotDisabled: string[];
+  }): void {
+    if (this.state.source !== 'phone') return;
+    const modes = availableModes(info.channels);
+    const mode = modes.includes(this.state.mode) ? this.state.mode : 'in1_both';
+    if (mode !== this.state.mode) this.applyRouting(mode);
+    this.set({
+      deviceLabel: info.label,
+      channelCount: info.channels,
+      processingNotDisabled: info.processingNotDisabled,
+      availableModes: modes,
+      mode,
+    });
+  }
+
+  /** The phone link dropped or the phone stopped its sound: silence, never a substitute (C-04). */
+  phoneLost(): void {
+    if (this.state.source === 'phone' && this.state.status === 'running') this.handleLoss();
+  }
+
+  private attach(
+    stream: MediaStream,
+    info: {
+      source: 'device' | 'phone';
+      label: string;
+      channels: number;
+      sampleRate: number;
+      processingNotDisabled: string[];
+    },
+  ): void {
+    const track = stream.getAudioTracks()[0]!;
+    track.addEventListener('ended', () => {
+      if (this.stream === stream) this.handleLoss();
+    });
+    this.stream = stream;
+    this.ownsStream = info.source === 'device';
+    this.source = this.ctx.createMediaStreamSource(stream);
+    this.source.connect(this.splitter);
+    const modes = availableModes(info.channels);
+    const mode = modes.includes(this.state.mode) ? this.state.mode : 'in1_both';
+    this.applyRouting(mode);
+    this.set({
+      status: 'running',
+      source: info.source,
+      deviceLabel: info.label,
+      channelCount: info.channels,
+      sampleRate: info.sampleRate,
+      processingNotDisabled: info.processingNotDisabled,
+      availableModes: modes,
+      mode,
+    });
   }
 
   setMode(mode: RoutingMode): void {
@@ -370,7 +446,8 @@ export class AudioEngine extends Observable<AudioEngineState> {
   private releaseSource(): void {
     this.source?.disconnect();
     this.source = null;
-    this.stream?.getTracks().forEach((t) => t.stop());
+    // The phone's stream belongs to the camera link; stopping it would end the phone's audio slot.
+    if (this.ownsStream) this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
   }
 
@@ -382,6 +459,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
 
   private async checkDevicePresent(): Promise<void> {
     if (this.state.status !== 'running' || !this.state.deviceLabel) return;
+    if (this.state.source !== 'device') return;
     const inputs = await this.listInputs();
     if (!inputs.some((d) => d.label === this.state.deviceLabel)) this.handleLoss();
   }

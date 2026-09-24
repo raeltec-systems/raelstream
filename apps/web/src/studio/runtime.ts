@@ -145,7 +145,61 @@ export class StudioRuntime extends Observable<StudioState> {
     );
     this.compositor.setCamera(this.camera.video);
     this.compositor.subscribe(() => this.onCompositor());
-    this.camera.subscribe(() => this.syncTally());
+    this.camera.subscribe(() => {
+      this.syncTally();
+      this.syncPhoneAudio();
+    });
+  }
+
+  // ---- audio source ----
+  /** A USB or built-in input on this laptop (the normal case: the mixer through the interface). */
+  async selectAudioDevice(deviceId: string): Promise<void> {
+    if (this.camera.phoneAudioWanted) this.camera.setPhoneAudio(false);
+    this.phoneAudioStream = null;
+    await this.audio.selectDevice(deviceId);
+  }
+
+  /**
+   * The camera phone's sound (SPEC §8.8 decision): its microphone, or an iRig/line input plugged into
+   * it. Only ever on the operator's explicit choice; nothing switches to it automatically (C-04).
+   */
+  usePhoneAudio(): void {
+    this.camera.setPhoneAudio(true);
+    this.syncPhoneAudio();
+  }
+
+  private phoneAudioStream: MediaStream | null = null;
+  private syncPhoneAudio(): void {
+    if (!this.camera.phoneAudioWanted) return;
+    const cam = this.camera.snapshot;
+    const report = cam.camState?.audio;
+    const stream = cam.audioStream;
+    const live = cam.connection === 'connected' && report?.state === 'on' && !!stream;
+    const eng = this.audio.snapshot;
+    if (!live) {
+      if (this.phoneAudioStream) this.audio.phoneLost();
+      this.phoneAudioStream = null;
+      return;
+    }
+    const info = {
+      label: report.label || 'Phone microphone',
+      channels: report.channels ?? 1,
+      processingNotDisabled: report.processingOn,
+    };
+    if (
+      this.phoneAudioStream !== stream ||
+      eng.source !== 'phone' ||
+      eng.status === 'device_lost'
+    ) {
+      this.phoneAudioStream = stream;
+      void this.audio.selectPhone(stream, info);
+    } else if (
+      eng.deviceLabel !== info.label ||
+      eng.channelCount !== info.channels ||
+      eng.processingNotDisabled.join() !== info.processingNotDisabled.join()
+    ) {
+      this.audio.updatePhoneInfo(info);
+    }
   }
 
   get admittedSource() {

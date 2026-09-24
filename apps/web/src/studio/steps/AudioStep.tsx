@@ -6,6 +6,9 @@ import { useStore } from '../../lib/useStore.js';
 import { studioRuntime } from '../runtime.js';
 import s from './steps.module.css';
 
+/** Select value for the camera phone's sound (device IDs are opaque strings, never this). */
+const PHONE = 'rs:phone';
+
 const MODE_LABEL: Record<RoutingMode, string> = {
   in1_both: 'audio.mode.in1',
   in2_both: 'audio.mode.in2',
@@ -18,6 +21,9 @@ export function AudioStep() {
   const st = useStore(rt);
   const [savedToPreset, setSavedToPreset] = useState(false);
   const a = useStore(rt.audio);
+  const cam = useStore(rt.camera);
+  const phoneConnected = cam.connection === 'connected';
+  const phoneAudio = cam.camState?.audio?.state ?? 'off';
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selected, setSelected] = useState('');
   const [access, setAccess] = useState<'unknown' | 'denied' | 'unavailable'>('unknown');
@@ -40,11 +46,13 @@ export function AudioStep() {
 
   async function choose(id: string) {
     setSelected(id);
-    if (id) {
-      await rt.audio.selectDevice(id);
+    if (id === PHONE) rt.usePhoneAudio();
+    else if (id) {
+      await rt.selectAudioDevice(id);
       await refresh(); // labels appear after permission is granted
     }
   }
+  const value = a.source === 'phone' || selected === PHONE ? PHONE : selected;
 
   const hasSignal = a.soundRecent;
 
@@ -73,7 +81,7 @@ export function AudioStep() {
           <select
             id="rs-audio-device"
             className={s.select}
-            value={selected}
+            value={value}
             onChange={(e) => void choose(e.target.value)}
             style={{ flex: 1 }}
           >
@@ -85,6 +93,11 @@ export function AudioStep() {
                   {d.label || t('audio.unnamedInput', { n: i + 1 })}
                 </option>
               ))}
+            {(phoneConnected || value === PHONE) && (
+              <option value={PHONE}>
+                {t('audio.phoneOption', { name: rt.admittedSource?.label ?? t('audio.phone') })}
+              </option>
+            )}
           </select>
           {a.status === 'running' && (
             <span className={`${s.chip} ${hasSignal ? s.chipReady : s.chipStandby}`}>
@@ -93,7 +106,19 @@ export function AudioStep() {
             </span>
           )}
         </div>
-        {a.status === 'device_lost' && <p className={s.warn}>{t('audio.deviceLost')}</p>}
+        {value === PHONE && phoneAudio === 'starting' && (
+          <p className={s.muted}>{t('audio.phoneWaiting')}</p>
+        )}
+        {value === PHONE &&
+          (phoneAudio === 'denied' || phoneAudio === 'unavailable' || phoneAudio === 'error') && (
+            <p className={s.warn}>{t(`audio.phone.${phoneAudio}` as never)}</p>
+          )}
+        {value === PHONE && <p className={s.muted}>{t('audio.phoneNote')}</p>}
+        {a.status === 'device_lost' && (
+          <p className={s.warn}>
+            {a.source === 'phone' ? t('audio.phoneLost') : t('audio.deviceLost')}
+          </p>
+        )}
         {a.status === 'error' && <p className={s.warn}>{t('audio.captureError')}</p>}
         {a.processingNotDisabled.length > 0 && (
           <p className={s.warn}>

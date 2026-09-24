@@ -30,3 +30,22 @@ export function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 2000): Pr
     pc.addEventListener('icegatheringstatechange', check);
   });
 }
+
+/**
+ * Let the phone send stereo Opus at programme quality (a stereo iRig, a line feed). Applied to the
+ * studio's answer: Chrome only sends stereo when the far end's fmtp says `stereo=1`.
+ */
+export function opusForProgramme(sdp: string, maxAverageBitrate = 128_000): string {
+  const pts = [...sdp.matchAll(/^a=rtpmap:(\d+) opus\/48000\/2\r?$/gim)].map((m) => m[1]);
+  let out = sdp;
+  for (const pt of pts) {
+    out = out.replace(new RegExp(`^(a=fmtp:${pt} )(.*?)(\\r?)$`, 'm'), (_m, head, params, cr) => {
+      const keep = String(params)
+        .split(';')
+        .filter((p) => p && !/^(stereo|sprop-stereo|maxaveragebitrate)=/i.test(p.trim()));
+      const add = ['stereo=1', 'sprop-stereo=1', `maxaveragebitrate=${maxAverageBitrate}`];
+      return `${head}${[...keep, ...add].join(';')}${cr}`;
+    });
+  }
+  return out;
+}

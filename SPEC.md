@@ -404,7 +404,7 @@ Expiry and misuse cases (A03–A05): an expired, consumed or unknown token gets 
 - If the actual size is below 1280×720, show a warning and let the operator try the fallback.
 - Fallback: if the 1080p request fails with `OverconstrainedError`, retry with `{width:{ideal:1280},height:{ideal:720}}`.
 - **Camera selector:** after permission is granted, `enumerateDevices()` lists video inputs. If there is more than one, show a selector labelled with the device labels exactly as the browser reports them. It never shows invented "Wide/Normal/Close" labels.
-- **Assert no audio:** before adding tracks, check `stream.getAudioTracks().length===0` and that the peer connection has no audio transceiver (CAM-02). A unit test and a browser test cover this.
+- **Assert no audio:** before adding tracks, check `stream.getAudioTracks().length===0` (CAM-02). **[DECISION, owner, 24 Sep 2026]** The peer connection carries one `sendonly` audio transceiver **with no track**, used only when the operator picks the phone as the sound source (§8.8). No microphone is opened until then; the browser test counts microphone opens on the phone and requires zero before that choice.
 - **Errors mapped to plain messages (CAM-04):**
 
 | Error | Message |
@@ -532,6 +532,16 @@ The label shows in the Camera health group. Addresses are never shown. The repor
 The phone stops its tracks when it receives `revoke`. The studio closing the connection and dropping the receiver makes termination take effect within 5 s even if the phone ignores the message (B§8.3, A12).
 
 ---
+
+### 8.8 Phone as the sound source **[DECISION, owner, 24 Sep 2026]**
+
+The owner asked for the phone to be usable as the sound source when the audio interface is not available: the phone's own microphone, or an iRig or similar input plugged into the phone. This narrows C-04 and CAM-02 as follows. The rest of C-04 stands.
+
+- **Default unchanged:** the mixer through the laptop's interface is the programme sound. The phone sends no sound unless the operator picks **Phone sound** in Preparation → Audio.
+- **Never automatic:** nothing switches to the phone (or from it) by itself. If the interface disconnects, the programme goes silent as before (A17). If the phone link drops while it is the source, the programme goes silent until the **same phone** reconnects; a different phone never inherits the choice.
+- **Transport:** the empty audio transceiver from §7.2 carries the track (`replaceTrack`, no renegotiation). The phone opens the microphone with echo cancellation, noise suppression and auto gain off, ideal 2 channels at 48 kHz, and reports its label, channel count and any processing it could not turn off in `cam.state.audio`. Opus at up to 128 kb/s; the studio's answer sets `stereo=1` so a stereo input stays stereo.
+- **Studio:** the remote track feeds the same graph as the interface (routing, gain, HPF, compressor, delay, meters). Chrome only feeds a remote WebRTC track to Web Audio while a (muted) media element plays it, so the receiver keeps one.
+- **Trade-offs shown to the operator:** the sound shares the phone's Wi-Fi link with the picture; lip-sync still uses the delay control.
 
 ## 9. Studio UI (`/studio`)
 

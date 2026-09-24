@@ -1,6 +1,7 @@
 import type { CtlEnvelope, CtlMessage, SignalPayload, TallyState } from '@raelstream/contracts';
 import { CtlEnvelope as CtlEnvelopeSchema } from '@raelstream/contracts';
 import { Observable } from './emitter.js';
+import { opusForProgramme } from './sdp.js';
 import {
   type InboundVideoSample,
   type InboundVideoSummary,
@@ -22,6 +23,8 @@ export interface CameraReceiverState {
   tally: TallyState;
   /** ICE did not connect within the deadline: show the direct-link failure panel (SPEC §8.5). */
   directLinkFailed: boolean;
+  /** The phone's audio slot (silent unless the operator chose the phone as the sound source). */
+  audioStream: MediaStream | null;
 }
 
 export const DIRECT_CONNECT_DEADLINE_MS = 15_000;
@@ -39,6 +42,9 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
   private prev: InboundVideoSample | null = null;
   private seq = 0;
   private pendingCandidates: RTCIceCandidateInit[] = [];
+  private audioWanted = false;
+  /** Chrome feeds a remote WebRTC track to Web Audio only while a media element plays it (muted). */
+  private readonly audioSink: HTMLAudioElement;
 
   constructor(
     private readonly sendSignal: (payload: SignalPayload) => void,
@@ -53,6 +59,7 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
       camState: null,
       tally: 'off',
       directLinkFailed: false,
+      audioStream: null,
     });
     this.video = document.createElement('video');
     this.video.muted = true;
@@ -71,6 +78,9 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
     });
     this.video.setAttribute('aria-hidden', 'true');
     document.body.appendChild(this.video);
+    this.audioSink = document.createElement('audio');
+    this.audioSink.muted = true;
+    this.audioSink.autoplay = true;
   }
 
   get stream(): MediaStream | null {
@@ -94,7 +104,15 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
         }),
       );
       pc.addEventListener('track', (e) => {
-        if (e.track.kind !== 'video') return; // phone must not send audio (CAM-02)
+        if (e.track.kind === 'audio') {
+          // Silent unless the operator picks the phone as the sound source (SPEC §8.8 decision).
+          const audioStream = new MediaStream([e.track]);
+          this.audioSink.srcObject = audioStream;
+          void this.audioSink.play().catch(() => undefined);
+          this.set({ audioStream });
+          return;
+        }
+        if (e.track.kind !== 'video') return;
         this.video.srcObject = new MediaStream([e.track]);
         void this.video.play().catch(() => undefined);
         this.set({});
@@ -103,7 +121,11 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
         if (e.channel.label !== 'ctl') return;
         this.ctl = e.channel;
         e.channel.onmessage = (m) => this.onCtl(m.data);
-        e.channel.onopen = () => this.sendCtl({ t: 'tally', state: this.state.tally });
+        e.channel.onopen = () => {
+          this.sendCtl({ t: 'tally', state: this.state.tally });
+          // After a reconnect the same phone resumes the sound the operator chose; never a substitute.
+          if (this.audioWanted) this.sendCtl({ t: 'cam.setAudio', on: true });
+        };
       });
       pc.addEventListener('connectionstatechange', () => {
         this.set({ connection: pc.connectionState });
@@ -116,9 +138,10 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
       await pc.setRemoteDescription({ type: 'offer', sdp: p.sdp });
       for (const c of this.pendingCandidates.splice(0))
         await pc.addIceCandidate(c).catch(() => undefined);
-      const answer = await pc.createAnswer();
+      const created = await pc.createAnswer();
+      const answer = { type: 'answer' as const, sdp: opusForProgramme(created.sdp ?? '') };
       await pc.setLocalDescription(answer);
-      this.sendSignal({ type: 'answer', sdp: answer.sdp ?? '' });
+      this.sendSignal({ type: 'answer', sdp: answer.sdp });
       this.deadline = setTimeout(() => {
         if (this.pc?.connectionState !== 'connected') this.set({ directLinkFailed: true });
       }, DIRECT_CONNECT_DEADLINE_MS);
@@ -144,10 +167,29 @@ export class CameraReceiver extends Observable<CameraReceiverState> {
     this.sendCtl({ t: 'cam.setZoom', zoom });
   }
 
+  /** The operator chose this phone as the sound source (reset when the camera is closed). */
+  get phoneAudioWanted(): boolean {
+    return this.audioWanted;
+  }
+
+  /** Ask the phone to send (or stop sending) its sound. Only on an explicit operator choice (C-04). */
+  setPhoneAudio(on: boolean): void {
+    this.audioWanted = on;
+    this.sendCtl({ t: 'cam.setAudio', on });
+  }
+
   close(): void {
     this.reset();
     this.video.srcObject = null;
-    this.set({ connection: 'idle', summary: null, quality: 'disconnected', camState: null });
+    this.audioWanted = false;
+    this.audioSink.srcObject = null;
+    this.set({
+      connection: 'idle',
+      summary: null,
+      quality: 'disconnected',
+      camState: null,
+      audioStream: null,
+    });
   }
 
   private reset(): void {

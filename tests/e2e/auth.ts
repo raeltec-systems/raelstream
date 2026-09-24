@@ -12,7 +12,7 @@ export interface E2EUser {
   secret: string;
 }
 
-export function e2eUser(key: 'spine' | 'broadcast' | 'invite' | 'audio'): E2EUser {
+export function e2eUser(key: 'spine' | 'broadcast' | 'invite' | 'audio' | 'phone'): E2EUser {
   const users = JSON.parse(readFileSync(join(tmpdir(), 'rs-e2e-users.json'), 'utf8'));
   return users[key] as E2EUser;
 }

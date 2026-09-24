@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { mapCaptureError, videoConstraints } from './sender.js';
+import { mapCaptureError, phoneAudioConstraints, videoConstraints } from './sender.js';
 
 describe('camera capture', () => {
   it('never requests audio (CAM-02)', () => {
     expect(videoConstraints({ width: 1920, height: 1080, fps: 30 }).audio).toBe(false);
+  });
+  it('opens phone sound with processing off and no video (SPEC §8.8)', () => {
+    const c = phoneAudioConstraints();
+    expect(c.video).toBe(false);
+    expect(c.audio).toMatchObject({
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    });
   });
   it('prefers the rear camera unless a device is chosen', () => {
     const v = videoConstraints({ width: 1920, height: 1080, fps: 30 })
