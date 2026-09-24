@@ -10,6 +10,9 @@ services:
     environment:
       NODE_ENV: codespace
       RS_DEST_TEST_SINKS: '1'
+    # The production CPU limit (3.0, for a 4-vCPU server) is more than a 2-core Codespace has, and Docker
+    # refuses to start a container whose limit exceeds the machine.
+    deploy: !reset {}
 
   mediamtx:
     # A Codespace has no public UDP/TCP ports: MediaMTX reaches the studio only through TURN.
