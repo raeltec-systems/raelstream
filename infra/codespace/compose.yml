@@ -27,6 +27,13 @@ services:
     volumes:
       - ../codespace/Caddyfile:/etc/caddy/Caddyfile:ro
 
+  # Public HTTPS address without GitHub's port forwarding (start.sh reads the URL from its log).
+  rs-tunnel:
+    image: cloudflare/cloudflared:2026.9.1
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://caddy:8080
+
   # Stand-in "platform": accepts the programme over RTMP and serves it as HLS on /watch/.
   rs-test-platform:
     image: bluenviron/mediamtx:1.21.1-ffmpeg

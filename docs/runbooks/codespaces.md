@@ -16,8 +16,11 @@ Cloudflare's free TURN allowance. Stop the Codespace when you finish (step 8).
 ## How it fits together
 
 - The phone ↔ laptop camera link is **direct on your Wi-Fi**, exactly as in production.
-- GitHub gives the Codespace one public HTTPS address. The studio, sign-in, pairing and the
-  stand-in platforms' watch pages all use it.
+- A free **Cloudflare quick tunnel** gives the Codespace one public HTTPS address
+  (`https://….trycloudflare.com`). The studio, sign-in, pairing and the stand-in platforms' watch
+  pages all use it. It changes each time the Codespace restarts; the start banner always shows the
+  current one. (If the tunnel cannot start, the script falls back to GitHub's own port forwarding:
+  see step 4.)
 - GitHub only forwards web traffic, so the studio's programme upload (WebRTC) cannot reach the
   Codespace directly. It goes through **Cloudflare's TURN relay** instead. Production uses the same
   relay as a fallback for networks that block media. The automated test suite checks this
@@ -53,8 +56,8 @@ Without these secrets everything else still works (sign-in, pairing, camera, aud
 
    ```text
    raelstream test studio is running
-   Studio (Dell):      https://<name>-8080.app.github.dev/studio
-   What viewers see:   https://<name>-8080.app.github.dev/watch/facebook/test-facebook-key-0001/
+   Studio (Dell):      https://<three-or-four-words>.trycloudflare.com/studio
+   What viewers see:   https://<three-or-four-words>.trycloudflare.com/watch/facebook/test-facebook-key-0001/
    ...
    ```
 
@@ -66,11 +69,13 @@ Without these secrets everything else still works (sign-in, pairing, camera, aud
    organisation, still within any free allowance it has) or fork the repository to your personal
    account and create the Codespace from the fork.
 
-## 4. Make the address public (if the banner says so)
+## 4. Only if the banner shows a `github.dev` address: make port 8080 public
 
-The phone cannot sign in to GitHub, so port 8080 must be **public** (the app has its own sign-in).
-The start script tries to do this. If the banner says `NOT public yet`: open the **PORTS** tab, right-click
-port **8080 → Port Visibility → Public**.
+Normally the address comes from the Cloudflare tunnel and there is nothing to do here. If the tunnel
+could not start, the banner shows a `…-8080.app.github.dev` address instead. The phone cannot sign in to
+GitHub, so that port must be **public**: open the **PORTS** tab, right-click port **8080 → Port Visibility
+→ Public**. (GitHub's forwarding has proved unreliable: if that address says "page can't be found", run
+`bash infra/codespace/start.sh` again to retry the tunnel.)
 
 ## 5. One-time: create your owner account
 
@@ -136,10 +141,14 @@ from scratch. That also deletes the accounts and secrets in it.
 ## Troubleshooting
 
 - **Sign-in says "You don't have permission to do that":** check the address bar. It must be the
-  `https://…-8080.app.github.dev` address from the banner, not `127.0.0.1:8080` or `localhost:8080` (VS Code
-  desktop opens those when you click the port). The phone's pairing link and the studio's upload both use
-  the public address.
-- **The studio loads but the phone's pairing link does not open:** port 8080 is not public (step 4).
+  Studio address from the latest banner, not `127.0.0.1:8080` or `localhost:8080` (VS Code desktop opens
+  those when you click the port), and not an older tunnel address. The phone's pairing link and the
+  studio's upload both use the public address.
+- **The address stopped working after a restart:** the tunnel address changes when the Codespace
+  restarts. Run `bash infra/codespace/start.sh` to see the new one, then sign in again and re-pair the
+  phone.
+- **The studio loads but the phone's pairing link does not open:** make sure the phone has internet
+  access, and, if the banner shows a `github.dev` address, that port 8080 is public (step 4).
 - **Private test / Go live stays on "Starting" and then fails:** the TURN secrets are missing or wrong.
   The banner says `TURN relay: NOT configured`. Fix the secrets (step 2), then **stop and restart** the
   Codespace so it picks them up.

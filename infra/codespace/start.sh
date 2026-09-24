@@ -10,8 +10,36 @@ compose() {
     ${RS_COMPOSE_EXTRA:+-f "$RS_COMPOSE_EXTRA"} "$@"
 }
 
-DOMAIN="${CODESPACE_NAME:?not running in a Codespace}-8080.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
-ORIGIN="${RS_PUBLIC_ORIGIN:-https://$DOMAIN}"
+# ---- public address ----
+# Default: a free Cloudflare quick tunnel. It gives the Dell and the phone one https address, leaves the
+# Origin header alone and needs no port-visibility clicks. RS_PUBLIC_VIA=github uses GitHub's port
+# forwarding instead (port 8080 must then be Public, and GitHub rewrites Origin to localhost).
+VIA="${RS_PUBLIC_VIA:-cloudflare}"
+GITHUB_ORIGIN="https://${CODESPACE_NAME:?not running in a Codespace}-8080.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+ORIGIN="${RS_PUBLIC_ORIGIN:-}"
+[ -n "$ORIGIN" ] && VIA=given
+if [ "$VIA" = cloudflare ]; then
+  echo "==> Opening a Cloudflare quick tunnel"
+  export COMPOSE_PROFILES=tunnel
+  # Compose resolves every service's variables even to start one; on a first run .env does not exist yet.
+  [ -f "$C/.env" ] || echo "PUBLIC_IP=127.0.0.1" > "$C/.env"
+  compose up -d rs-tunnel
+  STARTED=$(docker inspect -f '{{.State.StartedAt}}' "$(compose ps -q rs-tunnel)")
+  for _ in $(seq 1 45); do
+    # Only this run of the tunnel counts: each restart gets a new address.
+    ORIGIN=$(docker logs --since "$STARTED" "$(compose ps -q rs-tunnel)" 2>&1 \
+      | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | grep -v '//api\.' | tail -n 1 || true)
+    [ -n "$ORIGIN" ] && break
+    sleep 2
+  done
+  if [ -z "$ORIGIN" ]; then
+    echo "(the Cloudflare tunnel did not start; using GitHub's port forwarding instead)"
+    compose stop rs-tunnel >/dev/null 2>&1 || true
+    unset COMPOSE_PROFILES
+    VIA=github
+  fi
+fi
+[ -n "$ORIGIN" ] || ORIGIN="$GITHUB_ORIGIN"
 DOMAIN="${ORIGIN#*://}"
 
 # ---- secrets: generated once, kept in the Codespace only (git-ignored) ----
@@ -51,7 +79,7 @@ fi
   fi
   # GitHub's port forwarding rewrites every browser Origin to http://localhost:8080. The CSRF header
   # and SameSite=Strict cookies still protect state-changing requests.
-  echo "RS_EXTRA_ALLOWED_ORIGINS=http://localhost:8080"
+  if [ "$VIA" = github ]; then echo "RS_EXTRA_ALLOWED_ORIGINS=http://localhost:8080"; fi
 } > "$C/.env"
 chmod 600 "$C/.env"
 node infra/codespace/turn-env.mjs "$C/.env.mediamtx-turn"
@@ -64,10 +92,16 @@ for _ in $(seq 1 90); do
   sleep 2
 done
 
-# Phones cannot sign in to GitHub, so the port must be public (the app has its own sign-in).
-gh codespace ports visibility 8080:public -c "$CODESPACE_NAME" >/dev/null 2>&1 \
-  && PORT_NOTE="public" \
-  || PORT_NOTE="NOT public yet: open the PORTS tab, right-click port 8080 → Port Visibility → Public"
+if [ "$VIA" = cloudflare ]; then
+  PORT_NOTE="Cloudflare quick tunnel (a new address each time the Codespace restarts)"
+elif [ "$VIA" = github ]; then
+  # Phones cannot sign in to GitHub, so the port must be public (the app has its own sign-in).
+  gh codespace ports visibility 8080:public -c "$CODESPACE_NAME" >/dev/null 2>&1 \
+    && PORT_NOTE="GitHub port 8080 (public)" \
+    || PORT_NOTE="GitHub port 8080 NOT public yet: PORTS tab → right-click 8080 → Port Visibility → Public"
+else
+  PORT_NOTE="$ORIGIN (given)"
+fi
 
 # ---- stand-in platforms, added once ----
 if [ ! -f "$C/.codespace-destinations" ]; then
@@ -91,9 +125,10 @@ cat <<BANNER
   What viewers see:   $ORIGIN/watch/facebook/test-facebook-key-0001/
                       $ORIGIN/watch/youtube/test-youtube-key-0002/
 
-  Port 8080:          $PORT_NOTE
+  Public address:     $PORT_NOTE
   TURN relay:         $TURN_NOTE
 
+  Open the Studio address above on the Dell (not 127.0.0.1 or localhost).
   First time?  Create your owner account:  bash infra/codespace/create-owner.sh
   ───────────────────────────────────────────────────────────────────
 BANNER
