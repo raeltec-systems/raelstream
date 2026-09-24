@@ -72,12 +72,19 @@ test('Go live → both sending → one platform lost → stop → ended', async 
   await expect(dialog).toBeHidden();
 
   await page.getByRole('button', { name: 'Go live…' }).click();
+  await page.getByLabel(/Record a private copy/).check();
   await page.getByRole('button', { name: 'Start sending to 2 places' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'ON AIR' })).toBeVisible({
     timeout: 45_000,
   });
   await expect(page.getByTestId('dest-facebook')).toContainText(/Sending/, { timeout: 30_000 });
   await expect(page.getByTestId('dest-youtube')).toContainText('publish it in YouTube Studio');
+  // Only the operator can say the platform is really live (SPEC §13.4).
+  await page
+    .getByTestId('dest-facebook')
+    .getByRole('button', { name: "I've checked the platform playback" })
+    .click();
+  await expect(page.getByTestId('confirmed-facebook')).toHaveText('Checked by Chanda');
   await page.screenshot({ path: info.outputPath('01-live-on-air.png') });
 
   // One platform disappears: partial banner, the other keeps sending
@@ -102,4 +109,13 @@ test('Go live → both sending → one platform lost → stop → ended', async 
   await page.getByRole('button', { name: 'Stop both' }).click();
   await expect(page.getByText('This service has ended')).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: info.outputPath('04-ended.png') });
+
+  // The private recording (SPEC §12.7): MediaMTX recorded the public output; the owner downloads it.
+  await page.getByRole('button', { name: /^Recording \(\d+ files?\)$/ }).click();
+  const link = page.getByRole('dialog').getByRole('link').first();
+  const href = (await link.getAttribute('href'))!;
+  const file = await page.request.get(href);
+  expect(file.status()).toBe(200);
+  expect(file.headers()['content-type']).toBe('video/mp4');
+  expect((await file.body()).length).toBeGreaterThan(50_000);
 });

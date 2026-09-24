@@ -50,10 +50,11 @@ export async function runRetention(
 export function scheduleRetention(
   db: Kysely<DB>,
   log: (m: string, d?: object) => void,
+  extra: () => Promise<Record<string, number>> = async () => ({}),
 ): () => void {
   const run = () =>
-    void runRetention(db)
-      .then((r) => log('retention', r))
+    void Promise.all([runRetention(db), extra()])
+      .then(([r, x]) => log('retention', { ...r, ...x }))
       .catch((e) => log('retention failed', { err: (e as Error).message }));
   run();
   const t = setInterval(run, 86_400_000);

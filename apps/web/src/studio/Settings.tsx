@@ -5,6 +5,7 @@ import { api, ApiFailure } from '../lib/api.js';
 import { router } from '../lib/router.js';
 import type { Me } from '../auth/SignIn.js';
 import { ThemeEditor } from './ThemeEditor.js';
+import { DestinationsEditor } from './DestinationsEditor.js';
 import s from './StudioApp.module.css';
 
 interface User {
@@ -117,6 +118,9 @@ export function Settings({ me }: { me: Me }) {
             {t('settings.createInvite')}
           </Button>
         )}
+      </Card>
+      <Card className={`${s.card} ${s.wide}`}>
+        <DestinationsEditor />
       </Card>
       <Card className={`${s.card} ${s.wide}`}>
         <ThemeEditor />

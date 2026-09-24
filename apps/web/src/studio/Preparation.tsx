@@ -7,7 +7,8 @@ import { studioRuntime } from './runtime.js';
 import { DevicesStep } from './steps/DevicesStep.js';
 import { AudioStep } from './steps/AudioStep.js';
 import { RundownStep } from './steps/RundownStep.js';
-import { NotBuiltStep } from './steps/NotBuiltStep.js';
+import { DestinationsStep } from './steps/DestinationsStep.js';
+import { UplinkStep } from './steps/UplinkStep.js';
 import { LeaseBanner } from './LeaseBanner.js';
 import s from './Preparation.module.css';
 
@@ -30,17 +31,23 @@ export function Preparation({
   const [step, setStep] = useState<Step>('devices');
 
   const cameraOk = cam.connection === 'connected';
+  // A ticked destination without a key blocks readiness (B§16.4); untick it or paste the key.
+  const destinationsOk = st.destinations
+    .filter((d) => st.selectedDestinationIds.includes(d.id))
+    .every((d) => rt.destinationHasKey(d));
   const audioOk = audio.status === 'running';
   const done: Record<Step, boolean | null> = {
     devices: cameraOk,
-    uplink: null,
-    destinations: null,
+    uplink: st.uplink.result ? true : null,
+    destinations: destinationsOk && st.selectedDestinationIds.length > 0 ? true : null,
     rundown: st.rundown.length > 0,
     audio: audioOk,
   };
   const left: MessageKey[] = [];
   if (!cameraOk) left.push('prep.left.camera');
   if (!audioOk) left.push('prep.left.audio');
+  // Not blocking: the Studio can open to rehearse; Go live will not offer a destination without a key.
+  const reminders: MessageKey[] = destinationsOk ? [] : ['prep.left.destKey'];
   const idx = STEPS.indexOf(step);
   const date = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
@@ -88,12 +95,8 @@ export function Preparation({
           <LeaseBanner />
           <div className="rs-overline">{`${st.session?.name ?? ''} · ${date}`.toUpperCase()}</div>
           {step === 'devices' && <DevicesStep />}
-          {step === 'uplink' && (
-            <NotBuiltStep title={t('prep.uplink.title')} body={t('prep.uplink.notBuilt')} />
-          )}
-          {step === 'destinations' && (
-            <NotBuiltStep title={t('prep.dest.title')} body={t('prep.dest.notBuilt')} />
-          )}
+          {step === 'uplink' && <UplinkStep />}
+          {step === 'destinations' && <DestinationsStep />}
           {step === 'rundown' && <RundownStep />}
           {step === 'audio' && <AudioStep />}
         </div>
@@ -104,10 +107,12 @@ export function Preparation({
               <span>
                 <b>{t('prep.thingsLeft', { count: left.length })}</b>{' '}
                 {left.map((k) => t(k)).join(' ')}
+                {reminders.length > 0 && ` ${reminders.map((k) => t(k)).join(' ')}`}
               </span>
             ) : (
               <span>
                 <b>{t('prep.allReady')}</b> {t('prep.allReadyDetail')}
+                {reminders.length > 0 && ` ${reminders.map((k) => t(k)).join(' ')}`}
               </span>
             )}
           </div>

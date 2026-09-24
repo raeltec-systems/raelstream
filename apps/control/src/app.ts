@@ -25,6 +25,8 @@ import { idempotent, listDestinations, retryDestination, startMedia, stopMedia }
 import { acquireLease, requireLease, takeover } from './leases.js';
 import { registerAccountRoutes } from './routes/account.js';
 import { registerContentRoutes } from './routes/content.js';
+import { registerDestinationRoutes } from './routes/destinations.js';
+import { registerRecordingRoutes } from './routes/recordings.js';
 
 const Uuid = z.string().uuid();
 const SessionParams = z.object({ id: Uuid });
@@ -122,6 +124,8 @@ export async function buildApp(
   app.get('/api/health', async () => ({ ok: true }));
   registerAccountRoutes(app, cfg, auth);
   registerContentRoutes(app, cfg, db, auth, lease);
+  registerDestinationRoutes(app, cfg, db, auth, lease);
+  registerRecordingRoutes(app, cfg, auth);
 
   // ---- presets ----
   app.get('/api/presets', { preHandler: user }, async () => presets.listPresets(db));
@@ -175,6 +179,7 @@ export async function buildApp(
       destinationIds: preset?.destination_ids ?? [],
       profile: s.profile ?? 'reliable_hd',
       fallbackGraceS: s.fallback_grace_s,
+      uplinkTest: s.uplink_test ?? null,
       rundown: s.rundown,
       audio: s.audio_state,
     };

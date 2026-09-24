@@ -3,7 +3,7 @@
  * RS_E2E_BROADCAST=1 also two RTMP sink "platforms" and the supervisor container.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, chmodSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
@@ -29,7 +29,16 @@ const db = createDb(adminUrl.replace(/\/[^/]+$/, '/rs_e2e'));
 await migrate(db, new URL('../../../infra/migrations', import.meta.url).pathname);
 const auth = new AuthService(db, loadConfig(process.env).totpKey);
 const users: Record<string, { email: string; password: string; secret: string }> = {};
-for (const key of ['spine', 'broadcast', 'invite', 'audio', 'phone', 'reconnect', 'content']) {
+for (const key of [
+  'spine',
+  'broadcast',
+  'invite',
+  'audio',
+  'phone',
+  'reconnect',
+  'content',
+  'destinations',
+]) {
   const email = `${key}@e2e.test`;
   const password = 'correct horse battery staple';
   const r = await auth.createUser({ email, name: 'Chanda', role: 'owner', password });
@@ -97,6 +106,11 @@ if (relay) {
 if (!process.env.RS_E2E_EXTERNAL_MEDIAMTX) {
   const slates = mkdtempSync(join(tmpdir(), 'rs-e2e-slates-'));
   chmodSync(slates, 0o777);
+  // MediaMTX records here; control (on the host) reads the same directory (RS_RECORDINGS_DIR).
+  const recordings = join(tmpdir(), 'rs-e2e-recordings');
+  rmSync(recordings, { recursive: true, force: true });
+  mkdirSync(recordings, { recursive: true });
+  chmodSync(recordings, 0o777);
   docker([
     'run',
     '-d',
@@ -108,6 +122,8 @@ if (!process.env.RS_E2E_EXTERNAL_MEDIAMTX) {
     `${repo}infra/media/mediamtx.yml:/mediamtx.yml:ro`,
     '-v',
     `${slates}:/var/lib/raelstream/slates:ro`,
+    '-v',
+    `${recordings}:/var/lib/raelstream/recordings`,
     '-e',
     'MTX_AUTHHTTPADDRESS=http://127.0.0.1:3000/internal/mediamtx/auth',
     '-e',

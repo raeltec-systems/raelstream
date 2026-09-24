@@ -18,6 +18,8 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   DEST_NOT_CONFIGURED: 409,
   DEST_KEY_MISSING: 409,
   NOT_SENDING: 409,
+  DEST_URL_NOT_ALLOWED: 400,
+  DEST_UNREACHABLE: 502,
   ASSET_TOO_LARGE: 413,
   ASSET_UNSUPPORTED: 415,
   ASSET_CORRUPT: 422,
@@ -44,6 +46,10 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   DEST_NOT_CONFIGURED: 'A selected destination is not set up. Set it up or deselect it.',
   DEST_KEY_MISSING: 'A selected destination has no stream key. Paste the key or deselect it.',
   NOT_SENDING: 'That destination is not part of this broadcast.',
+  DEST_URL_NOT_ALLOWED:
+    'That server is not an official Facebook or YouTube ingest address. Choose one from the list.',
+  DEST_UNREACHABLE:
+    'The platform server did not answer. Check the internet connection, then try again.',
   ASSET_TOO_LARGE:
     'That image is too big. Use one under 10 MB and at most 4096 pixels on each side.',
   ASSET_UNSUPPORTED:

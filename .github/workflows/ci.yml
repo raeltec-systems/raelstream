@@ -75,11 +75,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: docker pull bluenviron/mediamtx:1.21.1-ffmpeg && docker pull node:24-alpine
       - run: pnpm test:media
+      # Go live end to end with the real supervisor (built by test:media) and two stand-in platforms:
+      # partial publication, Stop, the operator's live confirmation and the private recording.
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test broadcast
+        env:
+          CI: '1'
+          RS_E2E_BROADCAST: '1'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: m2-media-evidence
-          path: test-results/m2-media-evidence.json
+          path: |
+            test-results/m2-media-evidence.json
+            test-results/broadcast-*/
 
   images:
     # The deployable images build, and the control image's native image library loads (SPEC §10.6).

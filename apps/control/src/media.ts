@@ -26,6 +26,9 @@ export async function listDestinations(db: Kysely<DB>): Promise<DestinationSumma
     autoPublishesOnIngest:
       r.auto_publishes_on_ingest as DestinationSummary['autoPublishesOnIngest'],
     watchUrl: r.watch_url,
+    serverUrl: r.server_url,
+    eventReference: r.event_reference,
+    keyUpdatedAt: r.key_updated_at ? new Date(r.key_updated_at).toISOString() : null,
   }));
 }
 
@@ -95,8 +98,20 @@ export async function startMedia(
       .execute();
     if (dests.length !== req.destinationIds.length || dests.some((d) => !d.enabled))
       throw new AppError('DEST_NOT_CONFIGURED', 'destination');
-    // Block start while any selected destination lacks a key (B§16.4).
-    if (dests.some((d) => !d.key_enc)) throw new AppError('DEST_KEY_MISSING', 'destination');
+    // Block start while any selected destination lacks a key (B§16.4). A per-event destination
+    // (Facebook, I-13) needs this service's key, pasted in Preparation.
+    const sessionKeys = new Set(
+      (
+        await db
+          .selectFrom('session_destinations')
+          .select('destination_id')
+          .where('session_id', '=', sessionId)
+          .where('session_key_enc', 'is not', null)
+          .execute()
+      ).map((r) => r.destination_id),
+    );
+    if (dests.some((d) => (d.key_mode === 'per_event' ? !sessionKeys.has(d.id) : !d.key_enc)))
+      throw new AppError('DEST_KEY_MISSING', 'destination');
     for (const id of req.destinationIds) publishers[id] = { state: 'running', retryNonce: 0 };
   }
   const desired: DesiredState = {
@@ -108,6 +123,7 @@ export async function startMedia(
     fallbackGraceS: s.fallback_grace_s,
     stopRequestedAt: null,
     endOnStop: req.mode === 'live',
+    record: req.mode === 'live' && req.record === true,
   };
   await db.transaction().execute(async (trx) => {
     await trx

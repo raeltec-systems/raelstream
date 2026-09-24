@@ -21,6 +21,9 @@ export const clientId: string = (() => {
 export function setCsrf(token: string): void {
   csrf = token;
 }
+export function getCsrf(): string {
+  return csrf;
+}
 
 export class ApiFailure extends Error {
   constructor(

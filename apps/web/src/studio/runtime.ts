@@ -8,8 +8,11 @@ import type {
   DestinationSummary,
   ObservedState,
   SessionLifecycle,
+  SessionDestination,
   Theme,
+  UplinkResult,
 } from '@raelstream/contracts';
+import { uplinkOffer } from '@raelstream/contracts';
 import {
   AudioEngine,
   CameraReceiver,
@@ -22,7 +25,7 @@ import {
   type TextCard,
   textCardFits,
 } from '@raelstream/media-runtime';
-import { api, ApiFailure, clientId } from '../lib/api.js';
+import { api, ApiFailure, clientId, getCsrf } from '../lib/api.js';
 import { FONT_FAMILY, assetBitmap, programmeTheme } from '../lib/theme.js';
 import { t } from '@raelstream/i18n';
 import { SessionSocket } from '../lib/ws.js';
@@ -58,6 +61,15 @@ export interface StudioState {
   lifecycle: SessionLifecycle | null;
   destinations: DestinationSummary[];
   liveDestinationIds: string[];
+  /** Destinations this service will use (Preparation → Destinations); Go live starts with these. */
+  selectedDestinationIds: string[];
+  /** Per-service destination state: Facebook's key ending, the operator's live confirmation. */
+  sessionDestinations: SessionDestination[];
+  uplink: {
+    status: 'idle' | 'running' | 'done' | 'error';
+    progressMbps: number | null;
+    result: UplinkResult | null;
+  };
   commandError: string | null;
   /** Studio lease (SPEC §9.10): only the holder may send commands; others are read-only. */
   lease: {
@@ -102,6 +114,7 @@ export interface SessionConfig {
   destinationIds: string[];
   profile: Profile;
   fallbackGraceS: number;
+  uplinkTest: UplinkResult | null;
   rundown: unknown[];
   audio: {
     deviceLabel?: string | null;
@@ -164,6 +177,9 @@ export class StudioRuntime extends Observable<StudioState> {
       lifecycle: null,
       destinations: [],
       liveDestinationIds: [],
+      selectedDestinationIds: [],
+      sessionDestinations: [],
+      uplink: { status: 'idle', progressMbps: null, result: null },
       commandError: null,
       lease: null,
       presetId: null,
@@ -616,6 +632,16 @@ export class StudioRuntime extends Observable<StudioState> {
         presetName: c.presetName,
         rundown: fromServerRundown(c.rundown, this.bitmaps),
         savedAudioDevice: c.audio.deviceLabel ?? null,
+        ...(c.destinationIds.length ? { selectedDestinationIds: c.destinationIds } : {}),
+        ...(c.uplinkTest
+          ? {
+              uplink: {
+                status: 'done' as const,
+                progressMbps: c.uplinkTest.httpMbps,
+                result: c.uplinkTest,
+              },
+            }
+          : {}),
       });
       void this.loadImages();
       if (c.profile !== this.state.profile) this.setProfile(c.profile);
@@ -723,9 +749,119 @@ export class StudioRuntime extends Observable<StudioState> {
   // ---- media node (SPEC §12): contribution + normaliser + publishers ----
   async loadDestinations(): Promise<void> {
     try {
-      this.set({ destinations: await api<DestinationSummary[]>('GET', '/api/destinations') });
+      const destinations = await api<DestinationSummary[]>('GET', '/api/destinations');
+      const ids = destinations.map((d) => d.id);
+      const known = new Set(this.state.destinations.map((d) => d.id));
+      const kept = this.state.selectedDestinationIds.filter((id) => ids.includes(id));
+      // Newly added destinations start ticked, unless the operator has already chosen for this service.
+      const added = this.selectionTouched
+        ? []
+        : ids.filter((id) => !known.has(id) && !kept.includes(id));
+      this.set({ destinations, selectedDestinationIds: [...kept, ...added] });
+      await this.loadSessionDestinations();
     } catch {
       /* shown as none configured */
+    }
+  }
+
+  async loadSessionDestinations(): Promise<void> {
+    const s = this.state.session;
+    if (!s) return;
+    const sessionDestinations = await api<SessionDestination[]>(
+      'GET',
+      `/api/sessions/${s.id}/destinations`,
+    ).catch(() => this.state.sessionDestinations);
+    this.set({ sessionDestinations });
+  }
+
+  private selectionTouched = false;
+  toggleDestination(id: string): void {
+    this.selectionTouched = true;
+    const cur = this.state.selectedDestinationIds;
+    this.set({
+      selectedDestinationIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+    });
+  }
+
+  /** A destination can start: persistent key saved, or this service's key pasted (B§16.4). */
+  destinationHasKey(d: DestinationSummary): boolean {
+    return d.keyMode === 'per_event'
+      ? !!this.state.sessionDestinations.find((x) => x.destinationId === d.id)?.sessionKeyPresent
+      : !!d.keyLast4;
+  }
+
+  /** Paste Facebook's key for this service (I-13). Returns whether it matches last week's ending. */
+  async pasteSessionKey(destinationId: string, key: string): Promise<{ sameAsLast: boolean }> {
+    const r = await api<{ keyLast4: string; sameAsLast: boolean }>(
+      'PUT',
+      `/api/sessions/${this.state.session!.id}/destinations/${destinationId}/key`,
+      { key },
+    );
+    await this.loadSessionDestinations();
+    return { sameAsLast: r.sameAsLast };
+  }
+
+  reportError(e: unknown): void {
+    this.set({ commandError: e instanceof Error ? e.message : String(e) });
+  }
+
+  /** "I've checked the platform playback" (SPEC §13.4). */
+  async confirmLive(destinationId: string): Promise<void> {
+    await this.command(`destinations/${destinationId}/confirm`).catch((e) =>
+      this.set({ commandError: (e as Error).message }),
+    );
+    await this.loadSessionDestinations();
+  }
+
+  /**
+   * Uplink test (SPEC §11.3): up to 40 MB of random bytes in 4 parallel uploads for up to 20 s; the
+   * server counts what arrives. Never while sending (E31).
+   */
+  async runUplinkTest(): Promise<void> {
+    const s = this.state.session;
+    if (!s || this.isLive || this.state.contribution === 'sending') return;
+    this.set({ uplink: { ...this.state.uplink, status: 'running', progressMbps: null } });
+    const chunk = new Uint8Array(2 * 1024 * 1024);
+    for (let i = 0; i < chunk.length; i += 65536)
+      crypto.getRandomValues(chunk.subarray(i, i + 65536));
+    const started = performance.now();
+    const deadline = started + 20_000;
+    let acked = 0;
+    let budget = 40 * 1024 * 1024;
+    const worker = async () => {
+      while (performance.now() < deadline && budget > 0) {
+        budget -= chunk.length;
+        const r = await fetch('/api/uplink-test/sink', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/x-rs-uplink',
+            'X-RS-CSRF': getCsrf(),
+            'X-RS-Client': clientId,
+          },
+          body: chunk,
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        acked += ((await r.json()) as { bytes: number }).bytes;
+        const secs = (performance.now() - started) / 1000;
+        this.set({ uplink: { ...this.state.uplink, progressMbps: (acked * 8) / secs / 1e6 } });
+      }
+    };
+    try {
+      await Promise.all([worker(), worker(), worker(), worker()]);
+      const seconds = (performance.now() - started) / 1000;
+      const httpMbps = Math.round(((acked * 8) / seconds / 1e6) * 10) / 10;
+      const result: UplinkResult = {
+        httpMbps,
+        bytes: acked,
+        seconds: Math.round(seconds * 10) / 10,
+        offer: uplinkOffer(httpMbps),
+        measuredAt: new Date().toISOString(),
+      };
+      await api('POST', `/api/sessions/${s.id}/uplink-test`, result);
+      this.set({ uplink: { status: 'done', progressMbps: httpMbps, result } });
+    } catch {
+      this.set({ uplink: { ...this.state.uplink, status: 'error' } });
     }
   }
 
@@ -793,7 +929,7 @@ export class StudioRuntime extends Observable<StudioState> {
   }
 
   /** Start sending to the chosen destinations (B§16.4). The idempotency key makes double clicks safe (A32). */
-  async goLive(destinationIds: string[]): Promise<void> {
+  async goLive(destinationIds: string[], record = false): Promise<void> {
     this.set({ commandError: null, liveDestinationIds: destinationIds });
     try {
       if (this.state.session?.mode === 'rehearsal')
@@ -802,6 +938,7 @@ export class StudioRuntime extends Observable<StudioState> {
         mode: 'live',
         profile: this.state.profile,
         destinationIds,
+        record,
       });
       await this.ensureContribution();
     } catch (e) {

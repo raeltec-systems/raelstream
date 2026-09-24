@@ -39,6 +39,8 @@ export const DesiredState = z.object({
   fallbackGraceS: z.number().int().min(60).max(600),
   stopRequestedAt: z.string().nullable(),
   endOnStop: z.boolean(),
+  /** Record a private copy of the public output (SPEC §12.7). */
+  record: z.boolean().optional(),
 });
 export type DesiredState = z.infer<typeof DesiredState>;
 
@@ -84,12 +86,59 @@ export const DestinationSummary = z.object({
   keyMode: z.enum(['persistent', 'per_event']),
   autoPublishesOnIngest: z.enum(['yes', 'no', 'unknown']),
   watchUrl: z.string().nullable(),
+  serverUrl: z.string(),
+  eventReference: z.string(),
+  keyUpdatedAt: z.string().nullable(),
 });
 export type DestinationSummary = z.infer<typeof DestinationSummary>;
+
+/** Owner form for a destination (SPEC §13.1). The key is write-only and never returned. */
+export const DestinationInput = z.object({
+  platform: z.enum(['facebook', 'youtube']),
+  label: z.string().trim().min(1).max(60),
+  serverUrl: z.string().max(300),
+  keyMode: z.enum(['persistent', 'per_event']),
+  autoPublishesOnIngest: z.enum(['yes', 'no', 'unknown']),
+  watchUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .regex(/^https:\/\/([a-z0-9-]+\.)*(facebook\.com|youtube\.com|youtu\.be)(\/.*)?$/i)
+    .nullable()
+    .or(z.literal('').transform(() => null)),
+  eventReference: z.string().trim().max(120).default(''),
+  key: z.string().max(400).optional(),
+});
+export type DestinationInput = z.infer<typeof DestinationInput>;
+
+/** Per-service state of a destination: the per-event key ending and the operator's confirmation. */
+export const SessionDestination = z.object({
+  destinationId: z.string().uuid(),
+  sessionKeyLast4: z.string().nullable(),
+  sessionKeyPresent: z.boolean(),
+  liveConfirmation: z.object({ by: z.string(), at: z.string() }).nullable(),
+});
+export type SessionDestination = z.infer<typeof SessionDestination>;
+
+/** Uplink test result (SPEC §11.3). */
+export const UplinkResult = z.object({
+  httpMbps: z.number().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  seconds: z.number().positive(),
+  offer: z.enum(['full_hd', 'reliable_hd', 'insufficient']),
+  measuredAt: z.string(),
+});
+export type UplinkResult = z.infer<typeof UplinkResult>;
+
+/** SPEC §11.3: full_hd at ≥ 12 Mb/s, reliable_hd at ≥ 7 Mb/s, otherwise insufficient. */
+export function uplinkOffer(mbps: number): UplinkResult['offer'] {
+  return mbps >= 12 ? 'full_hd' : mbps >= 7 ? 'reliable_hd' : 'insufficient';
+}
 
 export const StartRequest = z.object({
   mode: z.enum(['ingest_test', 'live']),
   profile: Profile,
   destinationIds: z.array(z.string().uuid()).max(2),
+  record: z.boolean().optional(),
 });
 export type StartRequest = z.infer<typeof StartRequest>;

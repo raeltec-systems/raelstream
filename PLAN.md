@@ -242,3 +242,22 @@ reconnect → Cut back; it fails with the reconnect watchdog disabled).
 **Verified:** 82 unit, 62 integration (6 new for assets/theme), 7 Playwright runs (new: church look →
 logo in the chosen corner of the real programme; SVG refused; image survives reload; scripture card
 fit; clip recorded, clap found, calibration saved).
+
+### M7: built 24 Sep 2026 (WP4)
+
+| Area | State |
+|---|---|
+| Destinations (S05, A40, A41) | Done: Settings → Destinations (owner): add/edit/remove, server from the allowlist only (stand-ins outside production), key pasted write-only and sealed at once (replace, never reveal), key mode, auto-publish, watch URL, note. **Check connection** does DNS (public addresses only) + TCP/TLS without media. |
+| Facebook per-event key (I-13) | Done: pasted per service in Preparation → Destinations (lease holder; never readable), "looks like last week's key" warning, Go live refuses a destination without a key, the supervisor uses the service key, and a database trigger wipes it when the service ends or is interrupted. |
+| Live | Done: "I've checked the platform playback" (stale after a reconnect), watch-page link, Fix key for a rejected Facebook key, Go live starts from Preparation's choice and disables keyless destinations. |
+| Uplink test (I-04, I-05) | Done (HTTP part, SPEC §11.3 decision): 40 MB / 20 s from 4 workers, result stored with the service, 1080p/720p/insufficient offer, warning when choosing above it, refused while sending (E31). |
+| Recording (I-16, I-17) | Done (local, SPEC §12.7 decision): "Record a private copy" in Go live; MediaMTX records the public output (fMP4, 10 min); the owner downloads from the ended service; deleted after 30 days. |
+| CI | The broadcast e2e (real supervisor, two stand-in platforms) now runs in the media job. |
+
+**Verified:** 82 unit, 67 integration (5 new: allowlist/SSRF refusals, keys never returned, per-event
+key rules incl. the wipe trigger, uplink sink), 9 media, 9 Playwright runs (new: Settings →
+Destinations → uplink test → Facebook key → Go live offers both; broadcast now records, confirms
+playback and downloads a valid 720p H.264/AAC file).
+
+**Bug found:** new destinations were not ticked for the service if the studio had already loaded the
+list; and a missing Facebook key blocked opening the Studio (now a reminder: it only blocks going live).

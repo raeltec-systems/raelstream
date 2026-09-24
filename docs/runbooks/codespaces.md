@@ -108,17 +108,18 @@ Write down anything confusing, slow or wrong, with a screenshot if you can, and 
 
 ### Going live to your real private test events (optional)
 
-The stand-ins are the safe default. To also send to a private YouTube or Facebook test event, add the
-destination from the Codespace terminal. The stream key is read without echoing:
+The stand-ins are the safe default. To also send to a private YouTube or Facebook test event, open
+**Settings → Destinations** in the studio (owner only):
 
-```sh
-read -rs KEY && printf '%s' "$KEY" | docker compose -f infra/compose/docker-compose.yml \
-  -f infra/codespace/compose.yml exec -T control node dist/cli.js destination:add \
-  --platform youtube --label "YouTube test" --server rtmps://a.rtmps.youtube.com/live2; unset KEY
-```
+- **Add YouTube:** choose *Same key every week*, press **Paste** with the stream key from YouTube Live
+  Control Room on the clipboard, and set *When video arrives* to what the event does (Auto-start on
+  = *Goes public on its own*). **Check connection** confirms the server answers without sending video.
+- **Add Facebook:** leave *New key each service*. In each service, paste that week's key under
+  **Preparation → Destinations**.
 
-(For Facebook: `--platform facebook --server rtmps://live-api-s.facebook.com:443/rtmp/`.) Remember that
-this path goes Zambia → Codespace (US/Europe) → platform, so its delay is not what production will have.
+Keys are locked on the server as soon as they are pasted and can only be replaced, never read back.
+Remember that this path goes Zambia → Codespace (US/Europe) → platform, so its delay is not what
+production will have.
 
 ## 7. After Claude pushes changes
 

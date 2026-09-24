@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DestinationSummary, ObservedDestination } from '@raelstream/contracts';
 import { Banner, Button, Modal, Pill, StatusDot, StopModal, type Tone } from '@raelstream/ui';
 import { t, type MessageKey } from '@raelstream/i18n';
+import { api } from '../lib/api.js';
 import { useStore } from '../lib/useStore.js';
 import { LIVE_STATES, PROFILE_SIZE, studioRuntime } from './runtime.js';
 import s from './Live.module.css';
@@ -15,7 +16,7 @@ export function fmtElapsed(sinceMs: number | null, now: number): string {
   return h ? `${h}:${p(m)}:${p(sec % 60)}` : `${p(m)}:${p(sec % 60)}`;
 }
 
-function platformName(d: DestinationSummary): string {
+export function platformName(d: DestinationSummary): string {
   return d.platform === 'facebook' ? t('platform.facebook') : t('platform.youtube');
 }
 
@@ -129,6 +130,33 @@ export function DestinationRows() {
               <b>{platformName(d)}</b>
               <span className={state === 'FAILED' ? s.destFail : s.destSub}>{sub}</span>
             </span>
+            {inBroadcast && state === 'SENDING' && d.watchUrl && (
+              <a className={s.destLink} href={d.watchUrl} target="_blank" rel="noreferrer noopener">
+                {t('dest.openPlatform')}
+              </a>
+            )}
+            {inBroadcast && state === 'SENDING' && (
+              <LiveConfirmation d={d} sendingSince={o?.sendingSince ?? null} />
+            )}
+            {inBroadcast &&
+              state === 'FAILED' &&
+              d.keyMode === 'per_event' &&
+              (o?.failure === 'DEST_AUTH_REJECTED' || o?.failure === 'DEST_KEY_MISSING') && (
+                <Button
+                  size="dense"
+                  variant="ghost"
+                  onClick={async () => {
+                    const key = window.prompt(t('dest.fixKeyPrompt'));
+                    if (!key?.trim()) return;
+                    await rt
+                      .pasteSessionKey(d.id, key.trim())
+                      .then(() => rt.retryDestination(d.id))
+                      .catch((e) => rt.reportError(e));
+                  }}
+                >
+                  {t('dest.fixKey')}
+                </Button>
+              )}
             {inBroadcast && (state === 'FAILED' || state === 'RECONNECTING') && (
               <Button size="dense" variant="ghost" onClick={() => void rt.retryDestination(d.id)}>
                 {t('dest.retry')}
@@ -137,6 +165,85 @@ export function DestinationRows() {
           </div>
         );
       })}
+    </>
+  );
+}
+
+/**
+ * "I've checked the platform playback" (SPEC §13.4): the only way a destination shows as confirmed
+ * live. A confirmation from before the latest reconnect no longer counts. Viewer counts are never shown.
+ */
+function LiveConfirmation({
+  d,
+  sendingSince,
+}: {
+  d: DestinationSummary;
+  sendingSince: string | null;
+}) {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  const c = st.sessionDestinations.find((x) => x.destinationId === d.id)?.liveConfirmation;
+  const valid = c && (!sendingSince || Date.parse(c.at) >= Date.parse(sendingSince));
+  if (!valid)
+    return (
+      <Button size="dense" variant="ghost" onClick={() => void rt.confirmLive(d.id)}>
+        {t('dest.confirm')}
+      </Button>
+    );
+  const mins = Math.floor((Date.now() - Date.parse(c.at)) / 60_000);
+  return (
+    <span className={s.destSub} data-testid={`confirmed-${d.platform}`}>
+      {mins >= 30 ? t('dest.checkedAgo', { n: mins }) : t('dest.checked', { by: c.by })}
+    </span>
+  );
+}
+
+/** The owner's private recording of this service, if one was made (SPEC §12.7). */
+function Recordings() {
+  const st = useStore(studioRuntime());
+  const [files, setFiles] = useState<Array<{ name: string; bytes: number; url: string }>>([]);
+  const [open, setOpen] = useState(false);
+  const close = useRef<HTMLButtonElement>(null);
+  const id = st.session?.id;
+  useEffect(() => {
+    if (!id) return;
+    // Owner only: an operator gets 403 and sees nothing.
+    void api<typeof files>('GET', `/api/sessions/${id}/recordings`)
+      .then(setFiles)
+      .catch(() => setFiles([]));
+  }, [id]);
+  if (files.length === 0) return null;
+  return (
+    <>
+      <Button size="dense" onClick={() => setOpen(true)}>
+        {t('rec.open', { n: files.length })}
+      </Button>
+      {open && (
+        <Modal
+          title={t('rec.title')}
+          onDismiss={() => setOpen(false)}
+          initialFocus={close}
+          actions={
+            <Button ref={close} onClick={() => setOpen(false)}>
+              {t('rec.close')}
+            </Button>
+          }
+        >
+          <p className={s.goMeta}>{t('rec.body')}</p>
+          <ul className={s.goList}>
+            {files.map((f) => (
+              <li key={f.url} className={s.goRow}>
+                <a className={s.destLink} href={f.url} download>
+                  {f.name}
+                </a>
+                <span className={s.goMeta}>
+                  {t('rec.size', { gb: (f.bytes / 1e9).toFixed(2) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
     </>
   );
 }
@@ -151,9 +258,16 @@ export function BroadcastBanners() {
         tone="standby"
         title={st.lifecycle === 'ENDED' ? t('banner.endedTitle') : t('banner.interruptedTitle')}
         actions={
-          <Button size="dense" variant="primary" onClick={() => window.location.assign('/studio')}>
-            {t('banner.newService')}
-          </Button>
+          <>
+            <Recordings />
+            <Button
+              size="dense"
+              variant="primary"
+              onClick={() => window.location.assign('/studio')}
+            >
+              {t('banner.newService')}
+            </Button>
+          </>
         }
       >
         {t('banner.endedBody')}
@@ -256,7 +370,13 @@ function GoLiveModal({ onClose }: { onClose: () => void }) {
   const rt = studioRuntime();
   const st = useStore(rt);
   const cancel = useRef<HTMLButtonElement>(null);
-  const [chosen, setChosen] = useState<string[]>(st.destinations.map((d) => d.id));
+  // Starts from Preparation's choice; a destination without a key cannot start (B§16.4).
+  const [chosen, setChosen] = useState<string[]>(
+    st.destinations
+      .filter((d) => st.selectedDestinationIds.includes(d.id) && rt.destinationHasKey(d))
+      .map((d) => d.id),
+  );
+  const [record, setRecord] = useState(false);
   const toggle = (id: string) =>
     setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const n = chosen.length;
@@ -275,7 +395,7 @@ function GoLiveModal({ onClose }: { onClose: () => void }) {
             disabled={n === 0}
             onClick={() => {
               onClose();
-              void rt.goLive(chosen);
+              void rt.goLive(chosen, record);
             }}
           >
             {n === 1 ? t('go.confirmOne') : t('go.confirm', { count: n })}
@@ -290,18 +410,24 @@ function GoLiveModal({ onClose }: { onClose: () => void }) {
               <input
                 type="checkbox"
                 checked={chosen.includes(d.id)}
+                disabled={!rt.destinationHasKey(d)}
                 onChange={() => toggle(d.id)}
               />
               <b>
                 {platformName(d)} · {d.label}
               </b>
             </label>
+            {!rt.destinationHasKey(d) && <span className={s.goWarn}>{t('go.noKey')}</span>}
             {d.autoPublishesOnIngest !== 'no' && (
               <span className={s.goWarn}>{t('go.publicWarning')}</span>
             )}
           </li>
         ))}
       </ul>
+      <label className={s.goLabel}>
+        <input type="checkbox" checked={record} onChange={() => setRecord((r) => !r)} />
+        <span>{t('go.record', { gb: st.profile === 'full_hd' ? '2.7' : '1.8' })}</span>
+      </label>
       <p className={s.goMeta}>{t('go.meta', { profile: PROFILE_SIZE[st.profile].label })}</p>
     </Modal>
   );

@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 const executablePath =
@@ -59,6 +61,7 @@ export default defineConfig({
         RS_SEAL_PUBLIC_KEY: E2E.sealPublicKey,
         RS_E2E_SEAL_SECRET_KEY: E2E.sealSecretKey,
         RS_DEST_TEST_SINKS: '1',
+        RS_RECORDINGS_DIR: join(tmpdir(), 'rs-e2e-recordings'),
         RS_E2E_BROADCAST: E2E.broadcast ? '1' : '0',
         RS_E2E_RELAY: E2E.relay ? '1' : '0',
         ...(E2E.relay ? { RS_ICE_TRANSPORT_POLICY: 'relay' } : {}),

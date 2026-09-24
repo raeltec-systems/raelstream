@@ -24,6 +24,10 @@ export interface Config {
   loginRateLimit: number;
   /** Sealed-box public key for stream keys (control can encrypt, never decrypt). */
   sealPublicKey: string | null;
+  /** Stand-in RTMP platforms (tests, Codespaces). Refused in production. */
+  destTestSinks: boolean;
+  /** Where MediaMTX writes recordings (mounted read-only here). */
+  recordingsDir: string;
   /** Relay for the WHIP contribution: Cloudflare TURN, a static list, or none (SPEC §11.1). */
   turn: TurnConfig;
   iceTransportPolicy: 'all' | 'relay';
@@ -63,6 +67,8 @@ export function loadConfig(env = process.env): Config {
     loginRateLimit: Number(env.RS_LOGIN_RATE_LIMIT ?? 20),
     pairRateLimit: Number(env.RS_PAIR_RATE_LIMIT ?? 10),
     sealPublicKey: env.RS_SEAL_PUBLIC_KEY || null,
+    destTestSinks: env.RS_DEST_TEST_SINKS === '1' && !production,
+    recordingsDir: env.RS_RECORDINGS_DIR ?? '/var/lib/raelstream/recordings',
     turn: turnConfigFromEnv(env),
     iceTransportPolicy: transportPolicy(env, turnConfigFromEnv(env)),
     production,

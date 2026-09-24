@@ -417,3 +417,11 @@
   font-size: 15px;
   color: var(--rs-muted);
 }
+.destLink {
+  color: var(--rs-accent-dark);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}

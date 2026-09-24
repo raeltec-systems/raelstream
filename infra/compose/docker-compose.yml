@@ -37,6 +37,8 @@ services:
           "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 10s
+    # Read-only view of MediaMTX's recordings, for the owner's downloads (SPEC §12.7).
+    volumes: [recordings:/var/lib/raelstream/recordings:ro]
     deploy:
       resources: { limits: { cpus: '1.0', memory: 512M } }
 
@@ -68,6 +70,7 @@ services:
     volumes:
       - ../media/mediamtx.yml:/mediamtx.yml:ro
       - slates:/var/lib/raelstream/slates:ro
+      - recordings:/var/lib/raelstream/recordings
     environment:
       MTX_WEBRTCADDITIONALHOSTS: ${PUBLIC_IP:?set PUBLIC_IP in .env}
       MTX_WEBRTCTRUSTEDPROXIES: 172.16.0.0/12
@@ -95,3 +98,4 @@ volumes:
   pgdata:
   caddydata:
   slates:
+  recordings:

@@ -25,6 +25,11 @@ export interface DB {
     created_by: string | null;
     rundown: ColumnType<unknown[], string | undefined, string>;
     audio_state: ColumnType<Record<string, unknown>, string | undefined, string>;
+    uplink_test: ColumnType<
+      Record<string, unknown> | null,
+      string | null | undefined,
+      string | null
+    >;
   };
   destinations: {
     id: Generated<string>;
@@ -37,6 +42,7 @@ export interface DB {
     key_mode: string;
     auto_publishes_on_ingest: Generated<string>;
     watch_url: string | null;
+    event_reference: Generated<string>;
     enabled: Generated<boolean>;
     created_at: Generated<Date>;
     archived_at: TsNull;
@@ -45,6 +51,13 @@ export interface DB {
     session_id: string;
     destination_id: string;
     selected_at: Generated<Date>;
+    session_key_enc: Buffer | null;
+    session_key_last4: string | null;
+    live_confirmation: ColumnType<
+      { source: 'operator'; by: string; at: string } | null,
+      string | null,
+      string | null
+    >;
   };
   command_log: {
     idempotency_key: string;

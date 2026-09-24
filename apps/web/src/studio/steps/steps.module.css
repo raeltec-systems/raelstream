@@ -252,3 +252,9 @@
   height: 64px;
   border-radius: 8px;
 }
+.link {
+  color: var(--rs-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

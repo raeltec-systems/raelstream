@@ -821,6 +821,8 @@ The profile is fixed at Start (B§14.3). Changing it means Stop, then Start with
 
 ### 11.3 Uplink test and profile choice (I-04, I-05)
 
+**[DECISION, M7]** R1 runs the HTTP throughput part only (2 MB uploads from 4 parallel workers, up to 40 MB or 20 s, bytes counted by control as they arrive). The private test already exercises the WebRTC media path and shows its sending rate; the 15 s synthetic WHIP probe below is deferred. The offer thresholds are unchanged.
+
 **Run uplink test** runs only in Preparation and never during SENDING (B§18.1).
 
 1. **HTTP throughput:** the browser streams 40 MB of random bytes as `POST /api/uplink-test/sink` to the VM in 4 parallel fetches, for up to 20 s. Control counts the bytes received and reports Mbps over the middle 10 s.
@@ -1004,6 +1006,8 @@ When no new camera frame arrives for 2 s, the camera health turns critical with 
 
 ### 12.7 Recording (I-16, I-17)
 
+**[DECISION, M7]** R1 keeps recordings on the media node's `recordings` volume and the owner downloads them from the ended service (`GET /api/sessions/{id}/recordings`, owner only); there is no S3/R2 upload yet, so no bucket credentials are needed. MediaMTX records the `norm/…` path itself (fMP4, 10-minute segments, slate periods included); the supervisor turns recording on for the path when `desired.record` is set, including when a private test becomes a recorded broadcast. Control mounts the volume read-only and deletes a service's recordings after 30 days (I-17). The rest of this section (uploader, presigned links, disk guard) is deferred.
+
 - The Start modal has a **Record a private copy** checkbox (the preset default is `record_default`). The owner can enable recording in any preset. Operators can tick it but cannot download.
 - **Mechanism:** the supervisor enables MediaMTX path recording on `norm/…` with `recordFormat: fmp4` and `recordSegmentDuration: 10m`, written to the volume `data/recordings/{sid}/`. The recording is the **normalised public output**, including slate periods.
 - **Uploader:** a supervisor task uploads each completed segment to `s3://{bucket}/recordings/{sid}/{segment}` with a multipart upload, verifies size and ETag, then deletes the local copy. A local disk cap of 20 GB is reserved for recordings. If free disk space drops below 5 GB, recording stops with the warning `RECORDING_DISK_LOW`. **The live stream never stops because of recording.**
@@ -1017,6 +1021,8 @@ When no new camera frame arrives for 2 s, the camera health turns critical with 
 ## 13. Destinations (Facebook, YouTube)
 
 ### 13.1 Destination setup (S05, owner only)
+
+Built in M7 as Settings → Destinations (`/api/destinations`, owner). **Send test media** is not built: a platform test is Go live to a test or unlisted event (§9.6).
 
 Fields:
 
