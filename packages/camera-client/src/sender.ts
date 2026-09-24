@@ -8,6 +8,7 @@ export interface CaptureInfo {
   requested: { width: number; height: number; fps: number };
   actual: { width: number | null; height: number | null; fps: number | null };
   deviceLabel: string;
+  deviceId: string | null;
   zoom: { min: number; max: number; step: number; value: number } | null;
 }
 
@@ -115,9 +116,17 @@ export class CameraSender {
   private seq = 0;
   private gen = 1;
   private stateTimer: ReturnType<typeof setInterval> | null = null;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
+  private downSince: number | null = null;
+  private reconnecting = false;
+  private ctlWasOpen = false;
+  /** When the current peer connection was created. */
+  private connectedAt = 0;
   private onVisibility = () => {
-    if (document.visibilityState === 'visible' && this.state.capture === 'live')
+    if (document.visibilityState === 'visible' && this.state.capture === 'live') {
       void this.acquireWakeLock();
+      void this.recoverCapture().then(() => this.checkLink());
+    }
     this.sendState();
   };
 
@@ -161,27 +170,104 @@ export class CameraSender {
     this.stream = stream;
     const track = stream.getVideoTracks()[0]!;
     track.contentHint = 'motion';
-    track.addEventListener('ended', () => this.set({ capture: 'stopped' }));
-    const st = track.getSettings() as ZoomSettings;
-    const caps = (track.getCapabilities?.() ?? {}) as ZoomCaps;
-    const zoom = caps.zoom && typeof st.zoom === 'number' ? { ...caps.zoom, value: st.zoom } : null;
+    track.addEventListener('ended', () => this.onTrackEnded(stream));
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(
       (d) => d.kind === 'videoinput',
     );
-    this.set({
-      capture: 'live',
-      devices,
-      info: {
-        requested,
-        actual: { width: st.width ?? null, height: st.height ?? null, fps: st.frameRate ?? null },
-        deviceLabel: track.label,
-        zoom,
-      },
-    });
+    this.set({ capture: 'live', devices, info: { ...this.describe(track), requested } });
     void this.acquireWakeLock();
     void this.readBattery();
     document.addEventListener('visibilitychange', this.onVisibility);
     await this.connect();
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => this.checkLink(), 1000);
+  }
+
+  /**
+   * Reconnection (SPEC §8.6, A10–A11): after 3 s disconnected, or at once when failed/closed, build a
+   * new peer connection with the same credential and capture. The studio keeps the slot; it does not
+   * put the camera back on programme by itself.
+   */
+  private checkLink(now = Date.now()): void {
+    if (this.state.capture !== 'live' || !this.stream || this.reconnecting) return;
+    const pc = this.pc;
+    const st = pc?.connectionState ?? 'closed';
+    const ctlDown = !!pc && this.ctlWasOpen && this.ctl?.readyState !== 'open';
+    if (st === 'connected' && !ctlDown) {
+      this.downSince = null;
+      return;
+    }
+    // Still negotiating; if the answer never comes (signalling was down), try again after 15 s.
+    if ((st === 'new' || st === 'connecting') && now - this.connectedAt < 15_000) return;
+    this.downSince ??= now;
+    const hard =
+      st === 'failed' || st === 'closed' || st === 'new' || st === 'connecting' || ctlDown;
+    if (!hard && now - this.downSince < 3000) return;
+    this.downSince = null;
+    this.reconnecting = true;
+    void this.connect().finally(() => (this.reconnecting = false));
+  }
+
+  /** Tests only: close the link as a lost Wi-Fi would, and hold off reconnecting for `holdMs`. */
+  dropLinkForTest(holdMs: number): void {
+    this.reconnecting = true;
+    this.pc?.close();
+    setTimeout(() => (this.reconnecting = false), holdMs);
+  }
+
+  /** The OS took the camera (backgrounded, another app): reopen it when the page is in front. */
+  private onTrackEnded(stream: MediaStream): void {
+    if (this.stream !== stream || this.state.capture !== 'live') return;
+    if (document.visibilityState === 'visible') void this.recoverCapture();
+  }
+
+  /** Android can end the camera track while the page is in the background: reopen the same camera. */
+  private async recoverCapture(): Promise<void> {
+    const track = this.stream?.getVideoTracks()[0];
+    if (!track || track.readyState === 'live') return;
+    const id = (track.getSettings().deviceId as string | undefined) || undefined;
+    await this.switchCamera(id);
+  }
+
+  /** CAM-03: change the camera without touching the link (replaceTrack, no renegotiation). */
+  async switchCamera(deviceId?: string): Promise<void> {
+    const target = this.state.info?.requested ?? FULL_HD;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(videoConstraints(target, deviceId));
+    } catch (e) {
+      if ((e as { name?: string }).name !== 'OverconstrainedError') return this.failCapture(e);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(videoConstraints(HD, deviceId));
+      } catch (e2) {
+        return this.failCapture(e2);
+      }
+    }
+    const old = this.stream;
+    const track = stream.getVideoTracks()[0]!;
+    track.contentHint = 'motion';
+    track.addEventListener('ended', () => this.onTrackEnded(stream));
+    this.stream = stream;
+    const sender = this.pc
+      ?.getTransceivers()
+      .find((t) => t.receiver.track.kind === 'video')?.sender;
+    await sender?.replaceTrack(track).catch(() => undefined);
+    old?.getVideoTracks().forEach((t) => t.stop());
+    this.set({ capture: 'live', captureError: null, info: this.describe(track) });
+    this.sendState();
+  }
+
+  private describe(track: MediaStreamTrack): CaptureInfo {
+    const st = track.getSettings() as ZoomSettings;
+    const caps = (track.getCapabilities?.() ?? {}) as ZoomCaps;
+    const zoom = caps.zoom && typeof st.zoom === 'number' ? { ...caps.zoom, value: st.zoom } : null;
+    return {
+      requested: this.state.info?.requested ?? FULL_HD,
+      actual: { width: st.width ?? null, height: st.height ?? null, fps: st.frameRate ?? null },
+      deviceLabel: track.label,
+      deviceId: (st.deviceId as string | undefined) ?? null,
+      zoom,
+    };
   }
 
   /** CAM-05: release camera, wake lock and peer connection. */
@@ -194,6 +280,8 @@ export class CameraSender {
     this.wakeLock = null;
     document.removeEventListener('visibilitychange', this.onVisibility);
     if (this.stateTimer) clearInterval(this.stateTimer);
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
     this.ctl?.close();
     this.pc?.close();
     this.pc = null;
@@ -317,6 +405,7 @@ export class CameraSender {
   }
 
   private async connect(): Promise<void> {
+    this.connectedAt = Date.now();
     this.pc?.close();
     const pc = new RTCPeerConnection({
       iceServers: [],
@@ -327,7 +416,11 @@ export class CameraSender {
     const ctl = pc.createDataChannel('ctl', { ordered: true });
     this.ctl = ctl;
     ctl.onmessage = (m) => this.onCtl(m.data);
-    ctl.onopen = () => this.sendState();
+    this.ctlWasOpen = false;
+    ctl.onopen = () => {
+      this.ctlWasOpen = true;
+      this.sendState();
+    };
     const track = this.stream!.getVideoTracks()[0]!;
     const tx = pc.addTransceiver(track, { direction: 'sendonly' });
     const caps = RTCRtpSender.getCapabilities?.('video');

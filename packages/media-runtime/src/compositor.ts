@@ -133,7 +133,8 @@ export class Compositor extends Observable<CompositorState> {
   private pollDecodedFrames(now: number): void {
     const v = this.video;
     const decoded = v?.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
-    if (decoded > this.lastDecoded) {
+    // Any change counts: the counter restarts when the phone reconnects with a new stream.
+    if (decoded !== this.lastDecoded) {
       this.lastDecoded = decoded;
       this.set({
         cameraFrames: this.state.cameraFrames + 1,

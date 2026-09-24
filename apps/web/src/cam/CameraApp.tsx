@@ -79,6 +79,13 @@ export function CameraApp() {
   );
   const sourceIdRef = useRef<string | null>(null);
   const snd = useSyncExternalStore(sender.subscribe, () => sender.state);
+  useEffect(() => {
+    // Dev/e2e only (stripped from production builds): drop the link as a lost Wi-Fi would.
+    if (import.meta.env.DEV)
+      (window as unknown as { rsCamTest: unknown }).rsCamTest = {
+        dropLink: (holdMs: number) => sender.dropLinkForTest(holdMs),
+      };
+  }, [sender]);
 
   useEffect(() => {
     // PAIR-02: read the fragment secret, then clear it from the address bar and history immediately.
@@ -218,7 +225,7 @@ export function CameraApp() {
           </div>
         </section>
       )}
-      {phase.k === 'admitted' && (
+      {(phase.k === 'admitted' || phase.k === 'live') && (
         <section className={s.card}>
           <span className={s.badge}>{t('cam.cameraOnly')}</span>
           <h1 className={s.title}>{t('cam.admittedTitle')}</h1>
@@ -307,6 +314,34 @@ function LiveCamera({ sender, label }: { sender: CameraSender; label: string }) 
             onChange={(v) => void sender.setZoom(Number(v))}
             options={zoomOptions.map((z) => ({ value: String(z), label: `${z}×` }))}
           />
+        )}
+        {snd.devices.length > 1 && (
+          <label className={s.field}>
+            <span>{t('cam.whichCamera')}</span>
+            <select
+              className={s.select}
+              value={snd.info?.deviceId ?? ''}
+              onChange={(e) => void sender.switchCamera(e.target.value)}
+            >
+              {snd.devices.map((d, i) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || t('cam.cameraN', { n: i + 1 })}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {snd.info && (
+          <p className={s.note} data-testid="cam-quality">
+            {t('cam.requestedActual', {
+              req: `${snd.info.requested.width}×${snd.info.requested.height} · ${snd.info.requested.fps} fps`,
+              act:
+                snd.info.actual.width && snd.info.actual.height
+                  ? `${snd.info.actual.width}×${snd.info.actual.height}` +
+                    (snd.info.actual.fps ? ` · ${Math.round(snd.info.actual.fps)} fps` : '')
+                  : '—',
+            })}
+          </p>
         )}
         <StatusRow
           tone={snd.connection === 'connected' ? 'ready' : 'standby'}

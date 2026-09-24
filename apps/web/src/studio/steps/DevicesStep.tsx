@@ -91,6 +91,11 @@ export function DevicesStep() {
                     : '—'
                 }
               />
+              {cameraOk && cam.summary?.fps != null && cam.summary.fps < 24 && (
+                <p className={s.warn}>
+                  {t('devices.lowFps', { fps: Math.round(cam.summary.fps) })}
+                </p>
+              )}
               <div className={s.row}>
                 <Button size="dense" onClick={() => void rt.revoke(src.id)}>
                   {t('devices.removeCamera')}
@@ -111,6 +116,17 @@ export function DevicesStep() {
             ]}
           />
           <p className={s.muted}>{t('devices.profileNote')}</p>
+          <div className={s.headTitle}>{t('devices.framing')}</div>
+          <Segmented<'contain' | 'fill'>
+            label={t('devices.framing')}
+            value={st.framing}
+            onChange={(f) => void rt.setFraming(f)}
+            options={[
+              { value: 'contain', label: t('devices.framingFit') },
+              { value: 'fill', label: t('devices.framingFill') },
+            ]}
+          />
+          <p className={s.muted}>{t('devices.framingNote')}</p>
         </Card>
       </div>
       {cam.directLinkFailed && (

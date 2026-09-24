@@ -151,6 +151,20 @@ export function Live() {
             </div>
           </div>
           <div className="rs-overline">{t('live.scenes')}</div>
+          {comp.autoCutAt &&
+            st.scene === 'slate' &&
+            cam.connection === 'connected' &&
+            !comp.cameraStalled &&
+            comp.lastCameraFrameAt !== null && (
+              // SPEC §8.6: the camera never returns to programme by itself; offer the cut instead.
+              <button
+                type="button"
+                className={cx(s.scene, s.cutBack)}
+                onClick={() => void rt.cut('camera')}
+              >
+                {t('live.cutBack')}
+              </button>
+            )}
           {SCENES.map((sc) => {
             // These scenes show a rundown item; without one the button would do nothing.
             const needs =

@@ -64,6 +64,8 @@ export interface StudioState {
   presetName: string | null;
   /** Saved device label from the preset/session, shown as a hint (labels need permission to match). */
   savedAudioDevice: string | null;
+  /** Camera framing in the 16:9 programme (A13): fit shows the whole picture, fill crops to the frame. */
+  framing: 'contain' | 'fill';
 }
 
 export interface SessionConfig {
@@ -135,6 +137,7 @@ export class StudioRuntime extends Observable<StudioState> {
       presetId: null,
       presetName: null,
       savedAudioDevice: null,
+      framing: 'contain',
     });
     this.audio = new AudioEngine();
     this.compositor = new Compositor(PROFILE_SIZE.reliable_hd.w, PROFILE_SIZE.reliable_hd.h);
@@ -336,6 +339,11 @@ export class StudioRuntime extends Observable<StudioState> {
     this.compositor.subscribe(() => this.onCompositor());
     void this.compositor.applyScene(scene);
     this.set({ profile });
+  }
+
+  async setFraming(framing: 'contain' | 'fill'): Promise<void> {
+    this.set({ framing });
+    await this.compositor.applyScene({ framing });
   }
 
   async cut(kind: SceneKind): Promise<void> {

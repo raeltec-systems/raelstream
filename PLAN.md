@@ -198,3 +198,32 @@ out, as was Oracle Cloud. Instead:
 - Compose `!reset` on Caddy's ports removed the port entirely. It needed `!override`.
 - The relay test first passed through a direct path. The test now refuses private peers, so it proves
   the relay-only route.
+
+### Codespaces testing fixes and phone sound: 24 Sep 2026
+
+Found by the owner in the Codespace, each with a regression test that fails on the old code:
+
+- **Audio meters dead behind Caddy:** the CSP (`script-src 'self'`) blocks AudioWorklet modules from
+  `blob:` and `data:` URLs, so the meter never loaded and audio setup hung. The worklet is now a
+  same-origin file (Vite no longer inlines `.js` assets). The audio e2e applies the CSP.
+- **Switching tabs cut to the slate:** Chromium stops `requestVideoFrameCallback` in a hidden tab
+  while frames keep arriving (measured with a real hidden tab). Frame arrival now also uses the
+  decoded-frame count (SPEC §10.2 decision).
+- **Listen (headphones)** control for the existing monitor branch; scene buttons that need a rundown
+  item are disabled with a note instead of silently doing nothing.
+- **Phone as the sound source** (owner decision, SPEC §8.8): phone microphone or iRig, never
+  automatic, mixer still the default.
+
+### M5: built 24 Sep 2026 (WP2)
+
+| Area | State |
+|---|---|
+| Reconnection (A10–A11) | Done: the phone rebuilds its peer connection by itself after 3 s disconnected, at once when failed/closed or the DataChannel drops, and retries if an answer never arrives (15 s). Same credential and slot; phone sound resumes if it was the chosen source. Android ending the camera track in the background is recovered when the page returns. |
+| Studio on return | Done: the camera never goes back on programme by itself; a pulsing **Camera ready: Cut back** appears after an automatic slate cut. An automatic cut now shows in the scene buttons. |
+| Capture (CAM-01, CAM-03) | Done: requested vs actual quality on the phone; camera selector when the phone reports more than one camera (`replaceTrack`, no renegotiation). Tapping Stop now returns to the Start card (it showed a blank page). |
+| Framing (A13) | Done: Fit / Fill in Preparation → Devices; the programme stays 16:9. |
+| Frame rate | The studio explains a low received frame rate (below 24 fps) as a lighting issue first; the owner's test showed 15–22 fps indoors. |
+| Already in place from M1 | Zoom only when reported (A14), wake lock, battery, route classification, the direct-link failure panel, permission errors (A06), rotate prompt. |
+
+**Verified:** 76 unit, 56 integration, 6 Playwright runs (new: camera drop → slate → automatic
+reconnect → Cut back; it fails with the reconnect watchdog disabled).
