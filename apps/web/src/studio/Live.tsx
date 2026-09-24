@@ -151,18 +151,33 @@ export function Live() {
             </div>
           </div>
           <div className="rs-overline">{t('live.scenes')}</div>
-          {SCENES.map((sc) => (
-            <button
-              key={sc.kind}
-              type="button"
-              className={cx(s.scene, st.scene === sc.kind && s.sceneActive)}
-              aria-pressed={st.scene === sc.kind}
-              onClick={() => void rt.cut(sc.kind)}
-            >
-              <KeyChip>{sc.key}</KeyChip>
-              <span>{t(sc.label as never)}</span>
-            </button>
-          ))}
+          {SCENES.map((sc) => {
+            // These scenes show a rundown item; without one the button would do nothing.
+            const needs =
+              sc.kind === 'camera_lower_third' ? 'lower_third' : sc.kind === 'text' ? 'text' : null;
+            const missing = !!needs && !st.rundown.some((x) => x.type === needs);
+            return (
+              <button
+                key={sc.kind}
+                type="button"
+                className={cx(s.scene, st.scene === sc.kind && s.sceneActive)}
+                aria-pressed={st.scene === sc.kind}
+                disabled={missing}
+                title={missing ? t(`live.needs.${needs!}`) : undefined}
+                onClick={() => void rt.cut(sc.kind)}
+              >
+                <KeyChip>{sc.key}</KeyChip>
+                <span>{t(sc.label as never)}</span>
+              </button>
+            );
+          })}
+          {(['lower_third', 'text'] as const)
+            .filter((k) => !st.rundown.some((x) => x.type === k))
+            .map((k) => (
+              <p key={k} className={s.sceneHint}>
+                {t(`live.needs.${k}`)}
+              </p>
+            ))}
         </section>
 
         <section className={s.center} aria-label={t('live.programme')}>
@@ -297,6 +312,16 @@ export function Live() {
               onClick={() => rt.audio.setMuted(!audio.muted)}
             >
               {audio.muted ? t('live.muted') : t('live.mute')}
+            </button>
+            <button
+              type="button"
+              className={s.chip}
+              aria-pressed={audio.monitor}
+              title={t('audio.listenDesc')}
+              onClick={() => rt.audio.setMonitor(!audio.monitor)}
+            >
+              <StatusDot tone={audio.monitor ? 'accent' : 'off'} size={8} />
+              {t('audio.listen')}
             </button>
           </div>
           {audio.status === 'device_lost' && <div className={s.alert}>{t('audio.deviceLost')}</div>}

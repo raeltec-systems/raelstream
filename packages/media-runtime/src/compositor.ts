@@ -86,6 +86,7 @@ export class Compositor extends Observable<CompositorState> {
   /** Attach the received camera. Frame arrival is tracked with requestVideoFrameCallback where available. */
   setCamera(video: HTMLVideoElement | null): void {
     this.video = video as RvfcVideo | null;
+    this.lastDecoded = video?.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
     if (!video) return;
     const v = video as RvfcVideo;
     const onFrame = () => {
@@ -122,6 +123,26 @@ export class Compositor extends Observable<CompositorState> {
     this.track.stop();
   }
 
+  private lastDecoded = 0;
+
+  /**
+   * requestVideoFrameCallback stops firing while the tab is hidden, although frames keep arriving and
+   * drawing. The decoded-frame count keeps advancing in a hidden tab, so frame arrival is also checked
+   * on every clock tick; switching tabs must never look like a dead camera.
+   */
+  private pollDecodedFrames(now: number): void {
+    const v = this.video;
+    const decoded = v?.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
+    if (decoded > this.lastDecoded) {
+      this.lastDecoded = decoded;
+      this.set({
+        cameraFrames: this.state.cameraFrames + 1,
+        lastCameraFrameAt: now,
+        cameraStalled: false,
+      });
+    }
+  }
+
   private cameraUsable(): boolean {
     const v = this.video;
     return !!v && v.readyState >= 2 && v.videoWidth > 0;
@@ -129,6 +150,7 @@ export class Compositor extends Observable<CompositorState> {
 
   private tick(): void {
     const now = performance.now();
+    this.pollDecodedFrames(now);
     const last = this.state.lastCameraFrameAt;
     const stalled = last !== null && now - last > CAMERA_STALL_MS;
     if (stalled !== this.state.cameraStalled) this.set({ cameraStalled: stalled });

@@ -144,7 +144,7 @@ export class StudioRuntime extends Observable<StudioState> {
       () => this.state.wanBlockTestPassed,
     );
     this.compositor.setCamera(this.camera.video);
-    this.compositor.subscribe(() => this.syncTally());
+    this.compositor.subscribe(() => this.onCompositor());
     this.camera.subscribe(() => this.syncTally());
   }
 
@@ -230,6 +230,13 @@ export class StudioRuntime extends Observable<StudioState> {
     if (src) this.socket?.send({ type: 'signal', sourceId: src.id, payload });
   }
 
+  /** The compositor cuts to the slate by itself when the camera stops (B§17): show that in the scenes. */
+  private onCompositor(): void {
+    if (this.compositor.snapshot.autoCutAt && this.state.scene !== 'slate')
+      this.set({ scene: 'slate', onAirIndex: null });
+    this.syncTally();
+  }
+
   private lastTally: TallyState | null = null;
   private syncTally(): void {
     const onProgramme = this.state.scene === 'camera' || this.state.scene === 'camera_lower_third';
@@ -272,7 +279,7 @@ export class StudioRuntime extends Observable<StudioState> {
     this.compositor = new Compositor(w, h);
     this.compositor.setTheme({ serviceName: this.state.session?.name ?? '' });
     this.compositor.setCamera(this.camera.video);
-    this.compositor.subscribe(() => this.syncTally());
+    this.compositor.subscribe(() => this.onCompositor());
     void this.compositor.applyScene(scene);
     this.set({ profile });
   }

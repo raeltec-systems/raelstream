@@ -147,6 +147,15 @@
   cursor: pointer;
   text-align: left;
 }
+.scene:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sceneHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 .sceneActive {
   background: var(--accent-ui);
   color: var(--on-accent-ui);

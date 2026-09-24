@@ -176,6 +176,14 @@ export function AudioStep() {
             onChange={(v) => rt.audio.setCompressor(v)}
           />
         </Card>
+        <Card>
+          <Toggle
+            label={t('audio.listen')}
+            description={t('audio.listenDesc')}
+            checked={a.monitor}
+            onChange={(v) => rt.audio.setMonitor(v)}
+          />
+        </Card>
       </div>
       <LipSync />
     </>

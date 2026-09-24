@@ -120,6 +120,26 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   });
   expect(lit).toBeGreaterThan(10);
 
+  // A hidden tab stops requestVideoFrameCallback while frames keep arriving (measured in Chromium 1194).
+  // Playwright cannot hide a tab, so stop the callbacks the same way: the programme must stay on the
+  // camera, not cut to the slate as if the phone had died (seen when the owner switched tabs).
+  await studio.evaluate(() => {
+    HTMLVideoElement.prototype.requestVideoFrameCallback = () => 0;
+  });
+  await studio.waitForTimeout(4500); // longer than the 2 s stall + 1 s hold before the auto-cut
+  // The fake camera animates and the slate is static: the programme must still be changing.
+  const programmeHash = () =>
+    studio.evaluate(() => {
+      const c = document.querySelector('canvas')!;
+      const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+      let h = 0;
+      for (let i = 0; i < d.length; i += 97) h = (h * 31 + d[i]!) | 0;
+      return h;
+    });
+  const before = await programmeHash();
+  await studio.waitForTimeout(700);
+  expect(await programmeHash()).not.toBe(before);
+
   // Private ingest test: WHIP to MediaMTX through the control auth hook
   await studio.getByRole('button', { name: 'Start private test' }).click();
   await expect(studio.getByText('server receiving')).toBeVisible({ timeout: 30_000 });

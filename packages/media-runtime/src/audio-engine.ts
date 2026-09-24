@@ -49,6 +49,8 @@ export interface AudioEngineState {
   hpf: boolean;
   compressor: boolean;
   muted: boolean;
+  /** Programme sound on this computer's output (off by default; headphones recommended, B§12.5). */
+  monitor: boolean;
   delayMs: number;
   input: MeterReading;
   programme: MeterReading;
@@ -112,6 +114,7 @@ export class AudioEngine extends Observable<AudioEngineState> {
       hpf: false,
       compressor: false,
       muted: false,
+      monitor: false,
       delayMs: 0,
       input: SILENT,
       programme: SILENT,
@@ -303,7 +306,9 @@ export class AudioEngine extends Observable<AudioEngineState> {
   }
 
   setMonitor(on: boolean): void {
+    void this.ctx.resume(); // called from a click, so the browser allows audio output
     this.monitor.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.02);
+    this.set({ monitor: on });
   }
 
   acknowledgeSilence(): void {
