@@ -243,7 +243,11 @@ describe('pairing (PAIR-01..05)', () => {
       .where('kind', '=', 'camera.reclaimed')
       .execute();
     expect(events).toHaveLength(1);
-    await app.inject({ method: 'DELETE', url: `/api/sessions/${sessionId}/sources/${src}`, headers });
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/sessions/${sessionId}/sources/${src}`,
+      headers,
+    });
   });
 
   it('"Try again" asks the phone for a fresh connection, only from the studio holding the lease', async () => {
