@@ -20,6 +20,9 @@ export function AudioStep() {
   const a = useStore(rt.audio);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selected, setSelected] = useState('');
+  const [access, setAccess] = useState<'unknown' | 'denied' | 'unavailable'>('unknown');
+  // Without microphone permission the browser lists anonymous inputs that cannot be selected.
+  const needsAccess = devices.length === 0 || devices.some((d) => !d.deviceId || !d.label);
 
   async function refresh() {
     setDevices(await rt.audio.listInputs());
@@ -28,6 +31,12 @@ export function AudioStep() {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- list devices once on mount
   }, []);
+
+  async function allow() {
+    const r = await rt.audio.requestAccess();
+    if (r !== 'granted') setAccess(r);
+    await refresh();
+  }
 
   async function choose(id: string) {
     setSelected(id);
@@ -46,6 +55,20 @@ export function AudioStep() {
         <label className={s.headTitle} htmlFor="rs-audio-device">
           {t('audio.input')}
         </label>
+        {needsAccess && (
+          <div className={s.row}>
+            <p className={s.muted} style={{ flex: 1 }}>
+              {access === 'denied'
+                ? t('audio.accessDenied')
+                : access === 'unavailable'
+                  ? t('audio.noInputs')
+                  : t('audio.accessNeeded')}
+            </p>
+            <Button variant="primary" onClick={() => void allow()}>
+              {t('audio.allowAccess')}
+            </Button>
+          </div>
+        )}
         <div className={s.row}>
           <select
             id="rs-audio-device"
@@ -55,11 +78,13 @@ export function AudioStep() {
             style={{ flex: 1 }}
           >
             <option value="">{t('audio.choose')}</option>
-            {devices.map((d, i) => (
-              <option key={d.deviceId || i} value={d.deviceId}>
-                {d.label || t('audio.unnamedInput', { n: i + 1 })}
-              </option>
-            ))}
+            {devices
+              .filter((d) => d.deviceId)
+              .map((d, i) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || t('audio.unnamedInput', { n: i + 1 })}
+                </option>
+              ))}
           </select>
           {a.status === 'running' && (
             <span className={`${s.chip} ${hasSignal ? s.chipReady : s.chipStandby}`}>

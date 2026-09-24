@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
+import { E2E } from '../../playwright.config.js';
 
 /** Accounts seeded by apps/control/test/e2e-prepare.ts (TEST-ONLY secrets). */
 export interface E2EUser {
@@ -11,7 +12,7 @@ export interface E2EUser {
   secret: string;
 }
 
-export function e2eUser(key: 'spine' | 'broadcast' | 'invite'): E2EUser {
+export function e2eUser(key: 'spine' | 'broadcast' | 'invite' | 'audio'): E2EUser {
   const users = JSON.parse(readFileSync(join(tmpdir(), 'rs-e2e-users.json'), 'utf8'));
   return users[key] as E2EUser;
 }
@@ -50,4 +51,15 @@ export async function signIn(page: Page, u: E2EUser, offset = 0): Promise<void> 
   await page.getByLabel('6-digit code').fill(totpCode(u.secret, offset));
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Start a service' })).toBeVisible();
+}
+
+/** Close the active service so later specs start from the home screen. */
+export async function endService(page: Page): Promise<void> {
+  const me = await (await page.request.get('/api/auth/me')).json();
+  const active = await (await page.request.get('/api/sessions/active')).json();
+  const clientId = await page.evaluate(() => sessionStorage.getItem('rs.client'));
+  const r = await page.request.post(`/api/sessions/${active.id}/end`, {
+    headers: { 'x-rs-csrf': me.csrf, 'x-rs-client': clientId!, origin: E2E.web },
+  });
+  expect(r.ok()).toBe(true);
 }

@@ -190,6 +190,20 @@ export class AudioEngine extends Observable<AudioEngineState> {
     return this.dest.stream.getAudioTracks()[0]!;
   }
 
+  /**
+   * Browsers hide input names (and often IDs) until the page has microphone permission; ask once so
+   * the list shows real devices. The probe stream is stopped straight away.
+   */
+  async requestAccess(): Promise<'granted' | 'denied' | 'unavailable'> {
+    try {
+      const probe = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      for (const track of probe.getTracks()) track.stop();
+      return 'granted';
+    } catch (e) {
+      return (e as DOMException).name === 'NotFoundError' ? 'unavailable' : 'denied';
+    }
+  }
+
   async listInputs(): Promise<MediaDeviceInfo[]> {
     const all = await navigator.mediaDevices.enumerateDevices();
     return all.filter((d) => d.kind === 'audioinput');

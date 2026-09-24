@@ -29,7 +29,7 @@ const db = createDb(adminUrl.replace(/\/[^/]+$/, '/rs_e2e'));
 await migrate(db, new URL('../../../infra/migrations', import.meta.url).pathname);
 const auth = new AuthService(db, loadConfig(process.env).totpKey);
 const users: Record<string, { email: string; password: string; secret: string }> = {};
-for (const key of ['spine', 'broadcast', 'invite']) {
+for (const key of ['spine', 'broadcast', 'invite', 'audio']) {
   const email = `${key}@e2e.test`;
   const password = 'correct horse battery staple';
   const r = await auth.createUser({ email, name: 'Chanda', role: 'owner', password });

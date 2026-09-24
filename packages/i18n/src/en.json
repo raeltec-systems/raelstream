@@ -79,7 +79,7 @@
   "check.browserMissing": "Browser is missing features",
   "audio.title": "Is the mixer coming through?",
   "audio.input": "Audio input",
-  "audio.choose": "Choose the USB audio interface…",
+  "audio.choose": "Choose the audio input…",
   "audio.unnamedInput": "Audio input {n}",
   "audio.soundDetected": "Sound detected",
   "audio.noSound": "No sound yet",
@@ -325,5 +325,9 @@
   "preset.saveRundown": "Save rundown to \"{name}\"",
   "preset.saveAudio": "Use these audio settings for \"{name}\"",
   "preset.saved": "Saved",
-  "audio.lastUsed": "Last time this service used: {label}"
+  "audio.lastUsed": "Last time this service used: {label}",
+  "audio.accessNeeded": "Allow microphone access so the studio can list your audio inputs (the mixer interface, the laptop microphone, and so on).",
+  "audio.allowAccess": "Allow microphone access",
+  "audio.accessDenied": "The browser blocked microphone access. Click the padlock next to the address, set Microphone to Allow, then try again. On a managed work laptop, IT may have blocked it.",
+  "audio.noInputs": "No audio inputs were found. Plug in the audio interface, then try again."
 }

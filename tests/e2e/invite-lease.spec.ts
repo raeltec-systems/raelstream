@@ -1,6 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { E2E } from '../../playwright.config.js';
-import { e2eUser, signIn, totpCode } from './auth.js';
+import { expect, test } from '@playwright/test';
+import { e2eUser, endService, signIn, totpCode } from './auth.js';
 
 /**
  * M4: the owner invites an operator, the operator enrols an authenticator, and a second studio tab is
@@ -61,14 +60,3 @@ test('invite → enrol → operator runs studio → owner takes over', async ({ 
   await ownerCtx.close();
   await opCtx.close();
 });
-
-/** Close the service so later specs start from the home screen. */
-async function endService(page: Page) {
-  const me = await (await page.request.get('/api/auth/me')).json();
-  const active = await (await page.request.get('/api/sessions/active')).json();
-  const clientId = await page.evaluate(() => sessionStorage.getItem('rs.client'));
-  const r = await page.request.post(`/api/sessions/${active.id}/end`, {
-    headers: { 'x-rs-csrf': me.csrf, 'x-rs-client': clientId!, origin: E2E.web },
-  });
-  expect(r.ok()).toBe(true);
-}
