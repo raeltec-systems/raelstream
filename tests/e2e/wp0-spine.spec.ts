@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { E2E } from '../../playwright.config.js';
+import { e2eUser, signIn } from './auth.js';
 
 const auth = 'Basic ' + Buffer.from('supervisor:dev-internal').toString('base64');
 
@@ -22,11 +23,9 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   const studio = await studioCtx.newPage();
   await studio.goto('/studio');
 
-  // Dev sign-in and a new service
-  await studio.getByLabel('Your name').fill('Chanda');
-  await studio.getByLabel('Studio passphrase').fill(E2E.passphrase);
-  await studio.getByRole('button', { name: 'Sign in' }).click();
-  await studio.getByRole('button', { name: 'Start preparing' }).click();
+  // Real sign-in (password + authenticator code) and a new service
+  await signIn(studio, e2eUser('spine'));
+  await studio.getByRole('button', { name: 'Start without a saved service' }).click();
   await expect(studio.getByRole('heading', { name: 'Connect the camera' })).toBeVisible();
 
   // Pairing QR (secret in the fragment)
@@ -121,6 +120,26 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   });
   expect(lit).toBeGreaterThan(10);
 
+  // A hidden tab stops requestVideoFrameCallback while frames keep arriving (measured in Chromium 1194).
+  // Playwright cannot hide a tab, so stop the callbacks the same way: the programme must stay on the
+  // camera, not cut to the slate as if the phone had died (seen when the owner switched tabs).
+  await studio.evaluate(() => {
+    HTMLVideoElement.prototype.requestVideoFrameCallback = () => 0;
+  });
+  await studio.waitForTimeout(4500); // longer than the 2 s stall + 1 s hold before the auto-cut
+  // The fake camera animates and the slate is static: the programme must still be changing.
+  const programmeHash = () =>
+    studio.evaluate(() => {
+      const c = document.querySelector('canvas')!;
+      const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+      let h = 0;
+      for (let i = 0; i < d.length; i += 97) h = (h * 31 + d[i]!) | 0;
+      return h;
+    });
+  const before = await programmeHash();
+  await studio.waitForTimeout(700);
+  expect(await programmeHash()).not.toBe(before);
+
   // Private ingest test: WHIP to MediaMTX through the control auth hook
   await studio.getByRole('button', { name: 'Start private test' }).click();
   await expect(studio.getByText('server receiving')).toBeVisible({ timeout: 30_000 });
@@ -143,12 +162,54 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   )!;
   expect(path.tracks.some((t) => /H264|VP8/.test(t))).toBe(true);
   expect(path.tracks).toContain('Opus');
+  if (E2E.relay) {
+    // Private host routes are refused, so everything flows through the TURN server: the studio sends
+    // from its relay allocation, and MediaMTX answers from its relay allocation or from the address the
+    // TURN server saw (server-reflexive). Both exist in a Codespace; never a direct host path.
+    const webrtcSessions = async () => {
+      const r = await studio.request.get(`${E2E.mediamtxApi}/v3/webrtcsessions/list`, {
+        headers: { Authorization: auth },
+      });
+      return (await r.json()).items as Array<{
+        localCandidate: string;
+        remoteCandidate: string;
+        bytesReceived: number;
+      }>;
+    };
+    const [first] = await webrtcSessions();
+    expect(first!.localCandidate).toMatch(/^(relay|srflx)\//);
+    expect(first!.remoteCandidate).toMatch(/^relay\//);
+    // media keeps flowing through the relay, not just the first packets
+    await expect
+      .poll(async () => (await webrtcSessions())[0]?.bytesReceived ?? 0, { timeout: 15_000 })
+      .toBeGreaterThan(500_000);
+  }
   await studio.waitForTimeout(3000); // let stats accumulate for the screenshot
   await studio.screenshot({ path: info.outputPath('04-studio-live-private-test.png') });
   await cam.screenshot({ path: info.outputPath('05-camera-live.png') });
 
   await studio.getByRole('button', { name: 'Stop private test' }).click();
   await expect(studio.getByText('Not sending')).toBeVisible();
+
+  // The service report (SPEC §19): the studio's 10 s statistics windows arrived; what was not measured
+  // says so in words (A45).
+  await expect
+    .poll(
+      async () =>
+        (await (await studio.request.get(`/api/sessions/${sessionId}/report`)).json()).stats
+          .cameraFps,
+      { timeout: 25_000 },
+    )
+    .not.toBeNull();
+  await studio.goto(`/studio/report/${sessionId}`);
+  const checks = studio.getByTestId('report-checks');
+  await expect(checks.getByRole('listitem').filter({ hasText: 'Uplink test' })).toContainText(
+    'Not tested',
+  );
+  await expect(
+    studio.getByTestId('report-stats').getByRole('listitem').filter({ hasText: 'Camera frames' }),
+  ).toContainText(/min \d+(\.\d+)? · avg/);
+  await studio.screenshot({ path: info.outputPath('06-report.png'), fullPage: true });
 
   await camCtx.close();
   await studioCtx.close();

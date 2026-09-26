@@ -8,7 +8,17 @@ export interface CaptureInfo {
   requested: { width: number; height: number; fps: number };
   actual: { width: number | null; height: number | null; fps: number | null };
   deviceLabel: string;
+  deviceId: string | null;
   zoom: { min: number; max: number; step: number; value: number } | null;
+}
+
+export type PhoneAudioState = 'off' | 'starting' | 'on' | 'denied' | 'unavailable' | 'error';
+
+export interface PhoneAudio {
+  state: PhoneAudioState;
+  label: string | null;
+  channels: number | null;
+  processingOn: string[];
 }
 
 export interface SenderState {
@@ -22,6 +32,8 @@ export interface SenderState {
   wakeLock: 'active' | 'released' | 'unsupported';
   battery: { level: number; charging: boolean } | null;
   devices: MediaDeviceInfo[];
+  /** Phone sound for the programme: off unless the studio operator chose this phone (C-04 decision). */
+  audio: PhoneAudio;
 }
 
 const FULL_HD = { width: 1920, height: 1080, fps: 30 };
@@ -35,7 +47,7 @@ export function mapCaptureError(e: unknown): CaptureError {
   return 'CAM_UNSUPPORTED';
 }
 
-/** Build video-only constraints (CAM-02: never request audio). */
+/** Build video-only constraints (CAM-02: the camera never requests audio; phone sound is separate). */
 export function videoConstraints(
   target: { width: number; height: number; fps: number },
   deviceId?: string,
@@ -50,6 +62,28 @@ export function videoConstraints(
     },
   };
 }
+
+/**
+ * Phone sound when the operator picks this phone as the audio source (SPEC §8.8 decision): processing
+ * off, like the mixer input, so an iRig or a clip-on mic is not gated or pumped by the phone.
+ */
+export function phoneAudioConstraints(): MediaStreamConstraints {
+  return {
+    video: false,
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: { ideal: 2 },
+      sampleRate: { ideal: 48000 },
+    },
+  };
+}
+
+/** Opus bitrate for programme sound (music and speech); the browser default targets voice calls. */
+export const PHONE_AUDIO_BITRATE = 128_000;
+
+const AUDIO_OFF: PhoneAudio = { state: 'off', label: null, channels: null, processingOn: [] };
 
 type ZoomCaps = MediaTrackCapabilities & { zoom?: { min: number; max: number; step: number } };
 type ZoomSettings = MediaTrackSettings & { zoom?: number };
@@ -70,18 +104,29 @@ export class CameraSender {
     wakeLock: 'unsupported',
     battery: null,
     devices: [],
+    audio: AUDIO_OFF,
   };
   private listeners = new Set<() => void>();
   private stream: MediaStream | null = null;
+  private audioStream: MediaStream | null = null;
+  private audioWanted = false;
   private pc: RTCPeerConnection | null = null;
   private ctl: RTCDataChannel | null = null;
   private wakeLock: WakeLockSentinel | null = null;
   private seq = 0;
   private gen = 1;
   private stateTimer: ReturnType<typeof setInterval> | null = null;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
+  private downSince: number | null = null;
+  private reconnecting = false;
+  private ctlWasOpen = false;
+  /** When the current peer connection was created. */
+  private connectedAt = 0;
   private onVisibility = () => {
-    if (document.visibilityState === 'visible' && this.state.capture === 'live')
+    if (document.visibilityState === 'visible' && this.state.capture === 'live') {
       void this.acquireWakeLock();
+      void this.recoverCapture().then(() => this.checkLink());
+    }
     this.sendState();
   };
 
@@ -125,42 +170,212 @@ export class CameraSender {
     this.stream = stream;
     const track = stream.getVideoTracks()[0]!;
     track.contentHint = 'motion';
-    track.addEventListener('ended', () => this.set({ capture: 'stopped' }));
-    const st = track.getSettings() as ZoomSettings;
-    const caps = (track.getCapabilities?.() ?? {}) as ZoomCaps;
-    const zoom = caps.zoom && typeof st.zoom === 'number' ? { ...caps.zoom, value: st.zoom } : null;
+    track.addEventListener('ended', () => this.onTrackEnded(stream));
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(
       (d) => d.kind === 'videoinput',
     );
-    this.set({
-      capture: 'live',
-      devices,
-      info: {
-        requested,
-        actual: { width: st.width ?? null, height: st.height ?? null, fps: st.frameRate ?? null },
-        deviceLabel: track.label,
-        zoom,
-      },
-    });
+    this.set({ capture: 'live', devices, info: { ...this.describe(track), requested } });
     void this.acquireWakeLock();
     void this.readBattery();
     document.addEventListener('visibilitychange', this.onVisibility);
     await this.connect();
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => this.checkLink(), 1000);
+  }
+
+  /**
+   * Reconnection (SPEC §8.6, A10–A11): after 3 s disconnected, or at once when failed/closed, build a
+   * new peer connection with the same credential and capture. The studio keeps the slot; it does not
+   * put the camera back on programme by itself.
+   */
+  private checkLink(now = Date.now()): void {
+    if (this.state.capture !== 'live' || !this.stream || this.reconnecting) return;
+    const pc = this.pc;
+    const st = pc?.connectionState ?? 'closed';
+    const ctlDown = !!pc && this.ctlWasOpen && this.ctl?.readyState !== 'open';
+    if (st === 'connected' && !ctlDown) {
+      this.downSince = null;
+      return;
+    }
+    // Still negotiating; if the answer never comes (signalling was down), try again after 15 s.
+    if ((st === 'new' || st === 'connecting') && now - this.connectedAt < 15_000) return;
+    this.downSince ??= now;
+    const hard =
+      st === 'failed' || st === 'closed' || st === 'new' || st === 'connecting' || ctlDown;
+    if (!hard && now - this.downSince < 3000) return;
+    this.downSince = null;
+    this.reconnecting = true;
+    void this.connect().finally(() => (this.reconnecting = false));
+  }
+
+  /** Tests only: close the link as a lost Wi-Fi would, and hold off reconnecting for `holdMs`. */
+  dropLinkForTest(holdMs: number): void {
+    this.reconnecting = true;
+    this.pc?.close();
+    setTimeout(() => (this.reconnecting = false), holdMs);
+  }
+
+  /** The OS took the camera (backgrounded, another app): reopen it when the page is in front. */
+  private onTrackEnded(stream: MediaStream): void {
+    if (this.stream !== stream || this.state.capture !== 'live') return;
+    if (document.visibilityState === 'visible') void this.recoverCapture();
+  }
+
+  /** Android can end the camera track while the page is in the background: reopen the same camera. */
+  private async recoverCapture(): Promise<void> {
+    const track = this.stream?.getVideoTracks()[0];
+    if (!track || track.readyState === 'live') return;
+    const id = (track.getSettings().deviceId as string | undefined) || undefined;
+    await this.switchCamera(id);
+  }
+
+  /** CAM-03: change the camera without touching the link (replaceTrack, no renegotiation). */
+  async switchCamera(deviceId?: string): Promise<void> {
+    const target = this.state.info?.requested ?? FULL_HD;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(videoConstraints(target, deviceId));
+    } catch (e) {
+      if ((e as { name?: string }).name !== 'OverconstrainedError') return this.failCapture(e);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(videoConstraints(HD, deviceId));
+      } catch (e2) {
+        return this.failCapture(e2);
+      }
+    }
+    const old = this.stream;
+    const track = stream.getVideoTracks()[0]!;
+    track.contentHint = 'motion';
+    track.addEventListener('ended', () => this.onTrackEnded(stream));
+    const sender = this.pc
+      ?.getTransceivers()
+      .find((t) => t.receiver.track.kind === 'video')?.sender;
+    try {
+      await sender?.replaceTrack(track);
+    } catch (e) {
+      stream.getTracks().forEach((t) => t.stop());
+      // Keep the working capture and sender together. A rejected replacement is not a live switch.
+      this.set({ captureError: mapCaptureError(e) });
+      this.sendState();
+      return;
+    }
+    this.stream = stream;
+    old?.getVideoTracks().forEach((t) => t.stop());
+    this.set({ capture: 'live', captureError: null, info: this.describe(track) });
+    this.sendState();
+  }
+
+  private describe(track: MediaStreamTrack): CaptureInfo {
+    const st = track.getSettings() as ZoomSettings;
+    const caps = (track.getCapabilities?.() ?? {}) as ZoomCaps;
+    const zoom = caps.zoom && typeof st.zoom === 'number' ? { ...caps.zoom, value: st.zoom } : null;
+    return {
+      requested: this.state.info?.requested ?? FULL_HD,
+      actual: { width: st.width ?? null, height: st.height ?? null, fps: st.frameRate ?? null },
+      deviceLabel: track.label,
+      deviceId: (st.deviceId as string | undefined) ?? null,
+      zoom,
+    };
   }
 
   /** CAM-05: release camera, wake lock and peer connection. */
   stop(): void {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
+    this.releaseAudio();
+    this.audioWanted = false;
     void this.wakeLock?.release().catch(() => undefined);
     this.wakeLock = null;
     document.removeEventListener('visibilitychange', this.onVisibility);
     if (this.stateTimer) clearInterval(this.stateTimer);
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
     this.ctl?.close();
     this.pc?.close();
     this.pc = null;
     this.ctl = null;
-    this.set({ capture: 'stopped', connection: 'idle', wakeLock: 'released', tally: 'off' });
+    this.set({
+      capture: 'stopped',
+      connection: 'idle',
+      wakeLock: 'released',
+      tally: 'off',
+      audio: AUDIO_OFF,
+    });
+  }
+
+  /**
+   * Start or stop sending this phone's sound. Only ever called because the studio operator chose the
+   * phone as the audio source; the track goes into the audio slot negotiated at connect time.
+   */
+  async setAudio(on: boolean): Promise<void> {
+    this.audioWanted = on;
+    if (!on) {
+      this.releaseAudio();
+      await this.audioSender()
+        ?.replaceTrack(null)
+        .catch(() => undefined);
+      this.set({ audio: AUDIO_OFF });
+      this.sendState();
+      return;
+    }
+    if (this.audioStream) return;
+    this.set({ audio: { ...AUDIO_OFF, state: 'starting' } });
+    this.sendState();
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(phoneAudioConstraints());
+    } catch (e) {
+      const name = (e as { name?: string }).name;
+      const state: PhoneAudioState =
+        name === 'NotAllowedError' || name === 'SecurityError'
+          ? 'denied'
+          : name === 'NotFoundError'
+            ? 'unavailable'
+            : 'error';
+      this.set({ audio: { ...AUDIO_OFF, state } });
+      this.sendState();
+      return;
+    }
+    if (!this.audioWanted) {
+      stream.getTracks().forEach((t) => t.stop()); // the operator changed their mind meanwhile
+      return;
+    }
+    this.audioStream = stream;
+    const track = stream.getAudioTracks()[0]!;
+    track.addEventListener('ended', () => {
+      this.audioStream = null;
+      this.set({ audio: { ...AUDIO_OFF, state: 'error' } });
+      this.sendState();
+    });
+    const st = track.getSettings();
+    const processingOn: string[] = [];
+    if (st.echoCancellation) processingOn.push('echoCancellation');
+    if (st.autoGainControl) processingOn.push('autoGainControl');
+    if (st.noiseSuppression) processingOn.push('noiseSuppression');
+    this.set({
+      audio: { state: 'on', label: track.label, channels: st.channelCount ?? 1, processingOn },
+    });
+    await this.attachAudio();
+    this.sendState();
+  }
+
+  private audioSender(): RTCRtpSender | undefined {
+    return this.pc?.getTransceivers().find((t) => t.receiver.track.kind === 'audio')?.sender;
+  }
+
+  private async attachAudio(): Promise<void> {
+    const sender = this.audioSender();
+    const track = this.audioStream?.getAudioTracks()[0];
+    if (!sender || !track) return;
+    await sender.replaceTrack(track).catch(() => undefined);
+    const p = sender.getParameters();
+    p.encodings = [{ ...(p.encodings?.[0] ?? {}), maxBitrate: PHONE_AUDIO_BITRATE }];
+    await sender.setParameters(p).catch(() => undefined);
+  }
+
+  private releaseAudio(): void {
+    this.audioStream?.getTracks().forEach((t) => t.stop());
+    this.audioStream = null;
   }
 
   async onSignal(p: SignalPayload): Promise<void> {
@@ -192,7 +407,13 @@ export class CameraSender {
     this.set({ capture: 'error', captureError: mapCaptureError(e) });
   }
 
+  /** A new studio tab took over (E37): renegotiate with it, keeping the same slot and capture. */
+  async renegotiate(): Promise<void> {
+    if (this.state.capture === 'live' && this.stream) await this.connect();
+  }
+
   private async connect(): Promise<void> {
+    this.connectedAt = Date.now();
     this.pc?.close();
     const pc = new RTCPeerConnection({
       iceServers: [],
@@ -203,7 +424,11 @@ export class CameraSender {
     const ctl = pc.createDataChannel('ctl', { ordered: true });
     this.ctl = ctl;
     ctl.onmessage = (m) => this.onCtl(m.data);
-    ctl.onopen = () => this.sendState();
+    this.ctlWasOpen = false;
+    ctl.onopen = () => {
+      this.ctlWasOpen = true;
+      this.sendState();
+    };
     const track = this.stream!.getVideoTracks()[0]!;
     const tx = pc.addTransceiver(track, { direction: 'sendonly' });
     const caps = RTCRtpSender.getCapabilities?.('video');
@@ -217,6 +442,10 @@ export class CameraSender {
         /* default order */
       }
     }
+    // An empty audio slot, filled only if the operator picks this phone as the sound source, so that
+    // switching needs no renegotiation. No microphone is opened until then.
+    pc.addTransceiver('audio', { direction: 'sendonly' });
+    if (this.audioStream) await this.attachAudio();
     const height = this.state.info?.actual.height ?? 1080;
     await this.setMaxBitrate(height >= 1080 ? 8_000_000 : 4_000_000);
     pc.addEventListener('icecandidate', (e) =>
@@ -262,6 +491,7 @@ export class CameraSender {
     else if (m.t === 'quality') this.set({ quality: m.label, rttMs: m.rttMs });
     else if (m.t === 'cam.setBitrate') void this.setMaxBitrate(m.bps);
     else if (m.t === 'cam.setZoom') void this.setZoom(m.zoom);
+    else if (m.t === 'cam.setAudio') void this.setAudio(m.on);
     this.sendCtl({ t: 'ack', of: r.data.seq });
   }
 
@@ -282,6 +512,7 @@ export class CameraSender {
       battery: this.state.battery,
       backgrounded: document.visibilityState === 'hidden',
       zoom: i?.zoom ?? null,
+      audio: this.state.audio,
     });
   }
 

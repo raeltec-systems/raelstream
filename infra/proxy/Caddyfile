@@ -10,21 +10,5 @@
 		Content-Security-Policy "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' wss://{$DOMAIN}; script-src 'self'; style-src 'self'; font-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 	}
 
-	# The MediaMTX auth hook is internal only.
-	respond /internal/* 404
-
-	handle /api/* {
-		reverse_proxy control:3000
-	}
-	handle /ws {
-		reverse_proxy control:3000
-	}
-	handle_path /whip/* {
-		reverse_proxy mediamtx:8889
-	}
-	handle {
-		root * /srv/web
-		try_files {path} /index.html
-		file_server
-	}
+	import app-routes.caddy
 }

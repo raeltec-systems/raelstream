@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { DB } from './db.js';
 import { randomToken, safeEqual, sha256 } from './crypto.js';
+import type { IceServer } from './turn.js';
 
 export const INGEST_TTL_MS = 30 * 60_000;
 
@@ -14,6 +15,7 @@ export async function createIngest(
   sessionId: string,
   generation: number,
   whipPublicBase: string,
+  iceServers: IceServer[] = [],
   now = new Date(),
 ) {
   const bearer = randomToken(32);
@@ -33,7 +35,7 @@ export async function createIngest(
     whipUrl: `${whipPublicBase}/${path}/whip`,
     bearer,
     expiresAt: expiresAt.toISOString(),
-    iceServers: [] as { urls: string }[],
+    iceServers,
   };
 }
 

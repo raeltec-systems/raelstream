@@ -30,7 +30,9 @@ export function DevicesStep() {
   const st = useStore(rt);
   const cam = useStore(rt.camera);
   const audio = useStore(rt.audio);
-  const src = st.session?.sources[0] ?? null;
+  const src = st.session?.sources.find((x) => !x.replacesSourceId) ?? null;
+  const replacement = st.session?.sources.find((x) => x.replacesSourceId) ?? null;
+  const present = !!src && !!st.cameraPresent[src.id];
   const cameraOk = cam.connection === 'connected';
   const res = cam.summary?.height ? `${cam.summary.height}p` : '—';
 
@@ -56,6 +58,18 @@ export function DevicesStep() {
           )}
           {src?.status === 'admitted' && (
             <>
+              {replacement ? (
+                <ReplacementPanel
+                  sourceId={replacement.id}
+                  phrase={replacement.verificationPhrase}
+                  newLabel={replacement.label}
+                  newHint={replacement.deviceHint}
+                  oldLabel={src.label}
+                  oldBack={present}
+                />
+              ) : (
+                !present && <ReconnectPanel />
+              )}
               <CameraPreview />
               <StatusRow
                 tone={cameraOk ? 'ready' : cam.connection === 'idle' ? 'off' : 'standby'}
@@ -91,6 +105,11 @@ export function DevicesStep() {
                     : '—'
                 }
               />
+              {cameraOk && cam.summary?.fps != null && cam.summary.fps < 24 && (
+                <p className={s.warn}>
+                  {t('devices.lowFps', { fps: Math.round(cam.summary.fps) })}
+                </p>
+              )}
               <div className={s.row}>
                 <Button size="dense" onClick={() => void rt.revoke(src.id)}>
                   {t('devices.removeCamera')}
@@ -111,15 +130,33 @@ export function DevicesStep() {
             ]}
           />
           <p className={s.muted}>{t('devices.profileNote')}</p>
+          <div className={s.headTitle}>{t('devices.framing')}</div>
+          <Segmented<'contain' | 'fill'>
+            label={t('devices.framing')}
+            value={st.framing}
+            onChange={(f) => void rt.setFraming(f)}
+            options={[
+              { value: 'contain', label: t('devices.framingFit') },
+              { value: 'fill', label: t('devices.framingFill') },
+            ]}
+          />
+          <p className={s.muted}>{t('devices.framingNote')}</p>
         </Card>
       </div>
-      {cam.directLinkFailed && (
+      {cam.directLinkFailed && present && (
         <Banner
           title={t('directFail.title')}
           actions={
-            <Button size="dense" variant="primary" onClick={() => void rt.createInvitation()}>
-              {t('directFail.repair')}
-            </Button>
+            present && (
+              <Button
+                size="dense"
+                variant="primary"
+                disabled={!st.lease?.mine}
+                onClick={() => void rt.retryCamera()}
+              >
+                {t('directFail.retry')}
+              </Button>
+            )
           }
         >
           {t('directFail.body', { ssid: st.productionSsid || t('directFail.productionWifi') })}
@@ -135,7 +172,87 @@ export function DevicesStep() {
   );
 }
 
-function PairPanel() {
+/**
+ * The phone left (Back, browser closed, battery swap). It normally comes back by itself when its page
+ * is reopened; if not, the same phone scans this code and takes its place again without being let in
+ * a second time. A different phone is refused until this camera is removed.
+ */
+export function ReconnectPanel() {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={s.reconnect} data-testid="reconnect-panel">
+      <p className={s.warn}>{t('reconnect.away')}</p>
+      {open ? (
+        <PairPanel reconnect />
+      ) : (
+        <div className={s.row}>
+          <Button
+            size="dense"
+            variant="primary"
+            disabled={!st.lease?.mine}
+            onClick={() => {
+              setOpen(true);
+              void rt.createInvitation();
+            }}
+          >
+            {t('reconnect.show')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A different phone asks to take over a camera whose phone has gone (battery died, browser storage
+ * wiped). The operator checks the words as for any new phone; letting it in removes the old camera.
+ */
+export function ReplacementPanel({
+  sourceId,
+  phrase,
+  newLabel,
+  newHint,
+  oldLabel,
+  oldBack,
+}: {
+  sourceId: string;
+  phrase: string;
+  newLabel: string;
+  newHint: string;
+  oldLabel: string;
+  oldBack: boolean;
+}) {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  return (
+    <div className={s.reconnect} data-testid="replacement-panel">
+      <p className={s.warn}>
+        {t('replace.asks', { old: oldLabel, name: newLabel, hint: newHint })}
+      </p>
+      <p className={s.muted}>{t('pending.compare')}</p>
+      <div className={s.phrase} data-testid="replacement-phrase">
+        {phrase}
+      </div>
+      {oldBack && <p className={s.warn}>{t('replace.oldBack', { old: oldLabel })}</p>}
+      <div className={s.row}>
+        <Button
+          variant="primary"
+          disabled={!st.lease?.mine}
+          onClick={() => void rt.admit(sourceId)}
+        >
+          {t('replace.admit')}
+        </Button>
+        <Button disabled={!st.lease?.mine} onClick={() => void rt.reject(sourceId)}>
+          {t('replace.refuse')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PairPanel({ reconnect = false }: { reconnect?: boolean }) {
   const rt = studioRuntime();
   const st = useStore(rt);
   const [qr, setQr] = useState<string | null>(null);
@@ -151,7 +268,11 @@ function PairPanel() {
   if (!st.invitation || left === 0) {
     return (
       <div className={s.row}>
-        <Button variant="primary" onClick={() => void rt.createInvitation()}>
+        <Button
+          variant="primary"
+          disabled={!st.lease?.mine}
+          onClick={() => void rt.createInvitation()}
+        >
           {st.invitation ? t('pair.newCode') : t('pair.show')}
         </Button>
         {st.invitation && <span className={s.muted}>{t('pair.expired')}</span>}
@@ -164,9 +285,11 @@ function PairPanel() {
         <img src={qr} alt={t('pair.qrAlt')} data-testid="pair-qr" data-url={st.invitation.url} />
       )}
       <div className={s.meters}>
-        <div className={s.headTitle}>{t('pair.scan')}</div>
+        <div className={s.headTitle}>{reconnect ? t('reconnect.scan') : t('pair.scan')}</div>
         <p className={s.muted}>
-          {t('pair.instructions', { ssid: st.productionSsid || t('directFail.productionWifi') })}
+          {reconnect
+            ? t('reconnect.instructions')
+            : t('pair.instructions', { ssid: st.productionSsid || t('directFail.productionWifi') })}
         </p>
         <div className={s.mono}>{t('pair.expiresIn', { s: left })}</div>
         <div className={s.row}>

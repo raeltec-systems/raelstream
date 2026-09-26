@@ -29,12 +29,17 @@ export const SessionSnapshot = z.object({
 });
 export type SessionSnapshot = z.infer<typeof SessionSnapshot>;
 
-export const CreateSessionRequest = z.object({ name: z.string().trim().min(1).max(80) });
+export const CreateSessionRequest = z.object({
+  name: z.string().trim().min(1).max(80),
+  presetId: z.string().uuid().optional(),
+});
 
 export const IngestResponse = z.object({
   whipUrl: z.string().url(),
   bearer: z.string(),
   expiresAt: z.string(),
+  /** 'relay' forces the contribution through TURN (diagnostics; the Codespaces topology). */
+  iceTransportPolicy: z.enum(['all', 'relay']).optional(),
   iceServers: z.array(
     z.object({
       urls: z.union([z.string(), z.array(z.string())]),

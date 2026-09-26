@@ -393,7 +393,7 @@ The server enforces this on every route and every WS message type. The UI hides 
 3. Phone shows: service name, a "Camera only" role badge, the explanation "This phone will send video only. Sound comes from the church mixer.", a label field (default `Camera 1`), and a **Join as camera** button.
 4. **Join** runs `POST /api/pairings/claim {token, deviceId, label}`. This is an atomic consume. `deviceId` is a random 128-bit value kept in the phone's `localStorage` so a reconnecting phone can be recognised. The server creates a `camera_sources` row with status `pending`, generates a **verification phrase** (two words from a curated 256-word list plus a two-digit number, e.g. `river-lamp-42`), and returns a pending credential that can only open the pending WS channel.
 5. Studio: a pending card shows the label, the phrase, and a device hint (user-agent summary, e.g. "Android · Chrome"). The operator compares the phrase with the one on the phone, then clicks **Admit** or **Reject**.
-6. Admit issues a contributor credential: an opaque token with a 15-min TTL, renewed every 5 min over WS while the source is admitted (B§8.2 PAIR-05). The phone shows **Start camera**.
+6. Admit issues a contributor credential: an opaque token with a 3-hour TTL, rotated every 5 min over WS while the source is admitted, so a phone whose browser was closed can come back on its own during a service (B§8.2 PAIR-05). The same phone scanning a new code takes its own slot back without a second approval. The phone shows **Start camera**.
 7. **Start camera** is a user gesture that calls `getUserMedia({audio:false, video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}, frameRate:{ideal:30, max:30}}})`.
 
 Expiry and misuse cases (A03–A05): an expired, consumed or unknown token gets the same generic message, "This code is no longer valid. Ask the studio for a new one." A second concurrent claim loses the race and gets the same message.
@@ -404,7 +404,7 @@ Expiry and misuse cases (A03–A05): an expired, consumed or unknown token gets 
 - If the actual size is below 1280×720, show a warning and let the operator try the fallback.
 - Fallback: if the 1080p request fails with `OverconstrainedError`, retry with `{width:{ideal:1280},height:{ideal:720}}`.
 - **Camera selector:** after permission is granted, `enumerateDevices()` lists video inputs. If there is more than one, show a selector labelled with the device labels exactly as the browser reports them. It never shows invented "Wide/Normal/Close" labels.
-- **Assert no audio:** before adding tracks, check `stream.getAudioTracks().length===0` and that the peer connection has no audio transceiver (CAM-02). A unit test and a browser test cover this.
+- **Assert no audio:** before adding tracks, check `stream.getAudioTracks().length===0` (CAM-02). **[DECISION, owner, 24 Sep 2026]** The peer connection carries one `sendonly` audio transceiver **with no track**, used only when the operator picks the phone as the sound source (§8.8). No microphone is opened until then; the browser test counts microphone opens on the phone and requires zero before that choice.
 - **Errors mapped to plain messages (CAM-04):**
 
 | Error | Message |
@@ -532,6 +532,16 @@ The label shows in the Camera health group. Addresses are never shown. The repor
 The phone stops its tracks when it receives `revoke`. The studio closing the connection and dropping the receiver makes termination take effect within 5 s even if the phone ignores the message (B§8.3, A12).
 
 ---
+
+### 8.8 Phone as the sound source **[DECISION, owner, 24 Sep 2026]**
+
+The owner asked for the phone to be usable as the sound source when the audio interface is not available: the phone's own microphone, or an iRig or similar input plugged into the phone. This narrows C-04 and CAM-02 as follows. The rest of C-04 stands.
+
+- **Default unchanged:** the mixer through the laptop's interface is the programme sound. The phone sends no sound unless the operator picks **Phone sound** in Preparation → Audio.
+- **Never automatic:** nothing switches to the phone (or from it) by itself. If the interface disconnects, the programme goes silent as before (A17). If the phone link drops while it is the source, the programme goes silent until the **same phone** reconnects; a different phone never inherits the choice.
+- **Transport:** the empty audio transceiver from §7.2 carries the track (`replaceTrack`, no renegotiation). The phone opens the microphone with echo cancellation, noise suppression and auto gain off, ideal 2 channels at 48 kHz, and reports its label, channel count and any processing it could not turn off in `cam.state.audio`. Opus at up to 128 kb/s; the studio's answer sets `stereo=1` so a stereo input stays stereo.
+- **Studio:** the remote track feeds the same graph as the interface (routing, gain, HPF, compressor, delay, meters). Chrome only feeds a remote WebRTC track to Web Audio while a (muted) media element plays it, so the receiver keeps one.
+- **Trade-offs shown to the operator:** the sound shares the phone's Wi-Fi link with the picture; lip-sync still uses the delay control.
 
 ## 9. Studio UI (`/studio`)
 
@@ -695,7 +705,7 @@ Browser media objects never enter React state (B§22.2). A test runs a mount/unm
 ### 10.2 Compositor
 
 - **Canvas:** an `HTMLCanvasElement` sized to the profile: 1920×1080 or 1280×720. It uses a Canvas 2D context with `{alpha:false, desynchronized:true}`. `captureStream(30)` is called **once**, producing one long-lived track (B§11.1).
-- **Clock:** a dedicated Web Worker posts ticks every 33.33 ms, which drifts less than `setInterval` in a throttled tab. On each tick the compositor draws the current scene. The camera `<video>` is drawn only if `requestVideoFrameCallback` delivered a new frame since the last tick. Otherwise the tick redraws the last frame, and the 2 s stall timer (§12.6) runs. Overlays are pre-rendered to `OffscreenCanvas`/`ImageBitmap` whenever their content is applied, so each tick is at most 3 `drawImage` calls.
+- **Clock:** a dedicated Web Worker posts ticks every 33.33 ms, which drifts less than `setInterval` in a throttled tab. On each tick the compositor draws the current scene. The camera `<video>` is drawn only if a new frame arrived since the last tick. Otherwise the tick redraws the last frame, and the 2 s stall timer (§12.6) runs. **[DECISION]** Frame arrival is detected from `requestVideoFrameCallback` **or** a rise in `getVideoPlaybackQuality().totalVideoFrames`, checked on every tick. Chromium stops `requestVideoFrameCallback` in a hidden tab while frames keep arriving and drawing (measured, Chromium 1194), so relying on it alone cut the programme to the slate whenever the operator switched tabs. Overlays are pre-rendered to `OffscreenCanvas`/`ImageBitmap` whenever their content is applied, so each tick is at most 3 `drawImage` calls.
 - **Framing:**
   - `contain` letterboxes or pillarboxes on the theme's background colour (default black).
   - `fill` centre-crops.
@@ -747,6 +757,8 @@ Browser media objects never enter React state (B§22.2). A test runs a mount/unm
 
 ### 10.5 Theme (I-10)
 
+**[DECISION, M6]** One **church-wide** theme (stored on `venue_profile.theme`, edited by the owner in Settings → Church look) instead of one per preset. There is one church and one brand, and a service started without a preset must still carry the logo. Schema: `packages/contracts/src/theme.ts`. The on-air drawing code (`packages/media-runtime/src/overlays.ts`) also renders the Settings preview. A bottom-left logo lifts the lower third above it.
+
 `preset.theme`:
 
 - `logoAssetId`, `logoCorner` (tl, tr, bl, br), `logoScale` (0.06–0.15 of the width)
@@ -761,6 +773,8 @@ Fixed layouts:
 - Logo safe margin: 48 px.
 
 ### 10.6 Assets (B§11.4)
+
+**[DECISION, M6]** Upload is `POST /api/assets` with the raw image as the body (not multipart), CSRF-checked like every change. Re-encoded images are stored **in PostgreSQL** (`assets.data`), not on a volume: they are small, and the database backup then covers them (§M9). Everything else below stands: magic bytes, full decode with `sharp`, no animation or SVG, ≤10 MB and ≤4096 px, metadata stripped, sRGB, PNG only when there is transparency.
 
 - Upload is `POST /api/assets` (multipart). The limits are 10 MB and ≤4096 px on each side. Accepted types are PNG, JPEG and WebP, detected by **magic bytes** and a full decode with `sharp`. Animated images and SVG are rejected.
 - `sharp` re-encodes the image, which strips metadata, and normalises it to sRGB. Output:
@@ -807,6 +821,8 @@ The profile is fixed at Start (B§14.3). Changing it means Stop, then Start with
 
 ### 11.3 Uplink test and profile choice (I-04, I-05)
 
+**[DECISION, M7]** R1 runs the HTTP throughput part only (2 MB uploads from 4 parallel workers, up to 40 MB or 20 s, bytes counted by control as they arrive). The private test already exercises the WebRTC media path and shows its sending rate; the 15 s synthetic WHIP probe below is deferred. The offer thresholds are unchanged.
+
 **Run uplink test** runs only in Preparation and never during SENDING (B§18.1).
 
 1. **HTTP throughput:** the browser streams 40 MB of random bytes as `POST /api/uplink-test/sink` to the VM in 4 parallel fetches, for up to 20 s. Control counts the bytes received and reports Mbps over the middle 10 s.
@@ -829,6 +845,8 @@ The result is stored in `stream_sessions.uplink_test` and shown in the report. T
 
 ### 11.4 Private ingest test and sync calibration (SYNC-03, SYNC-05, B§18.3)
 
+**[DECISION, M6]** The test clip is recorded **in the studio browser** from the outgoing programme tracks (canvas video + delayed programme audio, `MediaRecorder`), not by the supervisor. It is exactly what is sent, it needs no consent for storage because it never leaves the browser, and it works in any test environment. The media node's own A/V offset is measured separately (2–6 ms, ADR-0003). The frame-step player, waveform strip, automatic clap suggestion (operator-confirmed), the 80 ms "audio late" rule and `sync_calibrations` are as below. A calibration is valid for the camera label + received height + codec, the audio input, routing, profile and the delay; any change shows **Recheck recommended**.
+
 - **Private ingest test** mode creates a real contribution and a normaliser but **no publishers**. The operator can press **Record a 20 s test clip**, which requires explicit consent. The supervisor records the normalised output to `data/diag/{sessionId}/{ts}.mp4` and serves it back through `GET /api/sessions/{id}/diag/{clip}` for in-browser playback, with frame-stepping controls (`,` and `.` step one frame at 30 fps).
 - Calibration procedure (shown in-app):
   1. Someone claps or uses a clapperboard in front of the camera, close to a mixer-fed mic.
@@ -843,6 +861,8 @@ The result is stored in `stream_sessions.uplink_test` and shown in the report. T
 - Clips auto-delete after 24 h. **Export** downloads a clip for the evidence pack.
 
 ### 11.5 Contribution adaptation (B§14)
+
+**[DECISION, M8]** Built as one `StepController` rule set (`packages/media-runtime/src/adaptation.ts`) used by both controllers. Upload congestion = `qualityLimitationReason` bandwidth, or `availableOutgoingBitrate` below 90 % of the current ceiling. The camera controller acts on loss > 2 %, freezes, or received fps below 80 % of what the phone reports capturing, so a dim room (the phone itself at 15 fps) never lowers the camera bitrate. `cam.setResolution` is not built; the bitrate steps stop at 2 Mb/s. Each change is a session event and appears in the report.
 
 The camera controller and contribution controller are independent state machines, each evaluated at 1 Hz.
 
@@ -988,6 +1008,8 @@ When no new camera frame arrives for 2 s, the camera health turns critical with 
 
 ### 12.7 Recording (I-16, I-17)
 
+**[DECISION, M7]** R1 keeps recordings on the media node's `recordings` volume and the owner downloads them from the ended service (`GET /api/sessions/{id}/recordings`, owner only); there is no S3/R2 upload yet, so no bucket credentials are needed. MediaMTX records the `norm/…` path itself (fMP4, 10-minute segments, slate periods included); the supervisor turns recording on for the path when `desired.record` is set, including when a private test becomes a recorded broadcast. Control mounts the volume read-only and deletes a service's recordings after 30 days (I-17). The rest of this section (uploader, presigned links, disk guard) is deferred.
+
 - The Start modal has a **Record a private copy** checkbox (the preset default is `record_default`). The owner can enable recording in any preset. Operators can tick it but cannot download.
 - **Mechanism:** the supervisor enables MediaMTX path recording on `norm/…` with `recordFormat: fmp4` and `recordSegmentDuration: 10m`, written to the volume `data/recordings/{sid}/`. The recording is the **normalised public output**, including slate periods.
 - **Uploader:** a supervisor task uploads each completed segment to `s3://{bucket}/recordings/{sid}/{segment}` with a multipart upload, verifies size and ETag, then deletes the local copy. A local disk cap of 20 GB is reserved for recordings. If free disk space drops below 5 GB, recording stops with the warning `RECORDING_DISK_LOW`. **The live stream never stops because of recording.**
@@ -1001,6 +1023,8 @@ When no new camera frame arrives for 2 s, the camera health turns critical with 
 ## 13. Destinations (Facebook, YouTube)
 
 ### 13.1 Destination setup (S05, owner only)
+
+Built in M7 as Settings → Destinations (`/api/destinations`, owner). **Send test media** is not built: a platform test is Go live to a test or unlisted event (§9.6).
 
 Fields:
 
@@ -1073,6 +1097,8 @@ The page loads no third-party scripts and no analytics.
 - This meets B§23.2, "limit decryption to the publisher supervisor". **[DECISION]** It uses asymmetric sealing instead of a shared symmetric KEK.
 
 ### 14.3 Service worker
+
+**[DECISION, M9]** No service worker in R1. The studio loads everything when it opens, deploys never run during a service (§16.2 deploy guard), and an open studio polls `/api/health` for the deployed version: after a deploy it shows **Update available → Reload now**, never while a service is live, and never reloads by itself (A43). A service worker adds a cache that can serve stale code with no offline benefit for a live-only app.
 
 - Caches only the hashed static bundle and fonts. The fetch handler never caches `/api/*`, `/ws`, `/whip/*`, `/cam#…`, or anything with an `Authorization` header or `Set-Cookie`.
 - **Updates during a session:** the new SW waits. The page shows "Update available after this service" and calls `skipWaiting` only when the session is ENDED or when no session is active (B§28.3, A43).
@@ -1180,6 +1206,8 @@ The route map, positions and dead zones (B§7.4) live in `docs/evidence/venue/`.
 Every command also runs locally (`pnpm ci:local`), so the owner does not depend on hosted CI (B§22.3).
 
 ### 16.2 `deploy.yml` (manual `workflow_dispatch`, input `sha`)
+
+**[DECISION, M9]** The deploy guard is a CLI check run on the VM over SSH (`cli.js deploy:guard`), not a public endpoint. It blocks while a service is sending/recovering, or while someone holds a studio lease on a service being prepared; a forgotten, idle draft does not block. Images are built on the VM from the checked-out commit (no registry), and the smoke test checks that `/api/health` reports the new SHA. Runbook: `docs/runbooks/owner-operations.md`.
 
 1. SSH to the VM using a deploy key held in a GitHub environment `production` that requires owner approval.
 2. **Deploy guard:** `curl https://{host}/internal/deploy-guard`, authenticated with a deploy token. It returns `409` if any session is in PREPARING…RECOVERING **or** has been STARTING within the last 5 min. The workflow fails with "Active service; deploy after it ends".
@@ -1349,7 +1377,7 @@ B§17 still applies. This table adds implementation-specific cases found during 
 | E18 | Operator double-clicks Start, or a network retry replays it | Idempotency key → the same operation result (A32). |
 | E19 | Stop is pressed during reconnect storms | `stopRequestedAt` set → the supervisor kills everything and ignores timers (A34). |
 | E20 | Control container restarts | The supervisor keeps running processes (desired state unchanged). The studio reconnects the WS (A38). |
-| E21 | Supervisor restarts | On boot it discovers orphan FFmpeg processes by PID file + generation tag. It **adopts** processes whose generation matches the desired state and kills the rest. Publishers restart if they cannot be adopted, and a brief destination interruption is reported honestly. |
+| E21 | Supervisor restarts | **[DECISION, M8]** No adoption: FFmpeg runs as the supervisor's child in the same container, so a supervisor restart (container restart) ends them too. On boot the supervisor rebuilds from the unchanged desired state: the slate covers the programme path, the normaliser and publishers restart, destinations show RECONNECTING, and the report shows the reconnects. A control restart (E20) does not touch media at all. |
 | E22 | VM reboots | Honest outage. The session becomes INTERRUPTED if it doesn't recover within grace. After boot, the supervisor sees desired=running with no contribution, and does not auto-publish the slate after grace (B§17: no HA claim). |
 | E23 | A second studio tab opens | Read-only (§9.10). |
 | E24 | Owner opens the studio on a phone | Unsupported layout. A warning, with read-only suggested. |

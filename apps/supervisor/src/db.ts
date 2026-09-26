@@ -22,7 +22,13 @@ export interface SupervisorDB {
     label: string;
     server_url: string;
     key_enc: Buffer | null;
+    key_mode: string;
     enabled: boolean;
+  };
+  session_destinations: {
+    session_id: string;
+    destination_id: string;
+    session_key_enc: Buffer | null;
   };
   ingest_tokens: {
     session_id: string;

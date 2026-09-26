@@ -4,6 +4,9 @@
  *   destination:add --platform youtube --label "YouTube church channel" --server rtmps://a.rtmps.youtube.com/live2 [--auto-publish yes|no|unknown] [--per-event]
  *     (the stream key is read from stdin so it never appears in shell history or process lists)
  *   destination:list
+ *   user:create-owner --email owner@church.org --name "Israel"   (password from stdin)
+ *   user:reset-mfa --email someone@church.org
+ *   deploy:guard     exits 3 while any service is open (SPEC §16.2: never deploy during a service)
  */
 import { parseArgs } from 'node:util';
 import { generateKeypair, last4, seal } from '@raelstream/secrets';
@@ -15,6 +18,20 @@ import {
 import { loadConfig } from './config.js';
 import { createDb } from './db.js';
 import { migrate } from './migrate.js';
+import { AuthService, type Enrolment } from './auth.js';
+
+function printEnrolment(e: Enrolment): void {
+  console.log(
+    'Add this account to an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password...):',
+  );
+  console.log(`  otpauth URI: ${e.otpauthUri}`);
+  console.log(`  or enter the key by hand: ${e.secret.replace(/(.{4})/g, '$1 ').trim()}`);
+  console.log(
+    'Recovery codes (each works once; store them somewhere safe, they are not shown again):',
+  );
+  for (const c of e.recoveryCodes) console.log(`  ${c}`);
+  console.log('The first successful sign-in with a 6-digit code confirms the authenticator.');
+}
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -38,7 +55,39 @@ const cfg = loadConfig();
 const db = createDb(cfg.databaseUrl);
 await migrate(db, cfg.migrationsDir);
 
-if (cmd === 'destination:add') {
+if (cmd === 'deploy:guard') {
+  // A service that is sending or recovering always blocks a deploy (B§28.3); one being prepared blocks
+  // it while someone has its studio open (a live lease). A forgotten, idle draft does not.
+  const open = await db
+    .selectFrom('stream_sessions')
+    .leftJoin('studio_leases', 'studio_leases.session_id', 'stream_sessions.id')
+    .select(['stream_sessions.name', 'stream_sessions.lifecycle'])
+    .where((eb) =>
+      eb.or([
+        eb('stream_sessions.lifecycle', 'in', [
+          'STARTING',
+          'SENDING',
+          'PARTIAL',
+          'RECOVERING',
+          'STOPPING',
+        ]),
+        eb.and([
+          eb('stream_sessions.lifecycle', 'not in', ['ENDED', 'INTERRUPTED']),
+          eb('studio_leases.expires_at', '>', new Date()),
+        ]),
+      ]),
+    )
+    .execute();
+  await db.destroy();
+  if (open.length) {
+    console.error(
+      `Active service; deploy after it ends: ${open.map((s) => `${s.name} (${s.lifecycle})`).join(', ')}`,
+    );
+    process.exit(3);
+  }
+  console.log('No active service: safe to deploy.');
+  process.exit(0);
+} else if (cmd === 'destination:add') {
   const { values } = parseArgs({
     args: rest,
     options: {
@@ -77,6 +126,27 @@ if (cmd === 'destination:add') {
     .returning(['id'])
     .executeTakeFirstOrThrow();
   console.log(`added destination ${row.id} (${platform}, key ••••${last4(key)})`);
+} else if (cmd === 'user:create-owner') {
+  const { values } = parseArgs({
+    args: rest,
+    options: { email: { type: 'string' }, name: { type: 'string' } },
+  });
+  if (!values.email || !values.name) throw new Error('--email and --name are required');
+  const password = await readStdin();
+  const auth = new AuthService(db, cfg.totpKey);
+  const r = await auth.createUser({
+    email: values.email,
+    name: values.name,
+    role: 'owner',
+    password,
+  });
+  console.log(`created owner ${values.email} (${r.userId})`);
+  printEnrolment(r.enrolment);
+} else if (cmd === 'user:reset-mfa') {
+  const { values } = parseArgs({ args: rest, options: { email: { type: 'string' } } });
+  if (!values.email) throw new Error('--email is required');
+  printEnrolment(await new AuthService(db, cfg.totpKey).resetMfa(values.email));
+  console.log("All of this user's sessions were signed out.");
 } else if (cmd === 'destination:list') {
   const rows = await db
     .selectFrom('destinations')
@@ -88,7 +158,9 @@ if (cmd === 'destination:add') {
       `${r.id}  ${r.platform.padEnd(9)} ${r.label}  ${r.server_url}  key ••••${r.key_last4 ?? '----'}${r.enabled ? '' : '  (disabled)'}`,
     );
 } else {
-  console.error('usage: cli.js keys:generate | destination:add ... | destination:list');
+  console.error(
+    'usage: cli.js keys:generate | destination:add ... | destination:list | user:create-owner ... | user:reset-mfa ... | deploy:guard',
+  );
   process.exitCode = 2;
 }
 await db.destroy();

@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from 'react';
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { useId } from 'react';
 import { cx } from './cx.js';
 import s from './Field.module.css';
@@ -23,6 +23,38 @@ export function TextField({ label, helper, error, mono, className, ...rest }: Te
         aria-invalid={!!error}
         aria-describedby={helper || error ? helpId : undefined}
         className={cx(s.input, mono && s.mono, error && s.error)}
+        {...rest}
+      />
+      {(error || helper) && (
+        <div id={helpId} className={cx(s.helper, error && s.helperError)}>
+          {error ?? helper}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  helper?: ReactNode;
+  error?: string | null;
+}
+
+/** Multi-line text (announcements, scripture passages). */
+export function TextArea({ label, helper, error, className, ...rest }: TextAreaProps) {
+  const id = useId();
+  const helpId = `${id}-help`;
+  return (
+    <div className={cx(s.field, className)}>
+      <label htmlFor={id} className={s.label}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        rows={5}
+        aria-invalid={!!error}
+        aria-describedby={helper || error ? helpId : undefined}
+        className={cx(s.input, s.textarea, error && s.error)}
         {...rest}
       />
       {(error || helper) && (

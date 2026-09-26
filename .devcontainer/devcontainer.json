@@ -1,0 +1,28 @@
+{
+  // Browser-only test environment: the whole stack in a GitHub Codespace (docs/runbooks/codespaces.md).
+  "name": "raelstream test studio",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "hostRequirements": { "cpus": 2, "memory": "8gb" },
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "Studio", "onAutoForward": "notify" }
+  },
+  "containerEnv": { "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0" },
+  "secrets": {
+    "RS_TURN_CF_KEY_ID": {
+      "description": "Cloudflare Realtime TURN key ID. Needed for Go live / private test from a Codespace.",
+      "documentationUrl": "https://developers.cloudflare.com/realtime/turn/"
+    },
+    "RS_TURN_CF_API_TOKEN": {
+      "description": "API token of that Cloudflare TURN key.",
+      "documentationUrl": "https://developers.cloudflare.com/realtime/turn/"
+    }
+  },
+  "postCreateCommand": "bash infra/codespace/setup.sh",
+  "postStartCommand": "bash infra/codespace/start.sh"
+}

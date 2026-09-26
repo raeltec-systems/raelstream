@@ -9,13 +9,33 @@ and one stream goes to Facebook and YouTube.
 
 ## Status
 
-- **M1 (WP0 spine, browser side):** pairing, the direct camera link, mixer audio, the compositor and WHIP ingest.
-- **M2 (media node):** supervisor, FFmpeg normaliser, isolated Facebook/YouTube publishers, fallback
-  slate, and Go live / Stop in the studio.
+All software milestones (M1, M2, M4–M9) are built and tested with synthetic media, local stand-in
+platforms and a real media node in CI. **M3 is yours:** the run with the real phone, Dell, UMC and
+church network (`docs/runbooks/wp0-hardware-run.md`), then two real services (A47).
 
-Both are built and tested with synthetic media and local RTMP sinks. Next is **M3**, the owner's
-hardware run on the real devices and real platform test events (`docs/runbooks/wp0-hardware-run.md`).
-Real accounts (M4) and the remaining work packages follow. See PLAN.md.
+| Milestone | What it added |
+|---|---|
+| M1–M2 | Pairing, the direct camera link, mixer audio, the compositor, WHIP ingest; the media node (normaliser, two isolated publishers, fallback slate). |
+| M4 | Accounts with authenticator codes, operator invites, saved services, the studio lease and take-over. |
+| M5 | Phone reconnection, "Camera ready: Cut back", camera selector, framing. |
+| M6 | Church look (logo, colours, font), checked image uploads, scripture cards, the lip-sync clip tool. Phone as sound source. |
+| M7 | Destinations in Settings, Facebook's per-service key, the uplink test, private recording. |
+| M8 | Automatic quality steps, grace extension, the service report. |
+| M9 | Production-CSP test, deploy workflow with guard and rollback, encrypted backups with a restore drill, runbooks, soak test. |
+
+## Runbooks
+
+- Sunday operators: [docs/runbooks/sunday-operator.md](docs/runbooks/sunday-operator.md)
+- Owner (server, deploys, backups, restore): [docs/runbooks/owner-operations.md](docs/runbooks/owner-operations.md)
+- First real run at church: [docs/runbooks/wp0-hardware-run.md](docs/runbooks/wp0-hardware-run.md)
+
+## Try it without a server
+
+The whole stack runs in a **GitHub Codespace** (free allowance, browser only). The studio's upload goes
+through Cloudflare's free TURN relay, and two stand-in "platforms" show exactly what viewers would see.
+Follow [docs/runbooks/codespaces.md](docs/runbooks/codespaces.md). For the one real check from
+Johannesburg, see [docs/runbooks/gcp-johannesburg.md](docs/runbooks/gcp-johannesburg.md). See PLAN.md for
+what comes next.
 
 ## Layout
 

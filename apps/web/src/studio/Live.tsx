@@ -1,13 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, KeyChip, Logo, Meter, StatusDot, cx } from '@raelstream/ui';
 import { t } from '@raelstream/i18n';
-import { meterPosition, type SceneKind } from '@raelstream/media-runtime';
+import {
+  CAMERA_STEPS,
+  UPLOAD_STEPS,
+  meterPosition,
+  type SceneKind,
+} from '@raelstream/media-runtime';
 import { useStore } from '../lib/useStore.js';
 import { router } from '../lib/router.js';
 import { PROFILE_SIZE, studioRuntime } from './runtime.js';
-import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from './Broadcast.js';
-import { CameraPreview } from './steps/DevicesStep.js';
+import {
+  BroadcastAction,
+  BroadcastBanners,
+  DestinationRows,
+  SessionPill,
+  RecoveryBanner,
+} from './Broadcast.js';
+import { CameraPreview, ReconnectPanel, ReplacementPanel } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
+import { LeaseBanner } from './LeaseBanner.js';
+import { UpdateBanner } from './UpdateBanner.js';
 import s from './Live.module.css';
 
 const SCENES: { kind: SceneKind; key: string; label: string }[] = [
@@ -80,6 +93,7 @@ export function Live() {
   const next = nextIdx !== null ? st.rundown[nextIdx] : undefined;
   const sending = st.contribution === 'sending';
   const src = st.session?.sources.find((x) => x.status === 'admitted');
+  const replacement = st.session?.sources.find((x) => x.replacesSourceId);
 
   const upBps = whip?.bitrateBps ?? null;
   const laptop =
@@ -119,7 +133,11 @@ export function Live() {
               {t('live.stopPrivateTest')}
             </Button>
           ) : (
-            <Button size="dense" onClick={() => void rt.startPrivateTest()}>
+            <Button
+              size="dense"
+              disabled={!st.lease?.mine}
+              onClick={() => void rt.startPrivateTest()}
+            >
               {t('live.startPrivateTest')}
             </Button>
           ))}
@@ -127,6 +145,9 @@ export function Live() {
       </header>
 
       <div className={s.banners}>
+        <LeaseBanner compact />
+        <UpdateBanner />
+        <RecoveryBanner />
         <BroadcastBanners />
       </div>
       <main className={s.main}>
@@ -143,20 +164,61 @@ export function Live() {
                 {cam.summary?.rttMs != null ? `${Math.round(cam.summary.rttMs)} ms` : '—'}
               </span>
             </div>
+            {replacement && src ? (
+              <ReplacementPanel
+                sourceId={replacement.id}
+                phrase={replacement.verificationPhrase}
+                newLabel={replacement.label}
+                newHint={replacement.deviceHint}
+                oldLabel={src.label}
+                oldBack={!!st.cameraPresent[src.id]}
+              />
+            ) : (
+              src?.status === 'admitted' && !st.cameraPresent[src.id] && <ReconnectPanel />
+            )}
           </div>
           <div className="rs-overline">{t('live.scenes')}</div>
-          {SCENES.map((sc) => (
-            <button
-              key={sc.kind}
-              type="button"
-              className={cx(s.scene, st.scene === sc.kind && s.sceneActive)}
-              aria-pressed={st.scene === sc.kind}
-              onClick={() => void rt.cut(sc.kind)}
-            >
-              <KeyChip>{sc.key}</KeyChip>
-              <span>{t(sc.label as never)}</span>
-            </button>
-          ))}
+          {comp.autoCutAt &&
+            st.scene === 'slate' &&
+            cam.connection === 'connected' &&
+            !comp.cameraStalled &&
+            comp.lastCameraFrameAt !== null && (
+              // SPEC §8.6: the camera never returns to programme by itself; offer the cut instead.
+              <button
+                type="button"
+                className={cx(s.scene, s.cutBack)}
+                onClick={() => void rt.cut('camera')}
+              >
+                {t('live.cutBack')}
+              </button>
+            )}
+          {SCENES.map((sc) => {
+            // These scenes show a rundown item; without one the button would do nothing.
+            const needs =
+              sc.kind === 'camera_lower_third' ? 'lower_third' : sc.kind === 'text' ? 'text' : null;
+            const missing = !!needs && !st.rundown.some((x) => x.type === needs);
+            return (
+              <button
+                key={sc.kind}
+                type="button"
+                className={cx(s.scene, st.scene === sc.kind && s.sceneActive)}
+                aria-pressed={st.scene === sc.kind}
+                disabled={missing}
+                title={missing ? t(`live.needs.${needs!}`) : undefined}
+                onClick={() => void rt.cut(sc.kind)}
+              >
+                <KeyChip>{sc.key}</KeyChip>
+                <span>{t(sc.label as never)}</span>
+              </button>
+            );
+          })}
+          {(['lower_third', 'text'] as const)
+            .filter((k) => !st.rundown.some((x) => x.type === k))
+            .map((k) => (
+              <p key={k} className={s.sceneHint}>
+                {t(`live.needs.${k}`)}
+              </p>
+            ))}
         </section>
 
         <section className={s.center} aria-label={t('live.programme')}>
@@ -292,9 +354,35 @@ export function Live() {
             >
               {audio.muted ? t('live.muted') : t('live.mute')}
             </button>
+            <button
+              type="button"
+              className={s.chip}
+              aria-pressed={audio.monitor}
+              title={t('audio.listenDesc')}
+              onClick={() => rt.audio.setMonitor(!audio.monitor)}
+            >
+              <StatusDot tone={audio.monitor ? 'accent' : 'off'} size={8} />
+              {t('audio.listen')}
+            </button>
           </div>
-          {audio.status === 'device_lost' && <div className={s.alert}>{t('audio.deviceLost')}</div>}
-          {audio.silent && <div className={s.alert}>{t('audio.silent')}</div>}
+          {audio.status === 'device_lost' && (
+            <div className={s.alert}>
+              {audio.source === 'phone' ? t('audio.phoneLost') : t('audio.deviceLost')}
+            </div>
+          )}
+          {audio.deviceBack && (
+            <Button size="dense" variant="primary" onClick={() => void rt.reconnectAudio()}>
+              {t('audio.deviceBack', { label: audio.deviceBack.label })}
+            </Button>
+          )}
+          {audio.silent && (
+            <div className={s.alert}>
+              {t('audio.silent')}{' '}
+              <Button size="dense" onClick={() => rt.audio.acknowledgeSilence()}>
+                {t('audio.silentIntentional')}
+              </Button>
+            </div>
+          )}
         </div>
         <div className={s.panel}>
           <span className="rs-overline">{t('live.destinations')}</span>
@@ -315,6 +403,7 @@ export function Live() {
           <span className="rs-overline" style={{ gridColumn: '1 / -1' }}>
             {t('live.health')}
           </span>
+          <HealthNotes now={now} />
           <div>
             <div className={s.hLabel}>{t('health.uplink')}</div>
             <div className={s.hValue}>
@@ -347,3 +436,33 @@ export function Live() {
 }
 
 const NULL_STORE = { subscribe: () => () => {}, snapshot: null };
+
+/**
+ * What the automatic quality steps did (SPEC §11.5), and whether the media server's status is fresh
+ * (SPEC §9.3: stale after 5 s without an update while sending).
+ */
+function HealthNotes({ now }: { now: number }) {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  const notes: string[] = [];
+  const q = st.quality;
+  if (q.upload > 0)
+    notes.push(
+      t('health.uploadReduced', {
+        mbps: (UPLOAD_STEPS[st.profile][q.upload]! / 1e6).toFixed(1),
+      }),
+    );
+  if (q.cpu > 0) notes.push(t('health.cpuReduced'));
+  if (q.camera > 0) notes.push(t('health.cameraReduced', { mbps: CAMERA_STEPS[q.camera]! / 1e6 }));
+  const updated = st.observed?.updatedAt ? Date.parse(st.observed.updatedAt) : null;
+  const age = updated ? Math.round((now - updated) / 1000) : null;
+  if (rt.isLive && age !== null && age > 5) notes.push(t('health.stale', { s: age }));
+  if (notes.length === 0) return null;
+  return (
+    <div className={s.healthNotes} style={{ gridColumn: '1 / -1' }} role="status">
+      {notes.map((n) => (
+        <div key={n}>{n}</div>
+      ))}
+    </div>
+  );
+}

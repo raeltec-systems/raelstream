@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Button, Card, Segmented, TextField, cx } from '@raelstream/ui';
+import { Button, Card, Segmented, TextArea, TextField, cx } from '@raelstream/ui';
 import { t } from '@raelstream/i18n';
-import { LOWER_THIRD_MAX } from '@raelstream/media-runtime';
+import { LOWER_THIRD_MAX, textCardFits } from '@raelstream/media-runtime';
+import { ApiFailure, uploadAsset } from '../../lib/api.js';
+import { FONT_FAMILY, assetBitmap } from '../../lib/theme.js';
 import { useStore } from '../../lib/useStore.js';
 import { studioRuntime } from '../runtime.js';
 import { newId, type RundownItem } from '../rundown.js';
@@ -22,7 +24,12 @@ export function typeLabel(k: Kind): string {
 
 export function RundownStep() {
   const rt = studioRuntime();
-  const { rundown } = useStore(rt);
+  const { rundown, presetId, presetName, churchTheme } = useStore(rt);
+  const [savedToPreset, setSavedToPreset] = useState(false);
+  const [upload, setUpload] = useState<
+    { state: 'idle' | 'checking' } | { state: 'error'; message: string }
+  >({ state: 'idle' });
+  const font = FONT_FAMILY[churchTheme?.font ?? 'inter'];
   const [sel, setSel] = useState(0);
   const item = rundown[sel];
 
@@ -57,7 +64,7 @@ export function RundownStep() {
         ? { ...base, type: k, line1: item.title, line2: '' }
         : k === 'text'
           ? { ...base, type: k, detail: '' }
-          : { ...base, type: k, fit: 'contain', bitmap: null },
+          : { ...base, type: k, fit: 'contain', assetId: null, bitmap: null },
     );
   }
 
@@ -137,12 +144,22 @@ export function RundownStep() {
               </>
             )}
             {item.type === 'text' && (
-              <TextField
-                label={t('rundown.detail')}
-                value={item.detail}
-                maxLength={120}
-                onChange={(e) => update({ ...item, detail: e.target.value })}
-              />
+              <>
+                <TextArea
+                  label={t('rundown.detail')}
+                  value={item.detail}
+                  maxLength={600}
+                  onChange={(e) => update({ ...item, detail: e.target.value })}
+                  error={textCardFits(item, font) ? null : t('rundown.textTooLong')}
+                  helper={t('rundown.detailHelp', { n: 600 - item.detail.length })}
+                />
+                <TextField
+                  label={t('rundown.reference')}
+                  value={item.reference ?? ''}
+                  maxLength={60}
+                  onChange={(e) => update({ ...item, reference: e.target.value })}
+                />
+              </>
             )}
             {item.type === 'image' && (
               <>
@@ -155,17 +172,48 @@ export function RundownStep() {
                   accept="image/png,image/jpeg,image/webp"
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
-                    if (!f || f.size > 10 * 1024 * 1024) return;
-                    const bmp = await createImageBitmap(f).catch(() => null);
-                    if (bmp && bmp.width <= 4096 && bmp.height <= 4096)
-                      update({ ...item, bitmap: bmp });
+                    e.target.value = '';
+                    if (!f) return;
+                    // The server checks and re-encodes the image; the programme only ever shows that copy.
+                    setUpload({ state: 'checking' });
+                    try {
+                      const a = await uploadAsset(f);
+                      const bitmap = await assetBitmap(a.id);
+                      update({ ...item, assetId: a.id, bitmap });
+                      setUpload({ state: 'idle' });
+                    } catch (err) {
+                      setUpload({
+                        state: 'error',
+                        message:
+                          err instanceof ApiFailure ? err.message : t('rundown.imageUploadFailed'),
+                      });
+                    }
                   }}
                 />
-                <p className={s.muted}>
-                  {item.bitmap
-                    ? t('rundown.imageReady', { w: item.bitmap.width, h: item.bitmap.height })
-                    : t('rundown.imageNotLoaded')}
-                </p>
+                {upload.state === 'error' ? (
+                  <p className={s.warn} role="alert">
+                    {upload.message}
+                  </p>
+                ) : (
+                  <p className={s.muted}>
+                    {upload.state === 'checking'
+                      ? t('rundown.imageChecking')
+                      : item.bitmap
+                        ? t('rundown.imageReady', { w: item.bitmap.width, h: item.bitmap.height })
+                        : item.assetId
+                          ? t('rundown.imageLoading')
+                          : t('rundown.imageNotLoaded')}
+                  </p>
+                )}
+                <Segmented<'contain' | 'fill'>
+                  label={t('rundown.imageFit')}
+                  value={item.fit}
+                  onChange={(fit) => update({ ...item, fit })}
+                  options={[
+                    { value: 'contain', label: t('devices.framingFit') },
+                    { value: 'fill', label: t('devices.framingFill') },
+                  ]}
+                />
               </>
             )}
             <div className={s.row}>
@@ -186,7 +234,19 @@ export function RundownStep() {
           </Card>
         )}
       </div>
-      <p className={s.muted}>{t('rundown.footnote', { n: rundown.length })}</p>
+      <div className={s.row}>
+        <p className={s.muted}>{t('rundown.footnote', { n: rundown.length })}</p>
+        {presetId && (
+          <Button
+            size="dense"
+            onClick={() => void rt.saveRundown(true).then(() => setSavedToPreset(true))}
+          >
+            {savedToPreset
+              ? t('preset.saved')
+              : t('preset.saveRundown', { name: presetName ?? '' })}
+          </Button>
+        )}
+      </div>
     </>
   );
 }

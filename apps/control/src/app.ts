@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import { z, ZodError } from 'zod';
@@ -7,29 +7,42 @@ import {
   CreateSessionRequest,
   PreviewRequest,
   SourceLabel,
+  StartRequest,
 } from '@raelstream/contracts';
 import type { Kysely } from 'kysely';
 import type { Config } from './config.js';
 import type { DB } from './db.js';
 import { AppError } from './errors.js';
-import { safeEqual } from './crypto.js';
-import { DevAuth, SESSION_COOKIE, cookieOptions, operatorOf, requireOperator } from './auth.js';
+import { AuthService, SESSION_COOKIE, operatorOf, requireUser } from './auth.js';
 import { Hub } from './hub.js';
 import { RateLimiter } from './ratelimit.js';
 import * as sessions from './sessions.js';
 import * as pairing from './pairing.js';
+import * as presets from './presets.js';
 import { authorizeMediaMtx, createIngest, type MediaMtxAuthRequest } from './ingest.js';
-import { StartRequest } from '@raelstream/contracts';
+import { createIceProvider } from './turn.js';
 import { idempotent, listDestinations, retryDestination, startMedia, stopMedia } from './media.js';
+import { acquireLease, requireLease, takeover } from './leases.js';
+import { registerAccountRoutes } from './routes/account.js';
+import { registerContentRoutes } from './routes/content.js';
+import { registerDestinationRoutes } from './routes/destinations.js';
+import { registerRecordingRoutes } from './routes/recordings.js';
+import { registerObservabilityRoutes } from './routes/observability.js';
 
 const Uuid = z.string().uuid();
 const SessionParams = z.object({ id: Uuid });
 const SourceParams = z.object({ id: Uuid, src: Uuid });
 
+/** Studio tab identity for lease checks (SPEC §8.4). */
+function clientIdOf(req: FastifyRequest): string | undefined {
+  const c = req.headers['x-rs-client'];
+  return typeof c === 'string' && Uuid.safeParse(c).success ? c : undefined;
+}
+
 export async function buildApp(
   cfg: Config,
   db: Kysely<DB>,
-): Promise<{ app: FastifyInstance; hub: Hub }> {
+): Promise<{ app: FastifyInstance; hub: Hub; auth: AuthService }> {
   const app = Fastify({
     logger: cfg.production
       ? {
@@ -40,17 +53,20 @@ export async function buildApp(
     bodyLimit: 256 * 1024,
     trustProxy: true,
   });
-  const auth = new DevAuth();
+  const auth = new AuthService(db, cfg.totpKey);
   const hub = new Hub(db, app.log);
   const pairLimit = new RateLimiter(cfg.pairRateLimit, 60_000);
-  const operator = requireOperator(auth, cfg.publicOrigin);
+  const ice = createIceProvider(cfg.turn, app.log);
+  const user = requireUser(auth, cfg.allowedOrigins);
+  /** Privileged session commands: current lease holder only (SPEC §17.3). */
+  const lease = (req: FastifyRequest, id: string) => requireLease(db, id, clientIdOf(req));
 
   await app.register(cookie);
   await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
   app.addHook('onSend', async (_req, reply) => {
     reply.header('Referrer-Policy', 'no-referrer');
-    reply.header('Cache-Control', 'no-store');
+    if (!reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'no-store');
     reply.header('X-Content-Type-Options', 'nosniff');
   });
 
@@ -61,6 +77,19 @@ export async function buildApp(
         message: err.message,
         component: err.component,
         retryable: err.retryable,
+        requestId: req.id,
+      });
+    }
+    const fst = (err as { code?: string }).code;
+    if (fst === 'FST_ERR_CTP_BODY_TOO_LARGE' || fst === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
+      const e = new AppError(
+        fst === 'FST_ERR_CTP_BODY_TOO_LARGE' ? 'ASSET_TOO_LARGE' : 'ASSET_UNSUPPORTED',
+      );
+      return reply.status(e.status).send({
+        code: e.code,
+        message: e.message,
+        component: e.component,
+        retryable: false,
         requestId: req.id,
       });
     }
@@ -86,70 +115,156 @@ export async function buildApp(
   const ipLimited = (req: { ip: string }) => {
     if (!pairLimit.allow(req.ip)) throw new AppError('RATE_LIMITED', 'camera', true);
   };
+  const event = async (
+    id: string,
+    kind: string,
+    actor: string,
+    data: Record<string, unknown> = {},
+  ) => hub.broadcastEvent(id, await sessions.appendEvent(db, id, kind, 'info', actor, data));
 
-  app.get('/api/health', async () => ({ ok: true }));
+  // The deployed build (git SHA, set by infra/scripts/deploy.sh); the studio compares it with its own.
+  const version = process.env.RS_APP_VERSION || 'dev';
+  app.get('/api/health', async () => ({ ok: true, version }));
+  registerAccountRoutes(app, cfg, auth);
+  registerContentRoutes(app, cfg, db, auth, lease);
+  registerDestinationRoutes(app, cfg, db, auth, lease);
+  registerRecordingRoutes(app, cfg, auth);
+  registerObservabilityRoutes(app, cfg, db, auth, hub, lease);
 
-  // ---- dev auth (WP0 only) ----
-  if (cfg.devAuth) {
-    app.post('/api/dev/login', async (req, reply) => {
-      if (!pairLimit.allow(`login:${req.ip}`)) throw new AppError('RATE_LIMITED', 'auth', true);
-      const { name, passphrase } = z
-        .object({ name: z.string().trim().min(1).max(40), passphrase: z.string().max(200) })
-        .parse(req.body);
-      if (!safeEqual(passphrase, cfg.devPassphrase)) throw new AppError('AUTH_INVALID', 'auth');
-      const { cookie: value, operator: op } = auth.login(name);
-      reply.setCookie(SESSION_COOKIE, value, cookieOptions(cfg.publicOrigin.startsWith('https:')));
-      return { name: op.name, csrf: op.csrf };
-    });
-  }
-  app.get('/api/auth/me', async (req) => {
-    const op = auth.fromCookie(req.cookies[SESSION_COOKIE]);
-    if (!op) throw new AppError('AUTH_REQUIRED', 'auth');
-    return { name: op.name, csrf: op.csrf, devAuth: cfg.devAuth };
+  // ---- presets ----
+  app.get('/api/presets', { preHandler: user }, async () => presets.listPresets(db));
+  app.post('/api/presets', { preHandler: user }, async (req) =>
+    presets.createPreset(db, operatorOf(req).userId, presets.PresetInput.parse(req.body)),
+  );
+  app.patch('/api/presets/:id', { preHandler: user }, async (req) =>
+    presets.updatePreset(
+      db,
+      SessionParams.parse(req.params).id,
+      presets.PresetInput.partial().parse(req.body),
+    ),
+  );
+  app.post('/api/presets/:id/archive', { preHandler: user }, async (req) => {
+    await presets.archivePreset(db, SessionParams.parse(req.params).id);
+    return { ok: true };
   });
 
   // ---- sessions ----
-  app.post('/api/sessions', { preHandler: operator }, async (req) => {
-    const { name } = CreateSessionRequest.parse(req.body);
-    const s = await sessions.createSession(db, name, operatorOf(req).name);
-    await sessions.appendEvent(db, s.id, 'session.created', 'info', operatorOf(req).name, { name });
+  app.post('/api/sessions', { preHandler: user }, async (req) => {
+    const p = operatorOf(req);
+    const { name, presetId } = CreateSessionRequest.parse(req.body);
+    const s = await sessions.createSession(db, name, p, presetId);
+    await sessions.appendEvent(db, s.id, 'session.created', 'info', p.name, {
+      name,
+      presetId: presetId ?? null,
+    });
+    const clientId = clientIdOf(req);
+    if (clientId) await acquireLease(db, s.id, p, clientId);
     return sessions.snapshot(db, s.id);
   });
-  app.get('/api/sessions/active', { preHandler: operator }, async () => {
+  app.get('/api/sessions/active', { preHandler: user }, async () => {
     const s = await sessions.activeSession(db);
     return s ? sessions.snapshot(db, s.id) : null;
   });
-  app.get('/api/sessions/:id', { preHandler: operator }, async (req) =>
+  app.get('/api/sessions/:id', { preHandler: user }, async (req) =>
     sessions.snapshot(db, SessionParams.parse(req.params).id),
   );
-  app.post('/api/sessions/:id/end', { preHandler: operator }, async (req) => {
+  app.get('/api/sessions/:id/config', { preHandler: user }, async (req) => {
+    const s = await sessions.getSession(db, SessionParams.parse(req.params).id);
+    const preset = s.preset_id
+      ? await db
+          .selectFrom('presets')
+          .select(['name', 'destination_ids'])
+          .where('id', '=', s.preset_id)
+          .executeTakeFirst()
+      : undefined;
+    return {
+      presetId: s.preset_id,
+      presetName: preset?.name ?? null,
+      destinationIds: preset?.destination_ids ?? [],
+      profile: s.profile ?? 'reliable_hd',
+      fallbackGraceS: s.fallback_grace_s,
+      uplinkTest: s.uplink_test ?? null,
+      rundown: s.rundown,
+      audio: s.audio_state,
+    };
+  });
+  app.put('/api/sessions/:id/rundown', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
+    const { items, saveToPreset } = z
+      .object({ items: presets.Rundown, saveToPreset: z.boolean().default(false) })
+      .parse(req.body);
+    const s = await sessions.getSession(db, id);
+    await db
+      .updateTable('stream_sessions')
+      .set({ rundown: JSON.stringify(items) })
+      .where('id', '=', id)
+      .execute();
+    if (saveToPreset && s.preset_id)
+      await presets.updatePreset(db, s.preset_id, { rundown: items });
+    return { ok: true };
+  });
+  app.put('/api/sessions/:id/audio', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
+    const { settings, saveToPreset } = z
+      .object({ settings: presets.AudioSettings, saveToPreset: z.boolean().default(false) })
+      .parse(req.body);
+    const s = await sessions.getSession(db, id);
+    await db
+      .updateTable('stream_sessions')
+      .set({ audio_state: JSON.stringify(settings) })
+      .where('id', '=', id)
+      .execute();
+    if (saveToPreset && s.preset_id)
+      await presets.updatePreset(db, s.preset_id, { audioDefaults: settings });
+    return { ok: true };
+  });
+
+  // ---- studio lease / takeover (SPEC §9.10, §17.3) ----
+  app.post('/api/sessions/:id/lease', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    const clientId = clientIdOf(req);
+    if (!clientId) throw new AppError('VALIDATION', 'session');
+    return acquireLease(db, id, operatorOf(req), clientId);
+  });
+  app.post('/api/sessions/:id/takeover', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    const clientId = clientIdOf(req);
+    if (!clientId) throw new AppError('VALIDATION', 'session');
+    const r = await takeover(db, id, operatorOf(req), clientId);
+    if (r.previousClientId && r.previousClientId !== clientId)
+      hub.notifyLeaseLost(id, r.previousClientId);
+    hub.notifyStudioChanged(id);
+    await event(id, 'studio.takeover', operatorOf(req).name, { generation: r.generation });
+    await hub.broadcastSnapshot(id);
+    return { generation: r.generation };
+  });
+
+  app.post('/api/sessions/:id/end', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
     const sources = await sessions.listSources(db, id);
     await sessions.endSession(db, id, 'operator');
     for (const s of sources) hub.notifyCamera(s.id, { type: 'revoke' }, true);
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'session.ended', 'info', operatorOf(req).name),
-    );
+    await event(id, 'session.ended', operatorOf(req).name);
     await hub.broadcastSnapshot(id);
     return { ok: true };
   });
-  app.post('/api/sessions/:id/mode', { preHandler: operator }, async (req) => {
+  app.post('/api/sessions/:id/mode', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
     const { mode } = z.object({ mode: z.enum(['rehearsal', 'ingest_test']) }).parse(req.body);
     await sessions.setMode(db, id, mode);
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'session.mode', 'info', operatorOf(req).name, { mode }),
-    );
+    await event(id, 'session.mode', operatorOf(req).name, { mode });
     await hub.broadcastSnapshot(id);
     return sessions.snapshot(db, id);
   });
 
   // ---- pairing ----
-  app.post('/api/sessions/:id/pairings', { preHandler: operator }, async (req) => {
+  app.post('/api/sessions/:id/pairings', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
-    await sessions.getSession(db, id);
+    await lease(req, id);
     return pairing.createInvitation(db, id, cfg.publicOrigin);
   });
   app.post('/api/pairings/preview', async (req) => {
@@ -159,57 +274,66 @@ export async function buildApp(
   app.post('/api/pairings/claim', async (req) => {
     ipLimited(req);
     const body = ClaimRequest.parse(req.body);
-    const r = await pairing.claimInvitation(db, { ...body, userAgent: req.headers['user-agent'] });
-    hub.broadcastEvent(
+    const r = await pairing.claimInvitation(
+      db,
+      { ...body, userAgent: req.headers['user-agent'] },
+      new Date(),
+      (sourceId) => hub.cameraPresent(sourceId),
+    );
+    await event(
       r.sessionId,
-      await sessions.appendEvent(db, r.sessionId, 'camera.pending', 'info', 'camera', {
-        label: body.label,
-      }),
+      r.reclaimed
+        ? 'camera.reclaimed'
+        : r.replaces
+          ? 'camera.replacement_pending'
+          : 'camera.pending',
+      'camera',
+      { label: body.label, ...(r.replaces ? { replaces: r.replaces } : {}) },
     );
     await hub.broadcastSnapshot(r.sessionId);
     return r;
   });
-  app.post('/api/sessions/:id/sources/:src/admit', { preHandler: operator }, async (req) => {
+  // "Try again" after the direct link failed: the phone starts a fresh connection to this studio.
+  app.post('/api/sessions/:id/camera/retry', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
+    hub.notifyStudioChanged(id);
+    return { ok: true };
+  });
+  app.post('/api/sessions/:id/sources/:src/admit', { preHandler: user }, async (req) => {
     const { id, src } = SourceParams.parse(req.params);
+    await lease(req, id);
     const r = await pairing.admitSource(db, id, src);
+    if (r.replaced) hub.notifyCamera(r.replaced, { type: 'revoke' }, true);
     hub.notifyCamera(src, { type: 'admitted', credential: r.credential, expiresAt: r.expiresAt });
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'camera.admitted', 'info', operatorOf(req).name, {
-        sourceId: src,
-      }),
-    );
+    await event(id, r.replaced ? 'camera.replaced' : 'camera.admitted', operatorOf(req).name, {
+      sourceId: src,
+      ...(r.replaced ? { replaced: r.replaced } : {}),
+    });
     await hub.broadcastSnapshot(id);
     return { ok: true };
   });
-  app.post('/api/sessions/:id/sources/:src/reject', { preHandler: operator }, async (req) => {
+  app.post('/api/sessions/:id/sources/:src/reject', { preHandler: user }, async (req) => {
     const { id, src } = SourceParams.parse(req.params);
+    await lease(req, id);
     await pairing.rejectSource(db, id, src);
     hub.notifyCamera(src, { type: 'rejected' }, true);
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'camera.rejected', 'info', operatorOf(req).name, {
-        sourceId: src,
-      }),
-    );
+    await event(id, 'camera.rejected', operatorOf(req).name, { sourceId: src });
     await hub.broadcastSnapshot(id);
     return { ok: true };
   });
-  app.delete('/api/sessions/:id/sources/:src', { preHandler: operator }, async (req) => {
+  app.delete('/api/sessions/:id/sources/:src', { preHandler: user }, async (req) => {
     const { id, src } = SourceParams.parse(req.params);
+    await lease(req, id);
     await pairing.revokeSource(db, id, src);
     hub.notifyCamera(src, { type: 'revoke' }, true);
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'camera.revoked', 'info', operatorOf(req).name, {
-        sourceId: src,
-      }),
-    );
+    await event(id, 'camera.revoked', operatorOf(req).name, { sourceId: src });
     await hub.broadcastSnapshot(id);
     return { ok: true };
   });
-  app.patch('/api/sessions/:id/sources/:src', { preHandler: operator }, async (req) => {
+  app.patch('/api/sessions/:id/sources/:src', { preHandler: user }, async (req) => {
     const { id, src } = SourceParams.parse(req.params);
+    await lease(req, id);
     const { label } = z.object({ label: SourceLabel }).parse(req.body);
     await pairing.renameSource(db, id, src, label);
     await hub.broadcastSnapshot(id);
@@ -217,17 +341,25 @@ export async function buildApp(
   });
 
   // ---- contribution ----
-  app.post('/api/sessions/:id/ingest', { preHandler: operator }, async (req) => {
+  app.post('/api/sessions/:id/ingest', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
     const s = await sessions.getSession(db, id);
     if (s.mode === 'rehearsal') throw new AppError('FORBIDDEN', 'contribution');
-    const r = await createIngest(db, id, s.generation, cfg.whipPublicBase);
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'contribution.created', 'info', operatorOf(req).name, {
-        generation: s.generation,
-      }),
-    );
+    // WHIP is served by the same site (Caddy /whip). Answer on the origin the studio actually uses
+    // (an allowed one), so the contribution stays same-origin under the CSP (connect-src 'self').
+    const origin = req.headers.origin;
+    const whipBase =
+      origin &&
+      cfg.allowedOrigins.includes(origin) &&
+      cfg.whipPublicBase.startsWith(cfg.publicOrigin)
+        ? origin + cfg.whipPublicBase.slice(cfg.publicOrigin.length)
+        : cfg.whipPublicBase;
+    const r = {
+      ...(await createIngest(db, id, s.generation, whipBase, await ice.forContribution())),
+      iceTransportPolicy: cfg.iceTransportPolicy,
+    };
+    await event(id, 'contribution.created', operatorOf(req).name, { generation: s.generation });
     return r;
   });
 
@@ -236,51 +368,43 @@ export async function buildApp(
     const k = req.headers['idempotency-key'];
     return typeof k === 'string' && Uuid.safeParse(k).success ? k : undefined;
   };
-  app.get('/api/destinations', { preHandler: operator }, async () => listDestinations(db));
-  app.post('/api/sessions/:id/start', { preHandler: operator }, async (req) => {
+  app.get('/api/destinations', { preHandler: user }, async () => listDestinations(db));
+  app.post('/api/sessions/:id/start', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
     const body = StartRequest.parse(req.body);
-    const r = await idempotent(db, idemKey(req), id, 'start', async () => {
+    return idempotent(db, idemKey(req), id, 'start', async () => {
       const out = await startMedia(db, id, body);
-      hub.broadcastEvent(
+      await event(
         id,
-        await sessions.appendEvent(
-          db,
-          id,
-          body.mode === 'live' ? 'broadcast.start' : 'ingest_test.start',
-          'info',
-          operatorOf(req).name,
-          { destinations: body.destinationIds.length, profile: body.profile },
-        ),
+        body.mode === 'live' ? 'broadcast.start' : 'ingest_test.start',
+        operatorOf(req).name,
+        {
+          destinations: body.destinationIds.length,
+          profile: body.profile,
+        },
       );
       await hub.broadcastSnapshot(id);
       return { mode: out.desired.mode, profile: out.desired.profile };
     });
-    return r;
   });
-  app.post('/api/sessions/:id/stop', { preHandler: operator }, async (req) => {
+  // Stop: the lease holder, or any owner without the lease (SPEC §17.1): stopping must never be blocked.
+  app.post('/api/sessions/:id/stop', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
+    if (operatorOf(req).role !== 'owner') await lease(req, id);
     const r = await stopMedia(db, id);
-    if (r.stopping)
-      hub.broadcastEvent(
-        id,
-        await sessions.appendEvent(db, id, 'broadcast.stop', 'info', operatorOf(req).name),
-      );
+    if (r.stopping) await event(id, 'broadcast.stop', operatorOf(req).name);
     return r;
   });
-  app.post('/api/sessions/:id/destinations/:dest/retry', { preHandler: operator }, async (req) => {
+  app.post('/api/sessions/:id/destinations/:dest/retry', { preHandler: user }, async (req) => {
     const { id, dest } = z.object({ id: Uuid, dest: Uuid }).parse(req.params);
+    await lease(req, id);
     await retryDestination(db, id, dest);
-    hub.broadcastEvent(
-      id,
-      await sessions.appendEvent(db, id, 'destination.retry', 'info', operatorOf(req).name, {
-        destinationId: dest,
-      }),
-    );
+    await event(id, 'destination.retry', operatorOf(req).name, { destinationId: dest });
     return { ok: true };
   });
 
-  app.get('/api/venue', { preHandler: operator }, async () => {
+  app.get('/api/venue', { preHandler: user }, async () => {
     const v = await db.selectFrom('venue_profile').selectAll().executeTakeFirstOrThrow();
     return {
       productionSsid: v.production_ssid,
@@ -299,12 +423,16 @@ export async function buildApp(
 
   app.register(async (scope) => {
     scope.get('/ws', { websocket: true }, (socket, req) => {
-      const originOk = req.headers.origin === cfg.publicOrigin;
-      if (!originOk) return socket.close(4403, 'origin');
-      hub.attach(socket, !!auth.fromCookie(req.cookies[SESSION_COOKIE]));
+      if (!cfg.allowedOrigins.includes(req.headers.origin ?? ''))
+        return socket.close(4403, 'origin');
+      // Attach synchronously so no early message is lost; the principal resolves in the background.
+      hub.attach(
+        socket,
+        auth.fromCookie(req.cookies[SESSION_COOKIE]).catch(() => null),
+      );
     });
   });
 
   app.addHook('onClose', async () => hub.close());
-  return { app, hub };
+  return { app, hub, auth };
 }

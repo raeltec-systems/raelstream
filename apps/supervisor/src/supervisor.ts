@@ -127,11 +127,25 @@ export class Supervisor {
       return;
     }
     const desired = parsed.data;
-    if (row.id !== this.sessionId || desired.generation !== this.generation) {
+    if (row.id !== this.sessionId) {
       await this.resetSession();
       this.sessionId = row.id;
       this.generation = desired.generation;
       this.observed = emptyObserved(desired.generation, new Date(now).toISOString());
+    } else if (desired.generation !== this.generation) {
+      // Studio takeover (A33, E37): only the contribution path changes. Stop the normaliser reading the
+      // old generation; publishers and the normalised path stay up, so viewers see the slate for the gap
+      // instead of the platforms being disconnected.
+      this.log('info', 'studio takeover; switching contribution generation', {
+        from: this.generation,
+        to: desired.generation,
+      });
+      const n = this.normaliser;
+      this.normaliser = null;
+      await n?.stop(800);
+      this.generation = desired.generation;
+      this.observed.generation = desired.generation;
+      this.contribPresentSince = null;
     }
 
     if (desired.stopRequestedAt) {
@@ -141,6 +155,9 @@ export class Supervisor {
     if (desired.normaliser !== 'running') return;
 
     await this.ensureNormPath(row.id, row.name, desired);
+    await this.syncRecording(desired).catch((e) =>
+      this.log('warn', 'recording change failed', { err: (e as Error).message }),
+    );
     await this.reconcileContribution(row.id, desired, now);
     if (desired.mode === 'live') {
       await this.reconcileFallback(row.id, desired, now);
@@ -161,13 +178,26 @@ export class Supervisor {
   }
 
   private slateRetryAt = 0;
+  private normCheckAt = 0;
 
   private async ensureNormPath(
     sessionId: string,
     name: string,
     desired: DesiredState,
   ): Promise<void> {
-    if (this.normPath || Date.now() < this.slateRetryAt) return;
+    if (this.normPath) {
+      if (Date.now() < this.normCheckAt) return;
+      this.normCheckAt = Date.now() + 2000;
+      if (!(await this.mtx.hasPathConfig(this.normPath))) {
+        // API-created paths are lost when MediaMTX restarts. Keep the same path so existing
+        // normaliser/publisher retries recover, including the slate and private recording.
+        await this.mtx.upsertPathConfig(this.normPath, this.normPathConfig(!!desired.record));
+        this.recording = !!desired.record;
+        this.log('warn', 'restored normalised path after media server restart');
+      }
+      return;
+    }
+    if (Date.now() < this.slateRetryAt) return;
     this.slateRetryAt = Date.now() + 5000; // bounded retry if rendering fails
     this.slateFile = await ensureSlate(this.cfg.ffmpegPath, this.cfg.slateDir, this.cfg.slateFont, {
       profile: desired.profile,
@@ -178,14 +208,42 @@ export class Supervisor {
     });
     // Unguessable internal path; never exposed publicly (B§5.3).
     const path = `norm/${sessionId}/${randomBytes(16).toString('hex')}`;
-    await this.mtx.upsertPathConfig(path, {
-      source: 'publisher',
-      alwaysAvailable: true,
-      alwaysAvailableFile: this.slateFile,
-    });
+    await this.mtx.upsertPathConfig(path, this.normPathConfig(!!desired.record));
+    this.recording = !!desired.record;
     this.normPath = path;
     this.slateRetryAt = 0;
     this.log('info', 'normalised path ready', { profile: desired.profile });
+  }
+
+  private recording = false;
+
+  /**
+   * The public output's path. Recording (SPEC §12.7) is MediaMTX's own path recording: the normalised
+   * output including slate periods, in 10-minute fMP4 segments on the recordings volume.
+   */
+  private normPathConfig(record: boolean): Record<string, unknown> {
+    return {
+      source: 'publisher',
+      alwaysAvailable: true,
+      alwaysAvailableFile: this.slateFile,
+      record,
+      ...(record
+        ? {
+            recordPath: `${this.cfg.recordingsDir}/%path/%Y-%m-%d_%H-%M-%S-%f`,
+            recordFormat: 'fmp4',
+            recordSegmentDuration: '10m',
+          }
+        : {}),
+    };
+  }
+
+  /** A private test becoming a recorded broadcast turns recording on without a new path. */
+  private async syncRecording(desired: DesiredState): Promise<void> {
+    const want = !!desired.record && !desired.stopRequestedAt;
+    if (!this.normPath || want === this.recording) return;
+    await this.mtx.upsertPathConfig(this.normPath, this.normPathConfig(want));
+    this.recording = want;
+    this.log('info', want ? 'recording started' : 'recording stopped');
   }
 
   private async reconcileContribution(
@@ -391,7 +449,19 @@ export class Supervisor {
       .where('id', '=', id)
       .executeTakeFirst();
     if (!dest || !dest.enabled) return this.failPub(p, 'DEST_URL_NOT_ALLOWED', now);
-    if (!dest.key_enc) return this.failPub(p, 'DEST_KEY_MISSING', now);
+    // A per-event destination (Facebook, I-13) uses the key pasted for this service only.
+    const keyEnc =
+      dest.key_mode === 'per_event'
+        ? ((
+            await this.db
+              .selectFrom('session_destinations')
+              .select('session_key_enc')
+              .where('session_id', '=', this.sessionId ?? '')
+              .where('destination_id', '=', id)
+              .executeTakeFirst()
+          )?.session_key_enc ?? null)
+        : dest.key_enc;
+    if (!keyEnc) return this.failPub(p, 'DEST_KEY_MISSING', now);
     let target: string;
     let key: string;
     try {
@@ -404,7 +474,7 @@ export class Supervisor {
       await assertPublicHost(url, this.cfg.testSinks);
       key = await open(
         { publicKey: this.cfg.sealPublicKey, secretKey: this.cfg.sealSecretKey },
-        dest.key_enc,
+        keyEnc,
       );
       target = publishUrl(dest.server_url, key);
     } catch (e) {
@@ -565,6 +635,8 @@ export class Supervisor {
     this.normaliserEverRan = false;
     this.contribPresentSince = null;
     this.fallbackSince = null;
+    this.normCheckAt = 0;
+    this.slateRetryAt = 0;
     this.lastWrittenJson = '';
   }
 }

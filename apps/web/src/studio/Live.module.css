@@ -147,6 +147,34 @@
   cursor: pointer;
   text-align: left;
 }
+.scene:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sceneHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.cutBack {
+  background: var(--rs-ready);
+  color: #fff;
+  justify-content: center;
+  animation: rs-cutback 1.2s ease-in-out infinite alternate;
+}
+@keyframes rs-cutback {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cutBack {
+    animation: none;
+  }
+}
 .sceneActive {
   background: var(--accent-ui);
   color: var(--on-accent-ui);
@@ -388,4 +416,19 @@
   margin: 0;
   font-size: 15px;
   color: var(--rs-muted);
+}
+.destLink {
+  color: var(--rs-accent-dark);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.healthNotes {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--standby-text, #f0c36b);
+  font-weight: 700;
 }

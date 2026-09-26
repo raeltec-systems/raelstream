@@ -9,3 +9,6 @@ test-results/
 playwright-report/
 .vite/
 *.tsbuildinfo
+# Server / Codespace secrets and state (generated, never committed)
+infra/compose/secrets/
+infra/compose/.codespace-*

@@ -1,15 +1,20 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 const executablePath =
   process.env.RS_CHROMIUM_PATH ?? (process.env.CI ? undefined : '/opt/pw-browsers/chromium');
 export const E2E = {
   web: 'http://localhost:5173',
+  /** The production build under the production CSP (vite preview, RS_PREVIEW_CSP=1). */
+  prod: 'http://localhost:4173',
   control: 'http://127.0.0.1:3000',
   mediamtxApi: 'http://127.0.0.1:9997',
-  passphrase: 'e2e-passphrase-1234',
   dbAdmin:
     process.env.TEST_DATABASE_ADMIN_URL ?? 'postgres://raelstream:dev@localhost:55432/raelstream',
   broadcast: process.env.RS_E2E_BROADCAST === '1',
+  /** Contribution only through a TURN relay (the Codespaces topology); needs the coturn image. */
+  relay: process.env.RS_E2E_RELAY === '1',
   // TEST-ONLY sealed-box keypair for the broadcast e2e run. Never used outside automated tests.
   sealPublicKey: 'jYpBKnSnxZqDHCwq9fg-qyqIwEo8gyOz9mMDW3PIXh8',
   sealSecretKey: 'YVuLOwVF8VFS-ZGdja17j1_gdwMTyxR3MsfQkkbEsJw',
@@ -53,13 +58,27 @@ export default defineConfig({
         DATABASE_URL: E2E.dbAdmin.replace(/\/[^/]+$/, '/rs_e2e'),
         PUBLIC_ORIGIN: E2E.web,
         WHIP_PUBLIC_BASE: `${E2E.web}/whip`,
-        RS_DEV_AUTH: '1',
-        RS_DEV_PASSPHRASE: E2E.passphrase,
         RS_PAIR_RATE_LIMIT: '1000',
+        RS_LOGIN_RATE_LIMIT: '1000',
         RS_SEAL_PUBLIC_KEY: E2E.sealPublicKey,
         RS_E2E_SEAL_SECRET_KEY: E2E.sealSecretKey,
         RS_DEST_TEST_SINKS: '1',
+        RS_EXTRA_ALLOWED_ORIGINS: E2E.prod,
+        RS_RECORDINGS_DIR: join(tmpdir(), 'rs-e2e-recordings'),
         RS_E2E_BROADCAST: E2E.broadcast ? '1' : '0',
+        RS_E2E_RELAY: E2E.relay ? '1' : '0',
+        ...(E2E.relay ? { RS_ICE_TRANSPORT_POLICY: 'relay' } : {}),
+        ...(E2E.relay
+          ? {
+              RS_ICE_SERVERS: JSON.stringify([
+                {
+                  urls: ['turn:127.0.0.1:3479?transport=udp', 'turn:127.0.0.1:3479?transport=tcp'],
+                  username: 'rs',
+                  credential: 'rs-e2e-relay',
+                },
+              ]),
+            }
+          : {}),
         PORT: '3000',
         HOST: '127.0.0.1',
       },
@@ -69,6 +88,14 @@ export default defineConfig({
       url: E2E.web,
       reuseExistingServer: false,
       timeout: 60_000,
+    },
+    {
+      command:
+        'pnpm --filter @raelstream/web exec sh -c "vite build --logLevel warn && vite preview"',
+      url: E2E.prod,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: { RS_PREVIEW_CSP: '1' },
     },
   ],
 });

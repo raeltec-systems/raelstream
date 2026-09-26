@@ -134,3 +134,182 @@ real UMC channel mapping, laptop CPU/memory, any Facebook or YouTube output.
   unless the platform's message matches, so it retries rather than failing fast).
 - Normaliser CPU headroom on the Vultr 4 vCPU instance (P-12).
 - Real WebRTC contribution sync.
+
+### M4: built 23 Sep 2026 (WP1)
+
+| Area | State |
+|---|---|
+| Accounts | Done: email + password (Argon2id, m = 64 MiB, t = 3, p = 1) + authenticator code (RFC 6238, ±1 step, each step usable once) or a single-use recovery code (10 issued, stored hashed). TOTP secrets encrypted at rest with `RS_TOTP_KEY` (AES-256-GCM). Lockout after 5 failures for 15 min, the same generic error for every failure, per-IP rate limit. |
+| Sessions | Done: hashed `rs_sid` cookie (HttpOnly, SameSite=Strict), 12 h idle (kept alive while live), 7 days absolute. CSRF header + Origin check on every state change. Sign-out and "sign out everywhere" on disable / MFA reset. |
+| People | Done: owner CLI (`user:create-owner`, `user:reset-mfa`). One-time operator invites (link secret in the fragment, 72 h, preview doesn't consume). Enrolment shows the QR, the key and the recovery codes once, and the first code confirms the authenticator. Owner settings: list, disable/enable (not yourself), create invite. |
+| Presets | Done: saved services with the rundown, audio defaults, destinations and fallback grace. Start from a preset or blank. The rundown and audio settings are saved on the server for the session (debounced), with "Save to preset". Images stay in the studio's memory for now. Asset upload is M6. |
+| Studio lease | Done: 45 s lease renewed every 10 s per tab (`X-RS-Client`). Commands need the lease. A second tab is read-only. Take over is confirmed, bumps the generation, revokes the old WHIP token, fences the old tab (`lease.lost`) and tells the phone to renegotiate (`studio.changed`) without re-admission. Operators may take over only from their own other tab. The owner may take over from anyone and may Stop without the lease. |
+| Media node | Done: a takeover within the same session restarts only the normaliser. The publishers keep their platform connection, and the slate covers the gap. |
+| Retention | Done: daily job (events 90 d, auth sessions 30 d, MFA challenges 1 d, invites 7 d, command log 30 d, ingest tokens 7 d). |
+| Dev sign-in | Removed. `RS_DEV_AUTH` now refuses to start with a pointer to `user:create-owner`. |
+
+**Verified:**
+- 67 unit and 53 integration tests pass (auth, invites, lockout, replay, leases/fencing, presets,
+  pairing, MediaMTX auth hook).
+- 9 media-node tests pass, including a mid-broadcast **takeover that keeps the same platform
+  connection** (A/V offset 18–34 ms).
+- 4 Playwright runs pass with real sign-in: the spine, the broadcast (real supervisor + 2 RTMP
+  sinks), the auth-hook refusal, and a new **invite → enrol → operator runs the studio → owner
+  takes over** run. In that run the operator's tab is fenced and offers no Take over.
+
+**Bugs found and fixed through testing:**
+- **Security:** a wrong authenticator code threw inside the database transaction. The rollback
+  undid both the failure count and the use of the challenge, which allowed unlimited guesses.
+  Now the failure is committed and the error raised afterwards (regression test added).
+- **Security:** a correct password reset the failure counter, so an attacker who knew the password
+  could guess codes forever. Now the counter is cleared only after a full sign-in.
+- The invite page read its secret in an effect, so React's development double-mount saw an empty
+  address bar and showed "no longer valid".
+- Operators were offered Take over from the owner, which the server correctly refuses. The banner
+  now asks them to contact the owner.
+- The home screen never noticed a service started by someone else. It now checks every 5 s.
+
+### Test environment without a server: built 23 Sep 2026
+
+The Dell is a managed work laptop (no Docker), and paying for a server during development was ruled
+out, as was Oracle Cloud. Instead:
+
+| Area | State |
+|---|---|
+| TURN relay | Done: the control service mints Cloudflare TURN credentials server side (`RS_TURN_CF_KEY_ID` / `RS_TURN_CF_API_TOKEN`; or a static `RS_ICE_SERVERS`) and returns them with each WHIP contribution. Port-53 URLs are dropped (browsers time out on them). If the API fails, the contribution tries direct only rather than failing. `RS_ICE_TRANSPORT_POLICY=relay` forces the relay. MediaMTX takes its own relay credentials through `MTX_WEBRTCICESERVERS2_n_*`. This is also the production fallback for studios behind restrictive networks (SPEC §11.1). |
+| Codespaces | Done: `.devcontainer/` and `infra/codespace/`. One click starts the whole stack behind GitHub's HTTPS port forwarding (Caddy on :8080, shared routes in `infra/proxy/app-routes.caddy`). Secrets are generated on first start and never committed. Includes an owner-account script with a terminal QR code and two stand-in platforms (`rs-test-platform`, HLS on `/watch/`). |
+| Johannesburg check | Documented: `docs/runbooks/gcp-johannesburg.md` (Google Cloud free trial, africa-south1, sslip.io name). |
+
+**Verified:**
+- A new e2e mode (`RS_E2E_RELAY=1`, in CI) runs the spine with coturn standing in for Cloudflare.
+  Private addresses are refused by the relay, so studio → MediaMTX can only flow through TURN.
+  MediaMTX's WebRTC session shows a relay remote candidate and >500 KB of media.
+- The Codespaces `start.sh` was rehearsed end to end on local images, with Docker Hub rate-limited here:
+  - fresh secrets and the stack up;
+  - owner created through the script;
+  - sign-in, start service, Go live to both stand-ins, ON AIR, both rows sending;
+  - HLS decoded through Caddy's `/watch/` (H.264 Main 1280×720 30 fps + AAC 44.1 kHz stereo);
+  - Stop, then "This service has ended".
+
+**Bugs found and fixed through the rehearsal:**
+- **Production:** the runbook's `chmod 400` on `secrets/seal_secret` made the file unreadable by
+  the non-root supervisor, which then restarted forever. Now the folder is `chmod 700` and the files
+  `644`, and the runbook says so.
+- Compose `!reset` on Caddy's ports removed the port entirely. It needed `!override`.
+- The relay test first passed through a direct path. The test now refuses private peers, so it proves
+  the relay-only route.
+
+### Codespaces testing fixes and phone sound: 24 Sep 2026
+
+Found by the owner in the Codespace, each with a regression test that fails on the old code:
+
+- **Audio meters dead behind Caddy:** the CSP (`script-src 'self'`) blocks AudioWorklet modules from
+  `blob:` and `data:` URLs, so the meter never loaded and audio setup hung. The worklet is now a
+  same-origin file (Vite no longer inlines `.js` assets). The audio e2e applies the CSP.
+- **Switching tabs cut to the slate:** Chromium stops `requestVideoFrameCallback` in a hidden tab
+  while frames keep arriving (measured with a real hidden tab). Frame arrival now also uses the
+  decoded-frame count (SPEC §10.2 decision).
+- **Listen (headphones)** control for the existing monitor branch; scene buttons that need a rundown
+  item are disabled with a note instead of silently doing nothing.
+- **Phone as the sound source** (owner decision, SPEC §8.8): phone microphone or iRig, never
+  automatic, mixer still the default.
+
+### M5: built 24 Sep 2026 (WP2)
+
+| Area | State |
+|---|---|
+| Reconnection (A10–A11) | Done: the phone rebuilds its peer connection by itself after 3 s disconnected, at once when failed/closed or the DataChannel drops, and retries if an answer never arrives (15 s). Same credential and slot; phone sound resumes if it was the chosen source. Android ending the camera track in the background is recovered when the page returns. |
+| Studio on return | Done: the camera never goes back on programme by itself; a pulsing **Camera ready: Cut back** appears after an automatic slate cut. An automatic cut now shows in the scene buttons. |
+| Capture (CAM-01, CAM-03) | Done: requested vs actual quality on the phone; camera selector when the phone reports more than one camera (`replaceTrack`, no renegotiation). Tapping Stop now returns to the Start card (it showed a blank page). |
+| Framing (A13) | Done: Fit / Fill in Preparation → Devices; the programme stays 16:9. |
+| Frame rate | The studio explains a low received frame rate (below 24 fps) as a lighting issue first; the owner's test showed 15–22 fps indoors. |
+| Already in place from M1 | Zoom only when reported (A14), wake lock, battery, route classification, the direct-link failure panel, permission errors (A06), rotate prompt. |
+
+**Verified:** 76 unit, 56 integration, 6 Playwright runs (new: camera drop → slate → automatic
+reconnect → Cut back; it fails with the reconnect watchdog disabled).
+
+### M6: built 24 Sep 2026 (WP3)
+
+| Area | State |
+|---|---|
+| Assets (A24) | Done: `POST /api/assets`; magic bytes, full decode with sharp, no SVG/animation, ≤10 MB and ≤4096 px, EXIF/GPS stripped, sRGB, PNG only with transparency; stored in PostgreSQL (backed up with it); served same-origin, private, immutable. Rundown images are uploads now and survive a reload. |
+| Church look (I-10) | Done: Settings → Church look (owner): logo, corner, size, main/name/slate colours with a live 4.5:1 contrast check (server enforces it too), three bundled fonts, optional holding image. Live preview uses the programme's own drawing code. Church-wide (SPEC §10.5 decision). |
+| Rundown | Done: text cards up to 600 characters with a reference, wrapped and auto-fitted 64→36 px; a card that cannot fit is refused before it goes on air. Image framing Fit/Fill. |
+| Audio (A17, A18, A21) | Done: "This is intentional" snoozes the silence warning for 5 min (never touches gain); when the lost interface reappears the operator gets "‹label› is back: Reconnect" (never automatic), which also asks for a sync recheck. |
+| Lip-sync tool (SYNC-03/04) | Done: record the outgoing programme (in the browser, SPEC §11.4 decision), frame-step (`,` `.`), waveform with the detected clap, mark the clap frame, suggested delay, the 80 ms "audio late" rule, save to `sync_calibrations`; status shows Calibrated or Recheck recommended when the camera, input, routing, profile or delay changes. |
+| Build | The control image installs sharp separately (native); a new CI job builds the images and checks sharp loads. |
+
+**Verified:** 82 unit, 62 integration (6 new for assets/theme), 7 Playwright runs (new: church look →
+logo in the chosen corner of the real programme; SVG refused; image survives reload; scripture card
+fit; clip recorded, clap found, calibration saved).
+
+### M7: built 24 Sep 2026 (WP4)
+
+| Area | State |
+|---|---|
+| Destinations (S05, A40, A41) | Done: Settings → Destinations (owner): add/edit/remove, server from the allowlist only (stand-ins outside production), key pasted write-only and sealed at once (replace, never reveal), key mode, auto-publish, watch URL, note. **Check connection** does DNS (public addresses only) + TCP/TLS without media. |
+| Facebook per-event key (I-13) | Done: pasted per service in Preparation → Destinations (lease holder; never readable), "looks like last week's key" warning, Go live refuses a destination without a key, the supervisor uses the service key, and a database trigger wipes it when the service ends or is interrupted. |
+| Live | Done: "I've checked the platform playback" (stale after a reconnect), watch-page link, Fix key for a rejected Facebook key, Go live starts from Preparation's choice and disables keyless destinations. |
+| Uplink test (I-04, I-05) | Done (HTTP part, SPEC §11.3 decision): 40 MB / 20 s from 4 workers, result stored with the service, 1080p/720p/insufficient offer, warning when choosing above it, refused while sending (E31). |
+| Recording (I-16, I-17) | Done (local, SPEC §12.7 decision): "Record a private copy" in Go live; MediaMTX records the public output (fMP4, 10 min); the owner downloads from the ended service; deleted after 30 days. |
+| CI | The broadcast e2e (real supervisor, two stand-in platforms) now runs in the media job. |
+
+**Verified:** 82 unit, 67 integration (5 new: allowlist/SSRF refusals, keys never returned, per-event
+key rules incl. the wipe trigger, uplink sink), 9 media, 9 Playwright runs (new: Settings →
+Destinations → uplink test → Facebook key → Go live offers both; broadcast now records, confirms
+playback and downloads a valid 720p H.264/AAC file).
+
+**Bug found:** new destinations were not ticked for the service if the studio had already loaded the
+list; and a missing Facebook key blocked opening the Studio (now a reminder: it only blocks going live).
+
+### M8: built 24 Sep 2026 (WP5)
+
+| Area | State |
+|---|---|
+| Adaptation (A39) | Done: one step controller (5 s evidence, 20 s between changes, 60 s stable to step back up) drives the programme upload (8→6→4.5→3→1.5 Mb/s; 720p 4.5→3→2→1.5), CPU relief (1.5× smaller, then 15 fps) and the phone's bitrate (8→5→3→2 Mb/s). Dim light (the phone itself at 15 fps) never lowers the camera bitrate. Audio is never touched. Each change is an event, shown in the health panel and the report. |
+| Camera stall → slate (A10) | Done in M5/M6; an automatic slate cut is now logged for the report. |
+| Grace / extend (A36) | Done: "Keep the slate up 5 more minutes" while RECOVERING (lease holder), at most 20 min in total; the supervisor reads it on its next tick. |
+| Supervisor restart (A38, E21) | Decision recorded (SPEC §20): no adoption; a restart rebuilds from the desired state and the reconnects show in the report. A control restart does not touch media. |
+| Health staleness | Done: "Media server status not updated for N s" while live; quality-step notes in the health panel. |
+| Report (S06, A45) | Done: `/studio/report/:id` and JSON download: checks in words (Passed/Failed/Not tested/Inconclusive), destinations with final state, reconnects and the operator's playback check, measurements from the studio's 10 s windows (missing = "unavailable"), quality changes, recordings with expiry, timeline. Home lists recent services with their outcome. |
+
+**Verified:** 88 unit (6 new for the controller and signals), 72 integration (5 new: report defaults,
+aggregation, unknown fields refused, studio events whitelist, grace cap), 8 Playwright runs (the spine
+now opens the report and checks real measurements).
+
+### M9: built 24 Sep 2026 (WP6)
+
+| Area | State |
+|---|---|
+| CSP (§14.1) | Done: a Playwright run against the **production build** with the exact CSP from `infra/proxy/Caddyfile` walks sign-in, Settings, pairing, the phone page, audio meters and the WHIP upload, and fails on any policy violation. It found two more issues: zod's `eval` probe (now `jitless`, set before any schema is built) and the WHIP URL being answered on a different origin than the studio's (now the request's own allowed origin). Fonts and scripts are never inlined as `data:` URLs. |
+| Updates (A43) | Done (no service worker, SPEC §14.3 decision): the deployed SHA is in `/api/health`; an open studio offers **Reload now** after a deploy, never while live. |
+| Deploy (§16.2) | Done: `deploy.yml` (manual, `production` environment with owner approval) → SSH → `infra/scripts/deploy.sh`: guard (`cli.js deploy:guard`: refuses while sending/recovering or while a studio is open), checkout, build, up, smoke (health reports the SHA, MediaMTX API, WHIP route), automatic rollback to the last good SHA. Integration-tested guard. |
+| Backups (A46) | Done: `backup.sh` (pg_dump → age to the owner's key, 30-day retention, optional rclone copy) and `restore.sh`; `test-backup-restore.sh` restores into an empty PostgreSQL 18 and compares every table, in CI. |
+| Runbooks | `docs/runbooks/sunday-operator.md` (volunteer checklist) and `owner-operations.md` (server, deploys, backups, restore, incidents). |
+| Soak (A26, synthetic) | `RS_SOAK_MINUTES=N pnpm exec playwright test soak`: 4-minute local run passed (heap 33–56 MB with no growth, programme moving, upload connected, no false slate); evidence JSON written. The qualifying 3-hour run is on the real hardware. |
+
+**Verified:** 88 unit, 73 integration, 9 Playwright runs + the soak, the backup/restore drill.
+
+**What remains is the owner's:** M3 (the real phone, Dell, UMC and church network; G1–G5), the 3-hour
+soak on that hardware (A26) and two real services (A47).
+
+### Owner testing round 2: 24 Sep 2026
+
+| Report | Fix |
+|---|---|
+| Lower third flickers | The programme canvas was created `desynchronized`, which lets the screen show a half-drawn frame (camera without its lower third). Removed. The lower third is now its own layer: it slides in from the left (450 ms, ease-out) and fades out (250 ms); a theme change redraws it in place without re-animating. |
+| Lip-sync clip has no sound and is hard to use | The clip plays with its sound. **Play the clap with sound** (and at ¼ speed) plays the second around the detected clap; a strip of the 20 pictures around the clap sound, each labelled with its distance from the sound in ms, replaces stepping frame by frame from the start. |
+| Phone closed / Back pressed cuts the feed and "Pair again" does nothing | The phone keeps its camera link in `localStorage` and the link lasts 3 hours (rotated every 5 min while connected; it still dies when the service ends or the camera is removed). Reopening the camera page (browser tabs or history) reconnects and restarts the camera without a tap; Back asks "Stop camera?" instead of leaving; closing warns where the browser allows. The studio shows **Show reconnect code** (Devices and the live screen) whenever the camera phone is away: the same phone scans it and is straight back in, without a second approval (`claimInvitation` reclaims the slot for the same device fingerprint, event `camera.reclaimed`); another phone is still refused. The direct-link banner's action is now **Try again** (the phone opens a fresh connection), shown only while the phone is connected. |
+
+**Verified:** 90 unit, 75 integration; Playwright: both camera-reconnect runs (the new one closes the phone page mid-service, reopens it, then wipes its saved link and rescans the reconnect code), phone audio, invite/lease, the lip-sync filmstrip.
+
+**Backlog (asked for later):** more lower-third styles: built below.
+
+### Lower-third styles and replacement phone: 26 Sep 2026
+
+| Item | State |
+|---|---|
+| Lower-third styles | Done: Settings → Church look → **Lower-third animation**: Slide in (default), Wipe (revealed from its left edge), Fade, None. Stored in the theme (`lowerThirdMotion`, no migration: the theme is JSON). The preview plays the chosen style and can play it again. |
+| Replacement phone | Done (migration 0008): a different phone scanning the reconnect code while the camera's phone is **offline** waits as a replacement; the studio shows "A different phone wants to take over from Camera 1" with the words to compare, **Let this phone take over** / **Refuse**. Letting it in revokes the old camera in the same transaction (`camera.replaced`). While the old phone is connected, another phone is still refused; only one phone may wait; removing the old camera turns the waiting phone into an ordinary new camera. |
+
+**Verified:** 92 unit, 77 integration; Playwright: all three camera-reconnect runs (including a second phone taking over), the church look with the Wipe style, phone audio, invite/lease.

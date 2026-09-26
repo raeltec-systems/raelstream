@@ -1,15 +1,18 @@
 import { FrameClock } from './clock.js';
 import { Observable } from './emitter.js';
 import {
-  DEFAULT_THEME,
-  type ProgrammeTheme,
-  type SceneState,
-  fitRect,
-  shortenForAir,
-} from './scenes.js';
+  REF_H,
+  REF_W,
+  drawLowerThird,
+  drawOverlay,
+  lowerThirdMotion,
+  LOWER_THIRD_OUT_MS,
+  type LowerThirdBounds,
+  type LowerThirdMotion,
+  type LowerThirdStyle,
+} from './overlays.js';
+import { DEFAULT_THEME, type ProgrammeTheme, type SceneState, fitRect } from './scenes.js';
 
-const REF_W = 1920;
-const REF_H = 1080;
 export const CAMERA_STALL_MS = 2000;
 export const CAMERA_HOLD_EXTRA_MS = 1000;
 
@@ -23,6 +26,14 @@ export interface CompositorState {
   lastCameraFrameAt: number | null;
   /** Set when the compositor itself cut to the slate because the camera stopped (B§17). */
   autoCutAt: number | null;
+}
+
+interface LowerThirdLayer {
+  layer: OffscreenCanvas;
+  bounds: LowerThirdBounds;
+  key: string;
+  style: LowerThirdStyle;
+  at: number;
 }
 
 type RvfcVideo = HTMLVideoElement & {
@@ -41,6 +52,9 @@ export class Compositor extends Observable<CompositorState> {
   private video: RvfcVideo | null = null;
   private theme: ProgrammeTheme = DEFAULT_THEME;
   private overlay: OffscreenCanvas | null = null;
+  /** The name bar, on its own layer so it can be animated on and off air in the church's style. */
+  private lowerThird: LowerThirdLayer | null = null;
+  private lowerThirdLeaving: LowerThirdLayer | null = null;
   private pendingAck: Array<{ version: number; resolve: () => void }> = [];
   private version = 0;
 
@@ -65,7 +79,9 @@ export class Compositor extends Observable<CompositorState> {
     this.canvas = document.createElement('canvas');
     this.canvas.width = width;
     this.canvas.height = height;
-    const g = this.canvas.getContext('2d', { alpha: false, desynchronized: true });
+    // Not `desynchronized`: this canvas is also the on-screen programme monitor, and a desynchronized
+    // canvas can be shown half-drawn (camera without its lower third), which flickers.
+    const g = this.canvas.getContext('2d', { alpha: false });
     if (!g) throw new Error('Canvas 2D unavailable');
     this.g = g;
     this.stream = this.canvas.captureStream(30);
@@ -86,6 +102,7 @@ export class Compositor extends Observable<CompositorState> {
   /** Attach the received camera. Frame arrival is tracked with requestVideoFrameCallback where available. */
   setCamera(video: HTMLVideoElement | null): void {
     this.video = video as RvfcVideo | null;
+    this.lastDecoded = video?.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
     if (!video) return;
     const v = video as RvfcVideo;
     const onFrame = () => {
@@ -122,6 +139,27 @@ export class Compositor extends Observable<CompositorState> {
     this.track.stop();
   }
 
+  private lastDecoded = 0;
+
+  /**
+   * requestVideoFrameCallback stops firing while the tab is hidden, although frames keep arriving and
+   * drawing. The decoded-frame count keeps advancing in a hidden tab, so frame arrival is also checked
+   * on every clock tick; switching tabs must never look like a dead camera.
+   */
+  private pollDecodedFrames(now: number): void {
+    const v = this.video;
+    const decoded = v?.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
+    // Any change counts: the counter restarts when the phone reconnects with a new stream.
+    if (decoded !== this.lastDecoded) {
+      this.lastDecoded = decoded;
+      this.set({
+        cameraFrames: this.state.cameraFrames + 1,
+        lastCameraFrameAt: now,
+        cameraStalled: false,
+      });
+    }
+  }
+
   private cameraUsable(): boolean {
     const v = this.video;
     return !!v && v.readyState >= 2 && v.videoWidth > 0;
@@ -129,6 +167,7 @@ export class Compositor extends Observable<CompositorState> {
 
   private tick(): void {
     const now = performance.now();
+    this.pollDecodedFrames(now);
     const last = this.state.lastCameraFrameAt;
     const stalled = last !== null && now - last > CAMERA_STALL_MS;
     if (stalled !== this.state.cameraStalled) this.set({ cameraStalled: stalled });
@@ -162,87 +201,56 @@ export class Compositor extends Observable<CompositorState> {
       const r = fitRect(scene.image.width, scene.image.height, REF_W, REF_H, scene.imageFit);
       g.drawImage(scene.image, r.x, r.y, r.w, r.h);
     }
+    const now = performance.now();
+    const out = this.lowerThirdLeaving;
+    if (out) {
+      if (now - out.at >= LOWER_THIRD_OUT_MS) this.lowerThirdLeaving = null;
+      else this.drawLayer(out, lowerThirdMotion(now - out.at, true, out.style));
+    }
+    const lt = this.lowerThird;
+    if (lt) this.drawLayer(lt, lowerThirdMotion(now - lt.at, false, lt.style));
     if (this.overlay) g.drawImage(this.overlay, 0, 0);
+  }
+
+  private drawLayer(l: LowerThirdLayer, m: LowerThirdMotion): void {
+    if (m.alpha <= 0 || m.reveal <= 0) return;
+    const { g } = this;
+    g.save();
+    g.globalAlpha = m.alpha;
+    if (m.reveal < 1) {
+      g.beginPath();
+      g.rect(l.bounds.x, l.bounds.y - 2, l.bounds.w * m.reveal, l.bounds.h + 4);
+      g.clip();
+    }
+    g.drawImage(l.layer, m.dx, 0);
+    g.restore();
   }
 
   /** Pre-render static graphics once per change so each tick is at most a few drawImage calls. */
   private renderOverlay(): void {
-    const o = new OffscreenCanvas(REF_W, REF_H);
-    const g = o.getContext('2d')!;
     const { scene } = this.state;
-    const th = this.theme;
-    const font = th.font;
-    if (scene.kind === 'slate') {
-      g.fillStyle = th.background;
-      g.fillRect(0, 0, REF_W, REF_H);
-      if (th.logo) {
-        const r = fitRect(th.logo.width, th.logo.height, 220, 220, 'contain');
-        g.drawImage(th.logo, (REF_W - 220) / 2 + r.x, 250 + r.y, r.w, r.h);
-      }
-      g.fillStyle = '#F7F6F0';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.font = `700 124px ${font}`;
-      g.fillText("We'll be right back", REF_W / 2, 580);
-      g.fillStyle = '#B9BFB9';
-      g.font = `400 44px ${font}`;
-      const sub = [th.churchName, th.serviceName].filter(Boolean).join(' · ');
-      if (sub) g.fillText(sub, REF_W / 2, 690);
-      g.fillStyle = th.accent;
-      g.fillRect(0, REF_H - 18, REF_W, 18);
-    } else if (scene.kind === 'camera_lower_third' && scene.lowerThird) {
-      const l1 = shortenForAir(scene.lowerThird.line1);
-      const l2 = shortenForAir(scene.lowerThird.line2);
-      const x = REF_W * 0.06;
-      const bottom = REF_H * (1 - 0.09);
-      g.font = `700 60px ${font}`;
-      const w1 = g.measureText(l1).width;
-      g.font = `700 38px ${font}`;
-      const w2 = l2 ? g.measureText(l2).width : 0;
-      const padX = 54;
-      const barW = 22;
-      const w = Math.max(w1, w2) + padX * 2;
-      const h = l2 ? 170 : 118;
-      const y = bottom - h;
-      g.save();
-      g.beginPath();
-      g.roundRect(x, y, barW + w, h, 34);
-      g.clip();
-      g.fillStyle = th.accent;
-      g.fillRect(x, y, barW, h);
-      g.fillStyle = '#FFFFFF';
-      g.fillRect(x + barW, y, w, h);
-      g.restore();
-      g.textBaseline = 'alphabetic';
-      g.textAlign = 'left';
-      g.fillStyle = '#1F2320';
-      g.font = `700 60px ${font}`;
-      g.fillText(l1, x + barW + padX, y + (l2 ? 82 : 78));
-      if (l2) {
-        g.fillStyle = th.accent;
-        g.font = `700 38px ${font}`;
-        g.fillText(l2, x + barW + padX, y + 136);
-      }
-    } else if (scene.kind === 'text' && scene.text) {
-      g.fillStyle = '#FFFFFF';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      let size = 110;
-      g.font = `700 ${size}px ${font}`;
-      while (size > 60 && g.measureText(scene.text.title).width > REF_W * 0.84) {
-        size -= 6;
-        g.font = `700 ${size}px ${font}`;
-      }
-      g.fillText(scene.text.title, REF_W / 2, REF_H / 2 - (scene.text.detail ? 50 : 0));
-      if (scene.text.detail) {
-        g.font = `400 48px ${font}`;
-        g.fillText(scene.text.detail, REF_W / 2, REF_H / 2 + 80, REF_W * 0.84);
-      }
-    }
-    if (th.logo && scene.kind !== 'slate') {
-      const r = fitRect(th.logo.width, th.logo.height, 160, 160, 'contain');
-      g.drawImage(th.logo, REF_W - 48 - 160 + r.x, 48 + r.y, r.w, r.h);
-    }
+    const o = new OffscreenCanvas(REF_W, REF_H);
+    drawOverlay(o.getContext('2d')!, scene, this.theme, false);
     this.overlay = o;
+
+    const lt = scene.kind === 'camera_lower_third' ? scene.lowerThird : null;
+    const key = lt ? JSON.stringify([lt.line1, lt.line2]) : null;
+    const prev = this.lowerThird;
+    const now = performance.now();
+    if (prev && prev.key !== key) this.lowerThirdLeaving = { ...prev, at: now };
+    if (!key) {
+      this.lowerThird = null;
+      return;
+    }
+    const layer = new OffscreenCanvas(REF_W, REF_H);
+    const bounds = drawLowerThird(layer.getContext('2d')!, scene, this.theme)!;
+    // A theme change redraws the same name in place; only a new name animates in.
+    this.lowerThird = {
+      layer,
+      bounds,
+      key,
+      style: this.theme.lowerThirdMotion,
+      at: prev?.key === key ? prev.at : now,
+    };
   }
 }

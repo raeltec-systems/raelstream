@@ -69,3 +69,52 @@ export class SilenceDetector {
     this.quietSince = null;
   }
 }
+
+/**
+ * Clap onset for the sync tool (SPEC §11.4): the first sample at or above `thresholdDb` that follows at
+ * least `quietMs` of quieter sound (10 ms RMS windows below −40 dBFS). A suggestion the operator
+ * confirms, never applied automatically. Returns seconds, or null.
+ */
+export function detectOnset(
+  samples: Float32Array,
+  sampleRate: number,
+  thresholdDb = -20,
+  quietMs = 200,
+): number | null {
+  const peak = 10 ** (thresholdDb / 20);
+  const quietRms = 10 ** (-40 / 20);
+  const win = Math.max(1, Math.round(sampleRate / 100));
+  const needQuiet = Math.ceil(quietMs / 10);
+  let quietWindows = 0;
+  for (let start = 0; start + win <= samples.length; start += win) {
+    let sum = 0;
+    let hit = -1;
+    for (let i = start; i < start + win; i++) {
+      const v = samples[i]!;
+      sum += v * v;
+      if (hit < 0 && Math.abs(v) >= peak) hit = i;
+    }
+    if (hit >= 0 && quietWindows >= needQuiet) return hit / sampleRate;
+    quietWindows = Math.sqrt(sum / win) < quietRms ? quietWindows + 1 : 0;
+  }
+  return null;
+}
+
+/** Audio later than video by more than this cannot be fixed with an audio delay (SPEC §11.4). */
+export const AUDIO_LATE_LIMIT_MS = 80;
+
+/**
+ * From the marked clap frame (video time) and the clap sound (audio time) in a clip recorded with
+ * `currentDelayMs` applied: the delay that lines them up, or `audio_late` when sound arrives after the
+ * picture even with no delay.
+ */
+export function suggestDelay(
+  currentDelayMs: number,
+  visualS: number,
+  audioS: number,
+): { measuredOffsetMs: number; suggestedMs: number; result: 'ok' | 'audio_late' } {
+  const measuredOffsetMs = Math.round((audioS - visualS) * 1000); // > 0: sound after the picture
+  const raw = currentDelayMs - measuredOffsetMs;
+  if (raw < -AUDIO_LATE_LIMIT_MS) return { measuredOffsetMs, suggestedMs: 0, result: 'audio_late' };
+  return { measuredOffsetMs, suggestedMs: clampDelayMs(Math.max(0, raw)), result: 'ok' };
+}

@@ -12,14 +12,29 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   SESSION_ACTIVE_EXISTS: 409,
   STALE_GENERATION: 409,
   LEASE_HELD: 409,
+  PASSWORD_WEAK: 400,
+  EMAIL_TAKEN: 409,
+  INVITE_INVALID: 410,
   DEST_NOT_CONFIGURED: 409,
   DEST_KEY_MISSING: 409,
   NOT_SENDING: 409,
+  DEST_URL_NOT_ALLOWED: 400,
+  DEST_UNREACHABLE: 502,
+  ASSET_TOO_LARGE: 413,
+  ASSET_UNSUPPORTED: 415,
+  ASSET_CORRUPT: 422,
+  THEME_CONTRAST: 400,
 };
 
 /** Safe, volunteer-readable messages; never include internals (B§21.4). */
 const MESSAGES: Partial<Record<ErrorCode, string>> = {
   AUTH_REQUIRED: 'Please sign in.',
+  AUTH_INVALID:
+    "That didn't work. Check the details and try again. After several tries, wait 15 minutes.",
+  PASSWORD_WEAK: 'Use a password of at least 12 characters that is not your email address.',
+  EMAIL_TAKEN: 'An account with that email already exists.',
+  INVITE_INVALID: 'This invite link is no longer valid. Ask the owner for a new one.',
+  LEASE_HELD: 'Someone else is running the studio for this service.',
   FORBIDDEN: "You don't have permission to do that.",
   NOT_FOUND: 'That was not found.',
   VALIDATION: 'Some details were not valid.',
@@ -31,6 +46,17 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   DEST_NOT_CONFIGURED: 'A selected destination is not set up. Set it up or deselect it.',
   DEST_KEY_MISSING: 'A selected destination has no stream key. Paste the key or deselect it.',
   NOT_SENDING: 'That destination is not part of this broadcast.',
+  DEST_URL_NOT_ALLOWED:
+    'That server is not an official Facebook or YouTube ingest address. Choose one from the list.',
+  DEST_UNREACHABLE:
+    'The platform server did not answer. Check the internet connection, then try again.',
+  ASSET_TOO_LARGE:
+    'That image is too big. Use one under 10 MB and at most 4096 pixels on each side.',
+  ASSET_UNSUPPORTED:
+    'That file type is not supported. Use a still PNG, JPEG or WebP image (no SVG or animations).',
+  ASSET_CORRUPT: 'That image could not be read. It may be damaged. Export it again and retry.',
+  THEME_CONTRAST:
+    'White text is hard to read on that colour. Choose a darker main colour (contrast at least 4.5:1).',
 };
 
 export class AppError extends Error {

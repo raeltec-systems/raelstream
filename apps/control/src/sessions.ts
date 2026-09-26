@@ -3,11 +3,42 @@ import type { SessionEvent, SessionSnapshot, SourceSummary } from '@raelstream/c
 import type { DB } from './db.js';
 import { AppError } from './errors.js';
 
-export async function createSession(db: Kysely<DB>, name: string, operatorName: string) {
+/**
+ * New session, optionally from a preset: copies the non-secret configuration (rundown, audio defaults,
+ * grace period). Destinations are re-reviewed at Go live (B§19.3).
+ */
+export async function createSession(
+  db: Kysely<DB>,
+  name: string,
+  operator: { name: string; userId: string },
+  presetId?: string,
+) {
+  const preset = presetId
+    ? await db
+        .selectFrom('presets')
+        .selectAll()
+        .where('id', '=', presetId)
+        .where('archived_at', 'is', null)
+        .executeTakeFirst()
+    : undefined;
+  if (presetId && !preset) throw new AppError('NOT_FOUND', 'session');
   try {
     return await db
       .insertInto('stream_sessions')
-      .values({ name, operator_name: operatorName })
+      .values({
+        name,
+        operator_name: operator.name,
+        created_by: operator.userId,
+        preset_id: preset?.id ?? null,
+        ...(preset
+          ? {
+              rundown: JSON.stringify(preset.rundown),
+              audio_state: JSON.stringify(preset.audio_defaults),
+              fallback_grace_s: preset.fallback_grace_s,
+              profile: preset.profile_preference,
+            }
+          : {}),
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
   } catch (e) {
@@ -38,7 +69,15 @@ export async function getSession(db: Kysely<DB>, id: string) {
 export async function listSources(db: Kysely<DB>, sessionId: string): Promise<SourceSummary[]> {
   const rows = await db
     .selectFrom('camera_sources')
-    .select(['id', 'slot', 'label', 'status', 'verification_phrase', 'device_hint'])
+    .select([
+      'id',
+      'slot',
+      'label',
+      'status',
+      'verification_phrase',
+      'device_hint',
+      'replaces_source_id',
+    ])
     .where('session_id', '=', sessionId)
     .where('status', 'in', ['pending', 'admitted'])
     .orderBy('created_at')
@@ -50,6 +89,7 @@ export async function listSources(db: Kysely<DB>, sessionId: string): Promise<So
     status: r.status as SourceSummary['status'],
     verificationPhrase: r.verification_phrase,
     deviceHint: r.device_hint,
+    replacesSourceId: r.replaces_source_id,
   }));
 }
 

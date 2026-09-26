@@ -72,6 +72,8 @@ export const ServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('peer'), sourceId: z.string().uuid(), present: z.boolean() }),
   z.object({ type: z.literal('error'), code: ErrorCode, message: z.string() }),
   z.object({ type: z.literal('pong') }),
+  z.object({ type: z.literal('lease.lost') }),
+  z.object({ type: z.literal('studio.changed') }),
   z.object({
     type: z.literal('observed'),
     lifecycle: SessionLifecycle,
@@ -92,6 +94,8 @@ export const CtlMessage = z.discriminatedUnion('t', [
   }),
   z.object({ t: z.literal('cam.setBitrate'), bps: z.number().int().positive() }),
   z.object({ t: z.literal('cam.setZoom'), zoom: z.number() }),
+  /** Operator chose (or dropped) this phone as the audio source. Never sent automatically (C-04). */
+  z.object({ t: z.literal('cam.setAudio'), on: z.boolean() }),
   z.object({
     t: z.literal('cam.state'),
     width: z.number().nullable(),
@@ -103,6 +107,16 @@ export const CtlMessage = z.discriminatedUnion('t', [
     zoom: z
       .object({ min: z.number(), max: z.number(), step: z.number(), value: z.number() })
       .nullable(),
+    /** Phone sound, only when the studio asked for it. Absent from phones on older builds. */
+    audio: z
+      .object({
+        state: z.enum(['off', 'starting', 'on', 'denied', 'unavailable', 'error']),
+        label: z.string().max(200).nullable(),
+        channels: z.number().int().nullable(),
+        /** Processing the phone browser would not turn off. */
+        processingOn: z.array(z.string().max(40)).max(3),
+      })
+      .optional(),
   }),
   z.object({ t: z.literal('ping'), at: z.number() }),
   z.object({ t: z.literal('pong'), at: z.number() }),

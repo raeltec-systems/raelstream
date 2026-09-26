@@ -1,3 +1,4 @@
+import type { Principal } from './auth.js';
 import type { WebSocket } from 'ws';
 import type { Kysely } from 'kysely';
 import {
@@ -8,14 +9,19 @@ import {
 } from '@raelstream/contracts';
 import type { DB } from './db.js';
 import { eventsSince, snapshot } from './sessions.js';
-import { renewCredential, sourceByCredential } from './pairing.js';
+import {
+  forgetPendingCredential,
+  recoverAdmission,
+  renewCredential,
+  sourceByCredential,
+} from './pairing.js';
 import { RateLimiter } from './ratelimit.js';
 import { readObserved } from './observed.js';
 import type { ObservedState, SessionLifecycle } from '@raelstream/contracts';
 
 type Conn =
-  | { role: 'unauth'; authedOperator: boolean }
-  | { role: 'studio'; sessionId: string }
+  | { role: 'unauth'; principal: Promise<Principal | null> }
+  | { role: 'studio'; sessionId: string; clientId: string; userId: string }
   | { role: 'camera'; sessionId: string; sourceId: string; admitted: boolean };
 
 const RENEW_EVERY_MS = 5 * 60_000;
@@ -38,8 +44,8 @@ export class Hub {
     this.renewTimer.unref();
   }
 
-  attach(ws: WebSocket, authedOperator: boolean): void {
-    this.conns.set(ws, { role: 'unauth', authedOperator });
+  attach(ws: WebSocket, principal: Promise<Principal | null>): void {
+    this.conns.set(ws, { role: 'unauth', principal });
     const id = crypto.randomUUID();
     ws.on('message', (raw, isBinary) => void this.onMessage(ws, id, raw as Buffer, isBinary));
     ws.on('close', () => this.onClose(ws));
@@ -56,6 +62,21 @@ export class Hub {
 
   broadcastEvent(sessionId: string, event: SessionEvent): void {
     this.toStudios(sessionId, { type: 'event', event });
+  }
+
+  /** The studio tab that lost the lease becomes read-only (A33). */
+  notifyLeaseLost(sessionId: string, clientId: string): void {
+    for (const [ws, c] of this.conns) {
+      if (c.role === 'studio' && c.sessionId === sessionId && c.clientId === clientId)
+        this.send(ws, { type: 'lease.lost' });
+    }
+  }
+
+  /** After a takeover the phone renegotiates with the new studio tab, keeping its slot (E37). */
+  notifyStudioChanged(sessionId: string): void {
+    for (const [ws, c] of this.conns)
+      if (c.role === 'camera' && c.sessionId === sessionId)
+        this.send(ws, { type: 'studio.changed' });
   }
 
   broadcastObserved(
@@ -124,14 +145,20 @@ export class Hub {
     if (msg.type === 'hello') {
       if (conn.role !== 'unauth') return;
       if (msg.role === 'studio') {
-        if (!conn.authedOperator) return void ws.close(4401, 'auth required');
+        const principal = await conn.principal;
+        if (!principal) return void ws.close(4401, 'auth required');
         let snap;
         try {
           snap = await snapshot(this.db, msg.sessionId);
         } catch {
           return void ws.close(4404, 'no session');
         }
-        this.conns.set(ws, { role: 'studio', sessionId: msg.sessionId });
+        this.conns.set(ws, {
+          role: 'studio',
+          sessionId: msg.sessionId,
+          clientId: msg.clientId,
+          userId: principal.userId,
+        });
         this.send(ws, { type: 'welcome', role: 'studio', snapshot: snap });
         if (msg.lastSequence !== undefined) {
           const missed = await eventsSince(this.db, msg.sessionId, msg.lastSequence);
@@ -144,7 +171,10 @@ export class Hub {
           this.send(ws, { type: 'observed', lifecycle: obs.lifecycle, observed: obs.observed });
         return;
       }
-      const src = await sourceByCredential(this.db, msg.credential);
+      let src = await sourceByCredential(this.db, msg.credential);
+      // A phone that missed its "admitted" message presents its pending credential once (recoverAdmission).
+      const recovered = src ? null : await recoverAdmission(this.db, msg.credential);
+      if (recovered) src = await sourceByCredential(this.db, recovered.credential);
       if (!src) return void ws.close(4403, 'invalid credential');
       // A reconnecting phone replaces its own previous socket, never another device's slot (B§8.3).
       for (const [other, c] of this.conns)
@@ -162,6 +192,13 @@ export class Hub {
         sourceStatus: src.status,
         serviceName: src.service_name,
       });
+      if (recovered)
+        this.send(ws, {
+          type: 'admitted',
+          credential: recovered.credential,
+          expiresAt: recovered.expiresAt,
+        });
+      else if (src.status === 'admitted') await forgetPendingCredential(this.db, src.id);
       this.toStudios(src.session_id, { type: 'peer', sourceId: src.id, present: true });
       return;
     }

@@ -1,0 +1,19 @@
+# Application routes shared by the production Caddyfile and the Codespaces one (infra/codespace).
+
+# The MediaMTX auth hook is internal only.
+respond /internal/* 404
+
+handle /api/* {
+	reverse_proxy control:3000
+}
+handle /ws {
+	reverse_proxy control:3000
+}
+handle_path /whip/* {
+	reverse_proxy mediamtx:8889
+}
+handle {
+	root * /srv/web
+	try_files {path} /index.html
+	file_server
+}

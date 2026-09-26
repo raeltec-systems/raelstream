@@ -35,6 +35,14 @@ export class MediaMtxApi {
     return (await r.json()) as PathInfo;
   }
 
+  /** Configuration survives an idle producer, but must be restored after a MediaMTX restart. */
+  async hasPathConfig(name: string): Promise<boolean> {
+    const r = await this.req('GET', `/v3/config/paths/get/${name}`);
+    if (r.status === 404) return false;
+    if (!r.ok) throw new Error(`mediamtx path config ${r.status}`);
+    return true;
+  }
+
   /** Add or replace a path configuration. */
   async upsertPathConfig(name: string, conf: Record<string, unknown>): Promise<void> {
     let r = await this.req('POST', `/v3/config/paths/add/${name}`, conf);

@@ -13,6 +13,8 @@ export interface SupervisorConfig {
   sealSecretKey: string;
   slateDir: string;
   slateFont: string;
+  /** MediaMTX writes recordings here (its own container's path; SPEC §12.7). */
+  recordingsDir: string;
   /** Permit rtmp://127.0.0.1 sinks: automated tests only, refused in production. */
   testSinks: boolean;
   tickMs: number;
@@ -43,6 +45,7 @@ export function loadConfig(env = process.env): SupervisorConfig {
     sealSecretKey: secret,
     slateDir: need('SLATE_DIR', '/var/lib/raelstream/slates'),
     slateFont: need('SLATE_FONT', '/usr/share/fonts/raelstream/slate.ttf'),
+    recordingsDir: need('RECORDINGS_DIR', '/var/lib/raelstream/recordings'),
     testSinks,
     tickMs: Number(env.RS_SUPERVISOR_TICK_MS ?? 500),
   };
