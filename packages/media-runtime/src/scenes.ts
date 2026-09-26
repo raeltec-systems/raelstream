@@ -30,6 +30,8 @@ export interface ProgrammeTheme {
   logoScale: number;
   /** Optional full-frame image for the holding scene. */
   holding: ImageBitmap | null;
+  /** How lower thirds come on and go off air. */
+  lowerThirdMotion: 'slide' | 'wipe' | 'fade' | 'none';
 }
 
 export interface SceneState {
@@ -53,6 +55,7 @@ export const DEFAULT_THEME: ProgrammeTheme = {
   logoCorner: 'tr',
   logoScale: 0.08,
   holding: null,
+  lowerThirdMotion: 'slide',
 };
 
 /** Characters beyond this are shortened on air (design: Rundown helper). */

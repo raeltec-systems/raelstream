@@ -37,6 +37,7 @@ for (const key of [
   'phone',
   'reconnect',
   'resume',
+  'replace',
   'content',
   'destinations',
   'csp',

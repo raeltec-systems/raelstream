@@ -172,3 +172,67 @@ test('phone page closed mid-service resumes by itself; a phone that lost it resc
     await studioCtx.close();
   }
 });
+
+/**
+ * The camera phone dies mid-service. A volunteer grabs another phone and scans the reconnect code; the
+ * studio is asked to let it take over, and after that it is the camera.
+ */
+test('a different phone takes over a camera that went offline, after the operator lets it in', async ({
+  browser,
+}) => {
+  const studioCtx = await browser.newContext({ permissions: ['camera', 'microphone'] });
+  const studio = await studioCtx.newPage();
+  const phone = () =>
+    browser.newContext({
+      permissions: ['camera'],
+      viewport: { width: 844, height: 390 },
+      isMobile: true,
+      hasTouch: true,
+    });
+  const oldCtx = await phone();
+  const spareCtx = await phone();
+  try {
+    await studio.goto('/studio');
+    await signIn(studio, e2eUser('replace'));
+    await studio.getByRole('button', { name: 'Start without a saved service' }).click();
+    await studio.getByRole('button', { name: 'Show pairing code' }).click();
+    const url = await studio.getByTestId('pair-qr').getAttribute('data-url');
+    const old = await oldCtx.newPage();
+    await old.goto(url!);
+    await old.getByRole('button', { name: 'Join as camera' }).click();
+    await studio.getByRole('button', { name: 'Let this phone in' }).click();
+    await old.getByRole('button', { name: 'Start camera' }).click();
+    await expect(studio.getByText('Connected directly')).toBeVisible({ timeout: 20_000 });
+
+    // The phone dies: its browser is gone.
+    await oldCtx.close();
+    const panel = studio.getByTestId('reconnect-panel');
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await panel.getByRole('button', { name: 'Show reconnect code' }).click();
+    const code = await studio.getByTestId('pair-qr').getAttribute('data-url');
+
+    // Another phone scans it and waits for the studio.
+    const spare = await spareCtx.newPage();
+    await spare.goto(code!);
+    await spare.getByLabel('Name for this camera').fill('Spare phone');
+    await spare.getByRole('button', { name: 'Join as camera' }).click();
+    await expect(spare.getByText(/take over from the studio's camera/)).toBeVisible();
+    const replacement = studio.getByTestId('replacement-panel');
+    await expect(replacement).toContainText('Spare phone');
+    await expect(studio.getByTestId('replacement-phrase')).toHaveText(
+      (await spare.getByTestId('cam-phrase').textContent())!,
+    );
+    await studio.screenshot({ path: test.info().outputPath('replacement.png') });
+    await replacement.getByRole('button', { name: 'Let this phone take over' }).click();
+
+    // It is now the camera.
+    await spare.getByRole('button', { name: 'Start camera' }).click();
+    await expect(studio.getByText('Connected directly')).toBeVisible({ timeout: 20_000 });
+    await expect(studio.getByTestId('replacement-panel')).toHaveCount(0);
+    await expect(studio.getByText('Spare phone').first()).toBeVisible();
+  } finally {
+    await endService(studio).catch(() => undefined);
+    await spareCtx.close();
+    await studioCtx.close();
+  }
+});

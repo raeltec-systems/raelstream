@@ -67,5 +67,6 @@ export async function programmeTheme(theme: Theme): Promise<Partial<ProgrammeThe
     logoCorner: theme.logoCorner,
     logoScale: theme.logoScale,
     holding,
+    lowerThirdMotion: theme.lowerThirdMotion,
   };
 }

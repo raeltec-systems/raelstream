@@ -303,4 +303,13 @@ soak on that hardware (A26) and two real services (A47).
 
 **Verified:** 90 unit, 75 integration; Playwright: both camera-reconnect runs (the new one closes the phone page mid-service, reopens it, then wipes its saved link and rescans the reconnect code), phone audio, invite/lease, the lip-sync filmstrip.
 
-**Backlog (asked for later):** more lower-third styles (wipe, fade only, none) chosen in Settings → Church look.
+**Backlog (asked for later):** more lower-third styles: built below.
+
+### Lower-third styles and replacement phone: 26 Sep 2026
+
+| Item | State |
+|---|---|
+| Lower-third styles | Done: Settings → Church look → **Lower-third animation**: Slide in (default), Wipe (revealed from its left edge), Fade, None. Stored in the theme (`lowerThirdMotion`, no migration: the theme is JSON). The preview plays the chosen style and can play it again. |
+| Replacement phone | Done (migration 0008): a different phone scanning the reconnect code while the camera's phone is **offline** waits as a replacement; the studio shows "A different phone wants to take over from Camera 1" with the words to compare, **Let this phone take over** / **Refuse**. Letting it in revokes the old camera in the same transaction (`camera.replaced`). While the old phone is connected, another phone is still refused; only one phone may wait; removing the old camera turns the waiting phone into an ordinary new camera. |
+
+**Verified:** 92 unit, 77 integration; Playwright: all three camera-reconnect runs (including a second phone taking over), the church look with the Wipe style, phone audio, invite/lease.

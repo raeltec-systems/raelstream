@@ -30,7 +30,8 @@ export function DevicesStep() {
   const st = useStore(rt);
   const cam = useStore(rt.camera);
   const audio = useStore(rt.audio);
-  const src = st.session?.sources[0] ?? null;
+  const src = st.session?.sources.find((x) => !x.replacesSourceId) ?? null;
+  const replacement = st.session?.sources.find((x) => x.replacesSourceId) ?? null;
   const present = !!src && !!st.cameraPresent[src.id];
   const cameraOk = cam.connection === 'connected';
   const res = cam.summary?.height ? `${cam.summary.height}p` : '—';
@@ -57,7 +58,18 @@ export function DevicesStep() {
           )}
           {src?.status === 'admitted' && (
             <>
-              {!present && <ReconnectPanel />}
+              {replacement ? (
+                <ReplacementPanel
+                  sourceId={replacement.id}
+                  phrase={replacement.verificationPhrase}
+                  newLabel={replacement.label}
+                  newHint={replacement.deviceHint}
+                  oldLabel={src.label}
+                  oldBack={present}
+                />
+              ) : (
+                !present && <ReconnectPanel />
+              )}
               <CameraPreview />
               <StatusRow
                 tone={cameraOk ? 'ready' : cam.connection === 'idle' ? 'off' : 'standby'}
@@ -189,6 +201,53 @@ export function ReconnectPanel() {
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A different phone asks to take over a camera whose phone has gone (battery died, browser storage
+ * wiped). The operator checks the words as for any new phone; letting it in removes the old camera.
+ */
+export function ReplacementPanel({
+  sourceId,
+  phrase,
+  newLabel,
+  newHint,
+  oldLabel,
+  oldBack,
+}: {
+  sourceId: string;
+  phrase: string;
+  newLabel: string;
+  newHint: string;
+  oldLabel: string;
+  oldBack: boolean;
+}) {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  return (
+    <div className={s.reconnect} data-testid="replacement-panel">
+      <p className={s.warn}>
+        {t('replace.asks', { old: oldLabel, name: newLabel, hint: newHint })}
+      </p>
+      <p className={s.muted}>{t('pending.compare')}</p>
+      <div className={s.phrase} data-testid="replacement-phrase">
+        {phrase}
+      </div>
+      {oldBack && <p className={s.warn}>{t('replace.oldBack', { old: oldLabel })}</p>}
+      <div className={s.row}>
+        <Button
+          variant="primary"
+          disabled={!st.lease?.mine}
+          onClick={() => void rt.admit(sourceId)}
+        >
+          {t('replace.admit')}
+        </Button>
+        <Button disabled={!st.lease?.mine} onClick={() => void rt.reject(sourceId)}>
+          {t('replace.refuse')}
+        </Button>
+      </div>
     </div>
   );
 }

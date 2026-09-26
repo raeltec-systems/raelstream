@@ -11,7 +11,10 @@ import {
   DEFAULT_THEME,
   REF_H,
   REF_W,
+  drawLowerThird,
   drawOverlay,
+  lowerThirdInMs,
+  lowerThirdMotion,
   type SceneState,
 } from '@raelstream/media-runtime';
 import { Button, Segmented, TextField } from '@raelstream/ui';
@@ -71,6 +74,8 @@ export function ThemeEditor() {
   const [scene, setScene] = useState<PreviewScene>('camera_lower_third');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | 'logo' | 'holding' | 'save'>(null);
+  // Bumped to play the lower-third animation again in the preview.
+  const [replay, setReplay] = useState(0);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -82,27 +87,50 @@ export function ThemeEditor() {
 
   useEffect(() => {
     let cancelled = false;
+    let frame = 0;
     void programmeTheme(theme).then((pt) => {
       const c = canvas.current;
       if (cancelled || !c) return;
       const g = c.getContext('2d')!;
-      g.setTransform(c.width / REF_W, 0, 0, c.height / REF_H, 0, 0);
-      // Stand-in for the camera picture under the lower third.
-      g.fillStyle = scene === 'text' ? theme.primaryColor : '#5b6660';
-      g.fillRect(0, 0, REF_W, REF_H);
-      if (scene === 'camera_lower_third') {
-        g.fillStyle = '#7d8a83';
-        g.beginPath();
-        g.arc(REF_W / 2, REF_H * 0.42, 190, 0, Math.PI * 2);
-        g.fill();
-        g.fillRect(REF_W / 2 - 330, REF_H * 0.62, 660, 420);
-      }
-      drawOverlay(g, SAMPLE[scene], { ...DEFAULT_THEME, ...pt, serviceName: 'Sunday Service' });
+      const th = { ...DEFAULT_THEME, ...pt, serviceName: 'Sunday Service' };
+      // The lower third on its own layer, animated in the chosen style, as on air.
+      const layer = new OffscreenCanvas(REF_W, REF_H);
+      const bounds = drawLowerThird(layer.getContext('2d')!, SAMPLE[scene], th);
+      const started = performance.now();
+      const paint = () => {
+        g.setTransform(c.width / REF_W, 0, 0, c.height / REF_H, 0, 0);
+        // Stand-in for the camera picture under the lower third.
+        g.fillStyle = scene === 'text' ? theme.primaryColor : '#5b6660';
+        g.fillRect(0, 0, REF_W, REF_H);
+        if (scene === 'camera_lower_third') {
+          g.fillStyle = '#7d8a83';
+          g.beginPath();
+          g.arc(REF_W / 2, REF_H * 0.42, 190, 0, Math.PI * 2);
+          g.fill();
+          g.fillRect(REF_W / 2 - 330, REF_H * 0.62, 660, 420);
+        }
+        const since = performance.now() - started;
+        if (bounds) {
+          const m = lowerThirdMotion(since, false, theme.lowerThirdMotion);
+          g.save();
+          g.globalAlpha = m.alpha;
+          g.beginPath();
+          g.rect(bounds.x, bounds.y - 2, bounds.w * m.reveal, bounds.h + 4);
+          g.clip();
+          g.drawImage(layer, m.dx, 0);
+          g.restore();
+        }
+        drawOverlay(g, SAMPLE[scene], th, false);
+        if (bounds && since < lowerThirdInMs(theme.lowerThirdMotion))
+          frame = requestAnimationFrame(paint);
+      };
+      paint();
     });
     return () => {
       cancelled = true;
+      cancelAnimationFrame(frame);
     };
-  }, [theme, scene]);
+  }, [theme, scene, replay]);
 
   const contrast = contrastRatio(theme.primaryColor, '#FFFFFF');
   const readable = contrast >= MIN_TEXT_CONTRAST;
@@ -241,6 +269,20 @@ export function ThemeEditor() {
               ratio: contrast.toFixed(1),
             })}
           </p>
+          <Segmented<Theme['lowerThirdMotion']>
+            label={t('theme.lowerThirdMotion')}
+            value={theme.lowerThirdMotion}
+            onChange={(lowerThirdMotion) => {
+              setTheme({ ...theme, lowerThirdMotion });
+              setScene('camera_lower_third');
+            }}
+            options={[
+              { value: 'slide', label: t('theme.motion.slide') },
+              { value: 'wipe', label: t('theme.motion.wipe') },
+              { value: 'fade', label: t('theme.motion.fade') },
+              { value: 'none', label: t('theme.motion.none') },
+            ]}
+          />
           <Segmented<ThemeFont>
             label={t('theme.font')}
             value={theme.font}
@@ -294,6 +336,11 @@ export function ThemeEditor() {
             data-testid="theme-preview"
             aria-label={t('theme.previewLabel')}
           />
+          {scene === 'camera_lower_third' && theme.lowerThirdMotion !== 'none' && (
+            <Button size="dense" onClick={() => setReplay((n) => n + 1)}>
+              {t('theme.replay')}
+            </Button>
+          )}
         </div>
       </div>
       {error && (

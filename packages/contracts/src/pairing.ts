@@ -30,6 +30,8 @@ export const ClaimResponse = z.object({
   credential: z.string(),
   /** The same phone took back a slot it was already admitted to: no new approval needed. */
   reclaimed: z.boolean().optional(),
+  /** This phone is waiting to take over the (absent) camera with this id. */
+  replaces: z.string().uuid().nullable().optional(),
 });
 export type ClaimResponse = z.infer<typeof ClaimResponse>;
 
@@ -43,5 +45,7 @@ export const SourceSummary = z.object({
   status: SourceStatus,
   verificationPhrase: z.string(),
   deviceHint: z.string(),
+  /** Set on a pending phone that asks to take over this (absent) admitted camera. */
+  replacesSourceId: z.string().uuid().nullable().optional(),
 });
 export type SourceSummary = z.infer<typeof SourceSummary>;

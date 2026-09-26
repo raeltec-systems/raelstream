@@ -69,7 +69,15 @@ export async function getSession(db: Kysely<DB>, id: string) {
 export async function listSources(db: Kysely<DB>, sessionId: string): Promise<SourceSummary[]> {
   const rows = await db
     .selectFrom('camera_sources')
-    .select(['id', 'slot', 'label', 'status', 'verification_phrase', 'device_hint'])
+    .select([
+      'id',
+      'slot',
+      'label',
+      'status',
+      'verification_phrase',
+      'device_hint',
+      'replaces_source_id',
+    ])
     .where('session_id', '=', sessionId)
     .where('status', 'in', ['pending', 'admitted'])
     .orderBy('created_at')
@@ -81,6 +89,7 @@ export async function listSources(db: Kysely<DB>, sessionId: string): Promise<So
     status: r.status as SourceSummary['status'],
     verificationPhrase: r.verification_phrase,
     deviceHint: r.device_hint,
+    replacesSourceId: r.replaces_source_id,
   }));
 }
 

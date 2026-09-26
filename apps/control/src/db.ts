@@ -92,6 +92,7 @@ export interface DB {
     revoked_at: TsNull;
     pending_credential_hash: Buffer | null;
     pending_valid_until: TsNull;
+    replaces_source_id: string | null;
   };
   ingest_tokens: {
     token_hash: Buffer;

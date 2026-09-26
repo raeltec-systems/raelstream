@@ -65,6 +65,9 @@ it**. Wait for "server receiving", check the Health panel, then **Stop private t
   - If that doesn't work: press **Show reconnect code** under the camera on the studio screen and scan it
     with **the same phone**. It is straight back in; you don't need to let it in again. Never press
     **Remove camera** for this.
+  - If the phone is dead: scan the same reconnect code with **another phone**. The studio asks
+    "A different phone wants to take over": check the words match, then **Let this phone take over**.
+    On the new phone, tap **Start camera**, then **Camera ready: Cut back** in the studio.
 - **"Only YouTube is receiving the service"**: Facebook stopped. Press **Retry** in its row. If it says
   the key was rejected, press **Fix key** and paste a fresh key from Live Producer.
 - **"Mixer audio has been silent for 15 seconds"**: check the mixer. If the silence is intentional

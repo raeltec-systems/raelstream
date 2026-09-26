@@ -21,6 +21,7 @@ export function e2eUser(
     | 'phone'
     | 'reconnect'
     | 'resume'
+    | 'replace'
     | 'content'
     | 'destinations'
     | 'csp'

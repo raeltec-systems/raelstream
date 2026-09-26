@@ -16,6 +16,8 @@ export const Theme = z.object({
   secondaryColor: Hex.default('#1F2320'),
   backgroundColor: Hex.default('#161A18'),
   font: z.enum(THEME_FONTS).default('inter'),
+  /** How lower thirds come on and go off air. */
+  lowerThirdMotion: z.enum(['slide', 'wipe', 'fade', 'none']).default('slide'),
   /** Optional full-frame image for the holding ("be right back") scene. */
   holdingAssetId: z.string().uuid().nullable().default(null),
 });

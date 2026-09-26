@@ -5,6 +5,7 @@ import {
   TEXT_MAX_LINES,
   TEXT_MIN_PX,
   layoutTextCard,
+  lowerThirdInMs,
   lowerThirdMotion,
   wrapText,
 } from './overlays.js';
@@ -59,18 +60,42 @@ describe('text card layout (SPEC §10.3)', () => {
 });
 
 describe('lowerThirdMotion', () => {
-  it('slides in from the left and settles in place', () => {
+  it('slide: slides in from the left and settles in place; fades out', () => {
     const start = lowerThirdMotion(0);
     expect(start.alpha).toBe(0);
     expect(start.dx).toBeLessThan(0);
-    const mid = lowerThirdMotion(LOWER_THIRD_IN_MS / 2);
-    expect(mid.alpha).toBeGreaterThan(0.5); // ease-out: most of the way there by half time
-    expect(lowerThirdMotion(LOWER_THIRD_IN_MS)).toEqual({ alpha: 1, dx: -0 });
-    expect(lowerThirdMotion(10_000)).toEqual({ alpha: 1, dx: -0 });
+    expect(lowerThirdMotion(LOWER_THIRD_IN_MS / 2).alpha).toBeGreaterThan(0.5); // ease-out
+    for (const t of [LOWER_THIRD_IN_MS, 10_000]) {
+      const m = lowerThirdMotion(t);
+      expect([m.alpha, Math.abs(m.dx), m.reveal]).toEqual([1, 0, 1]);
+    }
+    expect(lowerThirdMotion(0, true)).toEqual({ alpha: 1, dx: 0, reveal: 1 });
+    expect(lowerThirdMotion(LOWER_THIRD_OUT_MS, true).alpha).toBe(0);
   });
 
-  it('fades out in place', () => {
-    expect(lowerThirdMotion(0, true)).toEqual({ alpha: 1, dx: 0 });
-    expect(lowerThirdMotion(LOWER_THIRD_OUT_MS, true).alpha).toBe(0);
+  it('wipe: revealed from the left edge, fully opaque, hidden the same way', () => {
+    expect(lowerThirdMotion(0, false, 'wipe')).toEqual({ alpha: 1, dx: 0, reveal: 0 });
+    const mid = lowerThirdMotion(LOWER_THIRD_IN_MS / 2, false, 'wipe');
+    expect(mid.reveal).toBeGreaterThan(0.5);
+    expect(mid.reveal).toBeLessThan(1);
+    expect(lowerThirdMotion(LOWER_THIRD_IN_MS, false, 'wipe').reveal).toBe(1);
+    expect(lowerThirdMotion(0, true, 'wipe').reveal).toBe(1);
+    expect(lowerThirdMotion(LOWER_THIRD_OUT_MS, true, 'wipe').reveal).toBe(0);
+  });
+
+  it('fade: in place, only the opacity changes', () => {
+    const mid = lowerThirdMotion(LOWER_THIRD_IN_MS / 2, false, 'fade');
+    expect(mid.dx).toBe(0);
+    expect(mid.reveal).toBe(1);
+    expect(mid.alpha).toBeGreaterThan(0);
+    expect(mid.alpha).toBeLessThan(1);
+    expect(lowerThirdMotion(LOWER_THIRD_OUT_MS / 2, true, 'fade').alpha).toBeCloseTo(0.5);
+  });
+
+  it('none: on and off at once', () => {
+    expect(lowerThirdMotion(0, false, 'none')).toEqual({ alpha: 1, dx: 0, reveal: 1 });
+    expect(lowerThirdMotion(0, true, 'none').alpha).toBe(0);
+    expect(lowerThirdInMs('none')).toBe(0);
+    expect(lowerThirdInMs('wipe')).toBe(LOWER_THIRD_IN_MS);
   });
 });

@@ -110,23 +110,63 @@ function drawLogo(g: Ctx, th: ProgrammeTheme): void {
 export const LOWER_THIRD_IN_MS = 450;
 export const LOWER_THIRD_OUT_MS = 250;
 
+export type LowerThirdStyle = 'slide' | 'wipe' | 'fade' | 'none';
+
+export interface LowerThirdMotion {
+  alpha: number;
+  /** Horizontal offset in reference pixels. */
+  dx: number;
+  /** Share of the bar shown, from its left edge (1 = all of it). */
+  reveal: number;
+}
+
+const easeOut = (p: number) => 1 - (1 - p) ** 3;
+const progress = (ms: number, total: number) => Math.min(1, Math.max(0, ms / total));
+
 /**
- * Lower-third motion: slides in from the left while fading in (ease-out), and fades out when it is
- * taken off. `sinceMs` is the time since it was put on (or taken off, for the way out).
+ * Lower-third motion for the church's chosen style. `sinceMs` is the time since it was put on (or
+ * taken off, for the way out).
+ * - slide: slides in from the left while fading in; fades out.
+ * - wipe: revealed from its left edge; hidden the same way.
+ * - fade: fades in and out in place.
+ * - none: appears and disappears at once.
  */
-export function lowerThirdMotion(sinceMs: number, leaving = false): { alpha: number; dx: number } {
+export function lowerThirdMotion(
+  sinceMs: number,
+  leaving = false,
+  style: LowerThirdStyle = 'slide',
+): LowerThirdMotion {
+  if (style === 'none') return { alpha: leaving ? 0 : 1, dx: 0, reveal: 1 };
   if (leaving) {
-    const p = Math.min(1, Math.max(0, sinceMs / LOWER_THIRD_OUT_MS));
-    return { alpha: 1 - p, dx: 0 };
+    const p = progress(sinceMs, LOWER_THIRD_OUT_MS);
+    if (style === 'wipe') return { alpha: 1, dx: 0, reveal: 1 - easeOut(p) };
+    return { alpha: 1 - p, dx: 0, reveal: 1 };
   }
-  const p = Math.min(1, Math.max(0, sinceMs / LOWER_THIRD_IN_MS));
-  const e = 1 - (1 - p) ** 3;
-  return { alpha: e, dx: -(1 - e) * 60 };
+  const e = easeOut(progress(sinceMs, LOWER_THIRD_IN_MS));
+  if (style === 'wipe') return { alpha: 1, dx: 0, reveal: e };
+  if (style === 'fade') return { alpha: e, dx: 0, reveal: 1 };
+  return { alpha: e, dx: -(1 - e) * 60, reveal: 1 };
+}
+
+/** How long a style takes to come in (0 for none). */
+export function lowerThirdInMs(style: LowerThirdStyle): number {
+  return style === 'none' ? 0 : LOWER_THIRD_IN_MS;
+}
+
+export interface LowerThirdBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 /** The name bar on its own layer, so the compositor can animate it in and out. */
-export function drawLowerThird(g: Ctx, scene: SceneState, th: ProgrammeTheme): void {
-  if (scene.kind !== 'camera_lower_third' || !scene.lowerThird) return;
+export function drawLowerThird(
+  g: Ctx,
+  scene: SceneState,
+  th: ProgrammeTheme,
+): LowerThirdBounds | null {
+  if (scene.kind !== 'camera_lower_third' || !scene.lowerThird) return null;
   const font = th.font;
   const l1 = shortenForAir(scene.lowerThird.line1);
   const l2 = shortenForAir(scene.lowerThird.line2);
@@ -162,6 +202,7 @@ export function drawLowerThird(g: Ctx, scene: SceneState, th: ProgrammeTheme): v
     g.font = `700 38px ${font}`;
     g.fillText(l2, x + barW + padX, y + 136, w - padX * 2);
   }
+  return { x, y, w: barW + w, h };
 }
 
 /**

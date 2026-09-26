@@ -7,6 +7,9 @@ import {
   drawOverlay,
   lowerThirdMotion,
   LOWER_THIRD_OUT_MS,
+  type LowerThirdBounds,
+  type LowerThirdMotion,
+  type LowerThirdStyle,
 } from './overlays.js';
 import { DEFAULT_THEME, type ProgrammeTheme, type SceneState, fitRect } from './scenes.js';
 
@@ -25,6 +28,14 @@ export interface CompositorState {
   autoCutAt: number | null;
 }
 
+interface LowerThirdLayer {
+  layer: OffscreenCanvas;
+  bounds: LowerThirdBounds;
+  key: string;
+  style: LowerThirdStyle;
+  at: number;
+}
+
 type RvfcVideo = HTMLVideoElement & {
   requestVideoFrameCallback?: (cb: () => void) => number;
 };
@@ -41,9 +52,9 @@ export class Compositor extends Observable<CompositorState> {
   private video: RvfcVideo | null = null;
   private theme: ProgrammeTheme = DEFAULT_THEME;
   private overlay: OffscreenCanvas | null = null;
-  /** The name bar, on its own layer so it can slide in and fade out. */
-  private lowerThird: { layer: OffscreenCanvas; key: string; at: number } | null = null;
-  private lowerThirdLeaving: { layer: OffscreenCanvas; at: number } | null = null;
+  /** The name bar, on its own layer so it can be animated on and off air in the church's style. */
+  private lowerThird: LowerThirdLayer | null = null;
+  private lowerThirdLeaving: LowerThirdLayer | null = null;
   private pendingAck: Array<{ version: number; resolve: () => void }> = [];
   private version = 0;
 
@@ -194,18 +205,25 @@ export class Compositor extends Observable<CompositorState> {
     const out = this.lowerThirdLeaving;
     if (out) {
       if (now - out.at >= LOWER_THIRD_OUT_MS) this.lowerThirdLeaving = null;
-      else this.drawLayer(out.layer, lowerThirdMotion(now - out.at, true));
+      else this.drawLayer(out, lowerThirdMotion(now - out.at, true, out.style));
     }
-    if (this.lowerThird)
-      this.drawLayer(this.lowerThird.layer, lowerThirdMotion(now - this.lowerThird.at));
+    const lt = this.lowerThird;
+    if (lt) this.drawLayer(lt, lowerThirdMotion(now - lt.at, false, lt.style));
     if (this.overlay) g.drawImage(this.overlay, 0, 0);
   }
 
-  private drawLayer(layer: OffscreenCanvas, m: { alpha: number; dx: number }): void {
-    if (m.alpha <= 0) return;
-    this.g.globalAlpha = m.alpha;
-    this.g.drawImage(layer, m.dx, 0);
-    this.g.globalAlpha = 1;
+  private drawLayer(l: LowerThirdLayer, m: LowerThirdMotion): void {
+    if (m.alpha <= 0 || m.reveal <= 0) return;
+    const { g } = this;
+    g.save();
+    g.globalAlpha = m.alpha;
+    if (m.reveal < 1) {
+      g.beginPath();
+      g.rect(l.bounds.x, l.bounds.y - 2, l.bounds.w * m.reveal, l.bounds.h + 4);
+      g.clip();
+    }
+    g.drawImage(l.layer, m.dx, 0);
+    g.restore();
   }
 
   /** Pre-render static graphics once per change so each tick is at most a few drawImage calls. */
@@ -219,14 +237,20 @@ export class Compositor extends Observable<CompositorState> {
     const key = lt ? JSON.stringify([lt.line1, lt.line2]) : null;
     const prev = this.lowerThird;
     const now = performance.now();
-    if (prev && prev.key !== key) this.lowerThirdLeaving = { layer: prev.layer, at: now };
+    if (prev && prev.key !== key) this.lowerThirdLeaving = { ...prev, at: now };
     if (!key) {
       this.lowerThird = null;
       return;
     }
     const layer = new OffscreenCanvas(REF_W, REF_H);
-    drawLowerThird(layer.getContext('2d')!, scene, this.theme);
+    const bounds = drawLowerThird(layer.getContext('2d')!, scene, this.theme)!;
     // A theme change redraws the same name in place; only a new name animates in.
-    this.lowerThird = { layer, key, at: prev?.key === key ? prev.at : now };
+    this.lowerThird = {
+      layer,
+      bounds,
+      key,
+      style: this.theme.lowerThirdMotion,
+      at: prev?.key === key ? prev.at : now,
+    };
   }
 }

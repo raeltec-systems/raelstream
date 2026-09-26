@@ -274,10 +274,22 @@ export async function buildApp(
   app.post('/api/pairings/claim', async (req) => {
     ipLimited(req);
     const body = ClaimRequest.parse(req.body);
-    const r = await pairing.claimInvitation(db, { ...body, userAgent: req.headers['user-agent'] });
-    await event(r.sessionId, r.reclaimed ? 'camera.reclaimed' : 'camera.pending', 'camera', {
-      label: body.label,
-    });
+    const r = await pairing.claimInvitation(
+      db,
+      { ...body, userAgent: req.headers['user-agent'] },
+      new Date(),
+      (sourceId) => hub.cameraPresent(sourceId),
+    );
+    await event(
+      r.sessionId,
+      r.reclaimed
+        ? 'camera.reclaimed'
+        : r.replaces
+          ? 'camera.replacement_pending'
+          : 'camera.pending',
+      'camera',
+      { label: body.label, ...(r.replaces ? { replaces: r.replaces } : {}) },
+    );
     await hub.broadcastSnapshot(r.sessionId);
     return r;
   });
@@ -292,8 +304,12 @@ export async function buildApp(
     const { id, src } = SourceParams.parse(req.params);
     await lease(req, id);
     const r = await pairing.admitSource(db, id, src);
+    if (r.replaced) hub.notifyCamera(r.replaced, { type: 'revoke' }, true);
     hub.notifyCamera(src, { type: 'admitted', credential: r.credential, expiresAt: r.expiresAt });
-    await event(id, 'camera.admitted', operatorOf(req).name, { sourceId: src });
+    await event(id, r.replaced ? 'camera.replaced' : 'camera.admitted', operatorOf(req).name, {
+      sourceId: src,
+      ...(r.replaced ? { replaced: r.replaced } : {}),
+    });
     await hub.broadcastSnapshot(id);
     return { ok: true };
   });

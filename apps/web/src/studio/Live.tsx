@@ -11,7 +11,7 @@ import { useStore } from '../lib/useStore.js';
 import { router } from '../lib/router.js';
 import { PROFILE_SIZE, studioRuntime } from './runtime.js';
 import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from './Broadcast.js';
-import { CameraPreview, ReconnectPanel } from './steps/DevicesStep.js';
+import { CameraPreview, ReconnectPanel, ReplacementPanel } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
 import { LeaseBanner } from './LeaseBanner.js';
 import { UpdateBanner } from './UpdateBanner.js';
@@ -87,6 +87,7 @@ export function Live() {
   const next = nextIdx !== null ? st.rundown[nextIdx] : undefined;
   const sending = st.contribution === 'sending';
   const src = st.session?.sources.find((x) => x.status === 'admitted');
+  const replacement = st.session?.sources.find((x) => x.replacesSourceId);
 
   const upBps = whip?.bitrateBps ?? null;
   const laptop =
@@ -156,7 +157,18 @@ export function Live() {
                 {cam.summary?.rttMs != null ? `${Math.round(cam.summary.rttMs)} ms` : '—'}
               </span>
             </div>
-            {src?.status === 'admitted' && !st.cameraPresent[src.id] && <ReconnectPanel />}
+            {replacement && src ? (
+              <ReplacementPanel
+                sourceId={replacement.id}
+                phrase={replacement.verificationPhrase}
+                newLabel={replacement.label}
+                newHint={replacement.deviceHint}
+                oldLabel={src.label}
+                oldBack={!!st.cameraPresent[src.id]}
+              />
+            ) : (
+              src?.status === 'admitted' && !st.cameraPresent[src.id] && <ReconnectPanel />
+            )}
           </div>
           <div className="rs-overline">{t('live.scenes')}</div>
           {comp.autoCutAt &&

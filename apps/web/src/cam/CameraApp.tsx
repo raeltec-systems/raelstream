@@ -11,7 +11,7 @@ type Phase =
   | { k: 'loading' }
   | { k: 'invalid' }
   | { k: 'join'; token: string; preview: PreviewResponse }
-  | { k: 'pending'; phrase: string }
+  | { k: 'pending'; phrase: string; replacing?: boolean }
   | { k: 'admitted' }
   | { k: 'live' }
   | { k: 'ended'; reason: 'rejected' | 'revoked' | 'expired' | 'replaced' };
@@ -147,7 +147,10 @@ export function CameraApp() {
         if (m.sourceStatus === 'admitted') {
           setPhase((p) => (p.k === 'live' ? p : { k: 'admitted' }));
           maybeAutoStart();
-        } else setPhase({ k: 'pending', phrase: credRef.current?.phrase ?? '' });
+        } else
+          setPhase((p) =>
+            p.k === 'pending' ? p : { k: 'pending', phrase: credRef.current?.phrase ?? '' },
+          );
         break;
       case 'admitted':
         credRef.current = { ...credRef.current, credential: m.credential };
@@ -217,7 +220,7 @@ export function CameraApp() {
       if (r.reclaimed) {
         autoStartRef.current = true;
         setPhase({ k: 'admitted' });
-      } else setPhase({ k: 'pending', phrase: r.verificationPhrase });
+      } else setPhase({ k: 'pending', phrase: r.verificationPhrase, replacing: !!r.replaces });
       openSocket(r.credential);
     } catch (e) {
       // A stored credential that no longer matches anything: fall back to the normal join screen.
@@ -284,7 +287,9 @@ export function CameraApp() {
       {phase.k === 'pending' && (
         <section className={s.card}>
           <h1 className={s.title}>{t('cam.waitingTitle')}</h1>
-          <p className={s.muted}>{t('cam.waitingBody')}</p>
+          <p className={s.muted}>
+            {phase.replacing ? t('cam.waitingReplaceBody') : t('cam.waitingBody')}
+          </p>
           <div className={s.phrase} data-testid="cam-phrase">
             {phase.phrase}
           </div>

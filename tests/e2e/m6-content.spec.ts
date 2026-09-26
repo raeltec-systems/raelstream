@@ -49,8 +49,16 @@ test('church look, uploaded images, and the lip-sync clip tool', async ({ browse
     await expect(studio.getByRole('button', { name: 'Save church look' })).toBeDisabled();
     await studio.locator('input[type=color]').first().fill('#7a1f2b');
     await studio.getByRole('radio', { name: 'Source Serif' }).click();
+    // Lower thirds wipe on instead of sliding; the preview plays it and can play it again.
+    await studio.getByRole('radio', { name: 'Wipe' }).click();
+    await studio.getByRole('button', { name: '▶ Play the animation again' }).click();
     await studio.getByRole('button', { name: 'Save church look' }).click();
     await expect(studio.getByRole('button', { name: 'Saved' })).toBeVisible();
+    expect(
+      await studio.evaluate(
+        async () => (await (await fetch('/api/theme')).json()).lowerThirdMotion,
+      ),
+    ).toBe('wipe');
     await studio.screenshot({ path: info.outputPath('01-church-look.png'), fullPage: true });
 
     // A service: an SVG is refused with an explanation; a real image is checked and kept.
@@ -114,9 +122,11 @@ test('church look, uploaded images, and the lip-sync clip tool', async ({ browse
     // The clip plays with its sound, and the pictures around the clap are offered to pick from.
     await expect(studio.getByTestId('sync-clip')).toHaveJSProperty('muted', false);
     const frames = studio.getByTestId('sync-strip').getByRole('option');
-    await expect(frames).toHaveCount(20, { timeout: 15_000 });
-    await frames.nth(12).click();
-    await expect(frames.nth(12)).toHaveAttribute('aria-selected', 'true');
+    // Up to 20 pictures: fewer when the clap is near either end of the clip.
+    await expect.poll(() => frames.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(10);
+    expect(await frames.count()).toBeLessThanOrEqual(20);
+    await frames.nth(5).click();
+    await expect(frames.nth(5)).toHaveAttribute('aria-selected', 'true');
     const result = studio.getByTestId('sync-result');
     await expect(result).toBeVisible();
     const use = studio.getByRole('button', { name: /^Use \d+ ms$/ });
