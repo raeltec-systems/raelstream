@@ -3,6 +3,7 @@ import type { DestinationSummary, ObservedDestination } from '@raelstream/contra
 import { Banner, Button, Modal, Pill, StatusDot, StopModal, type Tone } from '@raelstream/ui';
 import { t, type MessageKey } from '@raelstream/i18n';
 import { api } from '../lib/api.js';
+import { router } from '../lib/router.js';
 import { useStore } from '../lib/useStore.js';
 import { LIVE_STATES, PROFILE_SIZE, studioRuntime } from './runtime.js';
 import s from './Live.module.css';
@@ -283,6 +284,47 @@ export function Recordings() {
 }
 
 /** Persistent banners for partial publication and the fallback slate (SPEC §13.5, §12.5). */
+export function RecoveryBanner() {
+  const rt = studioRuntime();
+  const st = useStore(rt);
+  const audio = useStore(rt.audio);
+  if (st.stopPending)
+    return (
+      <Banner compact tone="standby" title={t('recovery.stopPending')}>
+        {t('recovery.stopPendingBody')}
+        {st.commandError && <p role="alert">{st.commandError}</p>}
+      </Banner>
+    );
+  if (!rt.isLive || st.lifecycle === 'STOPPING' || !st.lease?.mine) return null;
+  if (!st.resumeNeeded && st.contribution !== 'error' && st.contribution !== 'starting')
+    return null;
+  return (
+    <Banner
+      compact
+      tone="standby"
+      title={t(st.resumeNeeded ? 'recovery.resumeTitle' : 'recovery.reconnecting')}
+      actions={
+        <>
+          <Button size="dense" onClick={() => router.go('/studio')}>
+            {t('recovery.checkInputs')}
+          </Button>
+          <Button
+            size="dense"
+            variant="primary"
+            disabled={audio.status !== 'running' || st.contribution === 'starting'}
+            onClick={() => void rt.resumeContribution()}
+          >
+            {t('recovery.resume')}
+          </Button>
+        </>
+      }
+    >
+      {t('recovery.resumeBody')}
+      {st.contributionError && <p role="alert">{st.contributionError}</p>}
+    </Banner>
+  );
+}
+
 export function BroadcastBanners() {
   const st = useStore(studioRuntime());
   if (st.lifecycle === 'ENDED' || st.lifecycle === 'INTERRUPTED') {
@@ -374,7 +416,7 @@ export function BroadcastAction({ now }: { now: number }) {
         <Button
           size="top"
           variant="dangerTrigger"
-          disabled={st.lifecycle === 'STOPPING'}
+          disabled={st.lifecycle === 'STOPPING' || st.stopPending}
           onClick={() => setModal('stop')}
         >
           {t('live.stopStreaming')}
@@ -383,7 +425,7 @@ export function BroadcastAction({ now }: { now: number }) {
         <Button
           size="top"
           variant="primary"
-          disabled={st.destinations.length === 0 || ended || !st.lease?.mine}
+          disabled={st.destinations.length === 0 || ended || !st.lease?.mine || st.stopPending}
           onClick={() => setModal('go')}
         >
           {t('live.goLive')}

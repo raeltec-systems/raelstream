@@ -541,6 +541,38 @@ describe('media node (M2)', () => {
     evidence.takeover = { sameConnection: after?.source?.id === before?.source?.id };
   });
 
+  it('restores the runtime output path after MediaMTX alone restarts', async () => {
+    await rm(C.gen);
+    await docker(['restart', C.mtx]);
+    await until(
+      'media server restarted',
+      async () =>
+        (await fetch('http://127.0.0.1:9997/v3/paths/list', { headers: { Authorization: auth } }))
+          .ok,
+      15_000,
+    );
+    // Model the browser's recovered upload; the supervisor itself must remain running.
+    bearer = (
+      await app.inject({ method: 'POST', url: `/api/sessions/${sessionId}/ingest`, headers })
+    ).json().bearer;
+    await startGenerator();
+    await until(
+      'both destinations restored after media restart',
+      async () => {
+        const { lifecycle, o } = await observed();
+        return (
+          lifecycle === 'SENDING' &&
+          o?.normaliser.state === 'running' &&
+          o.destinations[destA]?.state === 'SENDING' &&
+          o.destinations[destB]?.state === 'SENDING'
+        );
+      },
+      45_000,
+    );
+    await record('media-restarted.flv', 8);
+    expect((await flashTimes(work, 'media-restarted.flv')).length).toBeGreaterThanOrEqual(2);
+  });
+
   it('stop wins: all processes end, the session ends and tokens are revoked (A34, A48)', async () => {
     const r = await app.inject({ method: 'POST', url: `/api/sessions/${sessionId}/stop`, headers });
     expect(r.json()).toEqual({ stopping: true });

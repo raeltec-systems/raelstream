@@ -15,6 +15,7 @@ import {
   BroadcastBanners,
   DestinationRows,
   Recordings,
+  RecoveryBanner,
   SessionPill,
 } from './Broadcast.js';
 import { CameraPreview, ReconnectPanel, ReplacementPanel } from './steps/DevicesStep.js';
@@ -179,6 +180,7 @@ export function Live() {
       <div className={s.banners}>
         <LeaseBanner compact />
         <UpdateBanner />
+        <RecoveryBanner />
         <BroadcastBanners />
       </div>
       <main className={s.main}>

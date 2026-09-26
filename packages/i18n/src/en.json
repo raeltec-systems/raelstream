@@ -564,5 +564,14 @@
   "audio.accessNeeded": "Allow microphone access so the studio can list your audio inputs (the mixer interface, the laptop microphone, and so on).",
   "audio.allowAccess": "Allow microphone access",
   "audio.accessDenied": "The browser blocked microphone access. Click the padlock next to the address, set Microphone to Allow, then try again. On a managed work laptop, IT may have blocked it.",
-  "audio.noInputs": "No audio inputs were found. Plug in the audio interface, then try again."
+  "audio.noInputs": "No audio inputs were found. Plug in the audio interface, then try again.",
+  "recovery.chooseAudio": "Choose and check your audio input in Preparation before resuming.",
+  "recovery.stopPending": "Waiting for the server to stop streaming",
+  "recovery.stopPendingBody": "Your stop request is being retried. The platforms may still be receiving the service. Keep this page open until the stop is confirmed.",
+  "recovery.resumeTitle": "Resume this live service",
+  "recovery.reconnecting": "Restoring the stream connection",
+  "recovery.checkInputs": "Check camera and audio",
+  "recovery.resume": "Resume stream",
+  "recovery.resumeBody": "Check your camera and sound in Preparation, then resume. The current programme preview will be sent to the existing broadcast.",
+  "cam.switchFailed": "Camera switch failed. The previous camera is still selected. Try again."
 }

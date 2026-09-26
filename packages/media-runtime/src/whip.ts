@@ -42,6 +42,8 @@ export class WhipPublisher extends Observable<WhipState> {
   private prevBytes: number | null = null;
   private prevFrames: number | null = null;
   private prevAt = 0;
+  private epoch = 0;
+  private request: AbortController | null = null;
 
   constructor(
     private readonly videoTrack: MediaStreamTrack,
@@ -77,7 +79,10 @@ export class WhipPublisher extends Observable<WhipState> {
   }
 
   async start(target: WhipTarget): Promise<void> {
-    await this.stop();
+    const cleanup = this.stop();
+    const epoch = this.epoch;
+    await cleanup;
+    if (epoch !== this.epoch) return;
     this.set({ status: 'connecting', error: null });
     const pc = new RTCPeerConnection({
       iceServers: target.iceServers,
@@ -98,6 +103,7 @@ export class WhipPublisher extends Observable<WhipState> {
     await v.sender.setParameters(params).catch(() => undefined);
 
     pc.addEventListener('connectionstatechange', () => {
+      if (this.pc !== pc || epoch !== this.epoch) return;
       const s = pc.connectionState;
       if (s === 'connected') this.set({ status: 'connected' });
       else if (s === 'disconnected') this.set({ status: 'reconnecting' });
@@ -113,8 +119,10 @@ export class WhipPublisher extends Observable<WhipState> {
     await pc.setLocalDescription(offer);
     // Relay candidates (TURN over TCP/TLS) take longer to gather than host ones.
     await waitForIceGathering(pc, target.iceServers.length > 0 ? 6000 : 2000);
+    if (epoch !== this.epoch) return;
 
     const ctrl = new AbortController();
+    this.request = ctrl;
     const timeout = setTimeout(() => ctrl.abort(), 10_000);
     let res: Response;
     try {
@@ -125,11 +133,13 @@ export class WhipPublisher extends Observable<WhipState> {
         signal: ctrl.signal,
       });
     } catch {
-      this.fail('INGEST_TIMEOUT');
+      if (epoch === this.epoch) this.fail('INGEST_TIMEOUT');
       return;
     } finally {
       clearTimeout(timeout);
+      if (this.request === ctrl) this.request = null;
     }
+    if (epoch !== this.epoch) return;
     if (res.status === 401 || res.status === 403) return this.fail('INGEST_AUTH');
     if (res.status === 409) return this.fail('STALE_GENERATION');
     if (res.status === 400 || res.status === 415 || res.status === 406)
@@ -138,7 +148,10 @@ export class WhipPublisher extends Observable<WhipState> {
     const loc = res.headers.get('Location');
     this.resource = loc ? new URL(loc, target.whipUrl).toString() : null;
     this.bearer = target.bearer;
-    await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+    const sdp = await res.text();
+    if (epoch !== this.epoch) return;
+    await pc.setRemoteDescription({ type: 'answer', sdp });
+    if (epoch !== this.epoch) return;
     this.statsTimer = setInterval(() => void this.pollStats(), 1000);
   }
 
@@ -146,12 +159,19 @@ export class WhipPublisher extends Observable<WhipState> {
 
   /** Idempotent stop; DELETE the WHIP resource (best effort, 2 s). */
   async stop(): Promise<void> {
+    ++this.epoch;
+    this.request?.abort();
+    this.request = null;
     if (this.statsTimer) clearInterval(this.statsTimer);
     this.statsTimer = null;
     const res = this.resource;
     this.resource = null;
     this.pc?.close();
     this.pc = null;
+    this.prevBytes = null;
+    this.prevFrames = null;
+    this.prevAt = 0;
+    if (this.state.status !== 'idle') this.set({ status: 'closed', bitrateBps: null });
     if (res) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 2000);
@@ -162,7 +182,6 @@ export class WhipPublisher extends Observable<WhipState> {
       }).catch(() => undefined);
       clearTimeout(timer);
     }
-    if (this.state.status !== 'idle') this.set({ status: 'closed', bitrateBps: null });
   }
 
   private fail(code: Exclude<WhipErrorCode, null>): void {
@@ -172,8 +191,11 @@ export class WhipPublisher extends Observable<WhipState> {
   }
 
   private async pollStats(): Promise<void> {
-    if (!this.pc) return;
-    const r = toMap(await this.pc.getStats());
+    const pc = this.pc;
+    if (!pc) return;
+    const stats = await pc.getStats().catch(() => null);
+    if (!stats || this.pc !== pc) return;
+    const r = toMap(stats);
     const now = performance.now();
     let bytes: number | null = null;
     let frames: number | null = null;
