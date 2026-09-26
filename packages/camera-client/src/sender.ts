@@ -247,11 +247,19 @@ export class CameraSender {
     const track = stream.getVideoTracks()[0]!;
     track.contentHint = 'motion';
     track.addEventListener('ended', () => this.onTrackEnded(stream));
-    this.stream = stream;
     const sender = this.pc
       ?.getTransceivers()
       .find((t) => t.receiver.track.kind === 'video')?.sender;
-    await sender?.replaceTrack(track).catch(() => undefined);
+    try {
+      await sender?.replaceTrack(track);
+    } catch (e) {
+      stream.getTracks().forEach((t) => t.stop());
+      // Keep the working capture and sender together. A rejected replacement is not a live switch.
+      this.set({ captureError: mapCaptureError(e) });
+      this.sendState();
+      return;
+    }
+    this.stream = stream;
     old?.getVideoTracks().forEach((t) => t.stop());
     this.set({ capture: 'live', captureError: null, info: this.describe(track) });
     this.sendState();

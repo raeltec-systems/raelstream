@@ -47,6 +47,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
       'X-RS-Client': clientId,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(10_000),
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;

@@ -79,6 +79,9 @@ export interface StudioState {
     result: UplinkResult | null;
   };
   commandError: string | null;
+  /** Stop intent survives a reload and clears only after server confirmation. */
+  stopPending: boolean;
+  resumeNeeded: boolean;
   /** Studio lease (SPEC §9.10): only the holder may send commands; others are read-only. */
   lease: {
     mine: boolean;
@@ -190,6 +193,8 @@ export class StudioRuntime extends Observable<StudioState> {
       uplink: { status: 'idle', progressMbps: null, result: null },
       quality: { upload: 0, cpu: 0, camera: 0 },
       commandError: null,
+      stopPending: false,
+      resumeNeeded: false,
       lease: null,
       presetId: null,
       presetName: null,
@@ -213,6 +218,12 @@ export class StudioRuntime extends Observable<StudioState> {
       this.syncPhoneAudio();
     });
     setInterval(() => this.adaptTick(), 1000);
+    window.addEventListener('beforeunload', (e) => {
+      if (this.contributionWanted || this.state.stopPending) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
     document.addEventListener('visibilitychange', () => {
       // E11: switching tabs is fine now, but the report should show it happened while sending.
       if (document.visibilityState === 'hidden' && this.isLive) void this.logEvent('studio.hidden');
@@ -297,6 +308,7 @@ export class StudioRuntime extends Observable<StudioState> {
   }
 
   private adaptTick(now = performance.now()): void {
+    this.recoveryTick();
     this.sample();
     const w = this.whip?.snapshot;
     if (w?.status === 'connected') {
@@ -432,7 +444,13 @@ export class StudioRuntime extends Observable<StudioState> {
   }
 
   async attach(session: SessionSnapshot): Promise<void> {
-    this.set({ session });
+    this.set({ session, lifecycle: session.lifecycle });
+    try {
+      this.set({ stopPending: sessionStorage.getItem(`rs.stop.${session.id}`) === '1' });
+    } catch {
+      /* storage can be unavailable */
+    }
+    this.set({ resumeNeeded: this.isLive && !this.whip && !this.state.stopPending });
     this.compositor.setTheme({ serviceName: session.name });
     void this.loadTheme();
     void this.loadCalibration();
@@ -472,6 +490,7 @@ export class StudioRuntime extends Observable<StudioState> {
           this.lastSequence = Math.max(this.lastSequence, m.snapshot.lastSequence);
           const hadAdmitted = this.admittedSource?.id;
           this.set({ session: m.snapshot, lifecycle: m.snapshot.lifecycle });
+          this.acceptLifecycle(m.snapshot.lifecycle);
           if (hadAdmitted && !this.admittedSource) this.camera.close();
         }
         break;
@@ -488,6 +507,7 @@ export class StudioRuntime extends Observable<StudioState> {
             ? this.state.liveDestinationIds
             : ids,
         });
+        this.acceptLifecycle(m.lifecycle, m.observed?.normaliser.state === 'stopped');
         break;
       }
       case 'peer':
@@ -885,6 +905,8 @@ export class StudioRuntime extends Observable<StudioState> {
 
   /** Another tab took over: stop contributing and drop the phone link immediately (fencing, A33). */
   private async onLeaseLost(): Promise<void> {
+    this.contributionWanted = false;
+    ++this.contributionEpoch;
     this.set({
       lease: {
         mine: false,
@@ -912,8 +934,8 @@ export class StudioRuntime extends Observable<StudioState> {
         lease: { mine: true, holderName: null, holderIsMe: true, canTakeOver: true },
       });
       await this.renewLease();
-      // If media was live, restore our contribution on the new generation.
-      if (this.isLive) await this.ensureContribution();
+      // A new tab must check its local audio source before contributing on the new generation.
+      if (this.isLive && !this.state.stopPending) this.set({ resumeNeeded: true });
     } catch (e) {
       this.set({ commandError: (e as Error).message });
     }
@@ -1042,32 +1064,205 @@ export class StudioRuntime extends Observable<StudioState> {
     return !!this.state.lifecycle && LIVE_STATES.includes(this.state.lifecycle);
   }
 
-  /** Ensure the WHIP contribution for the current generation is running. */
-  private async ensureContribution(): Promise<void> {
-    const s = this.state.session!;
+  private contributionWanted = false;
+  private contributionEpoch = 0;
+  private contributionFlight: Promise<void> | null = null;
+  private reconnectAt = 0;
+  private reconnectAttempts = 0;
+  private disconnectedAt: number | null = null;
+  private connectingAt = 0;
+  private recoveryBlocked = false;
+  private stopFlight = false;
+  private stopRetryAt = 0;
+  private stopAccepted = false;
+  private startPending = false;
+
+  /** Reconcile only this tab's authorised contribution. Destination retries are independent. */
+  private recoveryTick(now = Date.now()): void {
+    if (this.state.stopPending) {
+      if (now >= this.stopRetryAt) void this.sendStop();
+      return;
+    }
     if (
-      this.whip &&
-      (this.whip.snapshot.status === 'connected' || this.whip.snapshot.status === 'connecting')
+      !this.contributionWanted ||
+      !this.state.lease?.mine ||
+      this.recoveryBlocked ||
+      this.startPending
     )
       return;
-    const ingest = await api<IngestResponse>('POST', `/api/sessions/${s.id}/ingest`);
-    this.whip = new WhipPublisher(
-      this.compositor.track,
-      this.audio.track,
-      PROFILE_SIZE[this.state.profile].ceiling,
-    );
-    this.whip.subscribe(() => {
-      const w = this.whip!.snapshot;
-      if (w.status === 'connected' && this.state.contribution !== 'sending')
-        this.set({ contribution: 'sending', sendingSince: Date.now() });
-      if (w.status === 'failed') this.set({ contribution: 'error', contributionError: w.error });
+    if (['STOPPING', 'ENDED', 'INTERRUPTED'].includes(this.state.lifecycle ?? '')) return;
+    const status = this.whip?.snapshot.status;
+    if (status === 'connected') {
+      this.reconnectAttempts = 0;
+      this.disconnectedAt = null;
+      return;
+    }
+    if (status === 'reconnecting') {
+      this.disconnectedAt ??= now;
+      if (now - this.disconnectedAt < 10_000) return;
+    }
+    if (status === 'connecting' && now - this.connectingAt < 25_000) return;
+    if (now >= this.reconnectAt && !this.contributionFlight) {
+      this.reconnectAt = now + Math.min(15_000, 1000 * 2 ** Math.min(this.reconnectAttempts++, 4));
+      void this.ensureContribution(true).catch((e) => this.reportError(e));
+    }
+  }
+
+  /** A reload never guesses an audio input. Select it in Preparation, then explicitly resume. */
+  async resumeContribution(): Promise<void> {
+    if (!this.state.lease?.mine || this.state.stopPending || !this.isLive) return;
+    if (this.state.lifecycle === 'STOPPING') return;
+    if (this.audio.snapshot.status !== 'running') {
+      this.set({ commandError: t('recovery.chooseAudio') });
+      return;
+    }
+    const epoch = this.contributionEpoch;
+    try {
+      await this.audio.ctx.resume();
+    } catch (e) {
+      this.reportError(e);
+      return;
+    }
+    if (
+      epoch !== this.contributionEpoch ||
+      this.state.stopPending ||
+      !this.state.lease?.mine ||
+      !this.isLive
+    )
+      return;
+    this.set({ resumeNeeded: false, commandError: null });
+    this.contributionWanted = true;
+    this.recoveryBlocked = false;
+    this.reconnectAttempts = 0;
+    this.reconnectAt = 0;
+    await this.ensureContribution(true).catch((e) => this.reportError(e));
+  }
+
+  private acceptLifecycle(lifecycle: SessionLifecycle | null, normaliserStopped = false): void {
+    if (lifecycle === 'ENDED' || lifecycle === 'INTERRUPTED' || lifecycle === 'STOPPING') {
+      void this.cancelContribution();
+      this.set({ resumeNeeded: false });
+    }
+    if (
+      lifecycle === 'ENDED' ||
+      lifecycle === 'INTERRUPTED' ||
+      (lifecycle === 'PREPARING' && normaliserStopped && this.stopAccepted)
+    ) {
+      this.setStopPending(false);
+    }
+  }
+
+  private async cancelContribution(): Promise<void> {
+    this.contributionWanted = false;
+    ++this.contributionEpoch;
+    const old = this.whip;
+    this.whip = null;
+    this.set({ contribution: 'idle', sendingSince: null });
+    await old?.stop();
+  }
+
+  /** Single flight, fresh credential per retry, and fencing against Stop/takeover while awaiting I/O. */
+  private ensureContribution(force = false): Promise<void> {
+    if (this.contributionFlight) return this.contributionFlight;
+    if (!this.contributionWanted || !this.state.lease?.mine || this.state.stopPending)
+      return Promise.resolve();
+    if (!force && this.whip && ['connected', 'connecting'].includes(this.whip.snapshot.status))
+      return Promise.resolve();
+    const epoch = this.contributionEpoch;
+    const session = this.state.session!;
+    const valid = () =>
+      epoch === this.contributionEpoch &&
+      this.contributionWanted &&
+      this.state.lease?.mine &&
+      !this.state.stopPending &&
+      this.state.session?.id === session.id &&
+      this.state.session?.generation === session.generation;
+    const run = async () => {
+      const old = this.whip;
+      this.whip = null;
+      await old?.stop();
+      if (!valid()) return;
+      this.set({ contribution: 'starting', contributionError: null });
+      try {
+        const ingest = await api<IngestResponse>('POST', `/api/sessions/${session.id}/ingest`);
+        if (!valid()) return;
+        const publisher = new WhipPublisher(
+          this.compositor.track,
+          this.audio.track,
+          PROFILE_SIZE[this.state.profile].ceiling,
+        );
+        this.whip = publisher;
+        this.connectingAt = Date.now();
+        this.disconnectedAt = null;
+        publisher.subscribe(() => {
+          if (this.whip !== publisher || !valid()) return;
+          const w = publisher.snapshot;
+          if (w.status === 'connected' && this.state.contribution !== 'sending')
+            this.set({
+              contribution: 'sending',
+              contributionError: null,
+              sendingSince: Date.now(),
+            });
+          if (w.status === 'reconnecting') this.set({ contribution: 'starting' });
+          if (w.status === 'failed') {
+            this.recoveryBlocked = w.error !== 'INGEST_TIMEOUT';
+            this.set({ contribution: 'error', contributionError: w.error });
+          }
+        });
+        await publisher.start({
+          whipUrl: ingest.whipUrl,
+          bearer: ingest.bearer,
+          iceServers: ingest.iceServers as RTCIceServer[],
+          iceTransportPolicy: ingest.iceTransportPolicy ?? 'all',
+        });
+        if (!valid()) await publisher.stop();
+      } catch (e) {
+        if (!valid()) return;
+        this.recoveryBlocked = e instanceof ApiFailure && e.status >= 400 && e.status < 500;
+        this.set({ contribution: 'error', contributionError: (e as Error).message });
+      }
+    };
+    this.contributionFlight = run().finally(() => {
+      this.contributionFlight = null;
     });
-    await this.whip.start({
-      whipUrl: ingest.whipUrl,
-      bearer: ingest.bearer,
-      iceServers: ingest.iceServers as RTCIceServer[],
-      iceTransportPolicy: ingest.iceTransportPolicy ?? 'all',
-    });
+    return this.contributionFlight;
+  }
+
+  private setStopPending(pending: boolean): void {
+    this.set({ stopPending: pending });
+    const id = this.state.session?.id;
+    if (!id) return;
+    try {
+      if (pending) sessionStorage.setItem(`rs.stop.${id}`, '1');
+      else sessionStorage.removeItem(`rs.stop.${id}`);
+    } catch {
+      /* retry remains active even if storage is unavailable */
+    }
+  }
+
+  private async sendStop(): Promise<void> {
+    if (this.stopFlight || this.startPending || !this.state.stopPending || !this.state.session)
+      return;
+    this.stopFlight = true;
+    this.stopRetryAt = Date.now() + 3000;
+    try {
+      const result = await api<{ stopping: boolean }>(
+        'POST',
+        `/api/sessions/${this.state.session.id}/stop`,
+      );
+      this.stopAccepted = true;
+      await this.cancelContribution();
+      this.set({ commandError: null });
+      // Private tests have no ENDED state. No running desired media means the stop is complete.
+      if (!result.stopping) this.setStopPending(false);
+      const session = await api<SessionSnapshot>('GET', `/api/sessions/${this.state.session.id}`);
+      this.set({ session, lifecycle: session.lifecycle });
+      this.acceptLifecycle(session.lifecycle);
+    } catch (e) {
+      this.set({ commandError: (e as Error).message });
+    } finally {
+      this.stopFlight = false;
+    }
   }
 
   private async command(path: string, body?: unknown): Promise<void> {
@@ -1076,10 +1271,16 @@ export class StudioRuntime extends Observable<StudioState> {
 
   async startPrivateTest(): Promise<void> {
     const s = this.state.session;
-    if (!s) return;
+    if (!s || this.state.stopPending || this.startPending || !this.state.lease?.mine) return;
+    this.startPending = true;
+    this.stopAccepted = false;
+    const epoch = this.contributionEpoch;
+    this.contributionWanted = true;
+    this.recoveryBlocked = false;
     this.set({ contribution: 'starting', contributionError: null, commandError: null });
     try {
       await this.command('mode', { mode: 'ingest_test' });
+      if (epoch !== this.contributionEpoch) return;
       await this.command('start', {
         mode: 'ingest_test',
         profile: this.state.profile,
@@ -1087,26 +1288,31 @@ export class StudioRuntime extends Observable<StudioState> {
       });
       await this.ensureContribution();
     } catch (e) {
+      this.contributionWanted = false;
       this.set({ contribution: 'error', contributionError: (e as Error).message });
+    } finally {
+      this.startPending = false;
+      if (this.state.stopPending) void this.sendStop();
     }
   }
 
   async stopPrivateTest(): Promise<void> {
-    await this.command('stop').catch(() => undefined);
-    await this.whip?.stop();
-    this.whip = null;
-    const s = this.state.session;
-    if (s)
-      await api('POST', `/api/sessions/${s.id}/mode`, { mode: 'rehearsal' }).catch(() => undefined);
-    this.set({ contribution: 'idle', sendingSince: null });
+    await this.stopSending();
   }
 
   /** Start sending to the chosen destinations (B§16.4). The idempotency key makes double clicks safe (A32). */
   async goLive(destinationIds: string[], record = false): Promise<void> {
+    if (this.state.stopPending || this.startPending || !this.state.lease?.mine) return;
+    this.startPending = true;
+    this.stopAccepted = false;
+    const epoch = this.contributionEpoch;
+    this.contributionWanted = true;
+    this.recoveryBlocked = false;
     this.set({ commandError: null, liveDestinationIds: destinationIds });
     try {
       if (this.state.session?.mode === 'rehearsal')
         await this.command('mode', { mode: 'ingest_test' });
+      if (epoch !== this.contributionEpoch) return;
       await api('POST', `/api/sessions/${this.state.session!.id}/start`, {
         mode: 'live',
         profile: this.state.profile,
@@ -1115,15 +1321,22 @@ export class StudioRuntime extends Observable<StudioState> {
       });
       await this.ensureContribution();
     } catch (e) {
+      this.contributionWanted = false;
       this.set({ commandError: (e as Error).message });
+    } finally {
+      this.startPending = false;
+      if (this.state.stopPending) void this.sendStop();
     }
   }
 
   async stopSending(): Promise<void> {
-    await this.command('stop').catch((e) => this.set({ commandError: (e as Error).message }));
-    await this.whip?.stop();
-    this.whip = null;
-    this.set({ contribution: 'idle', sendingSince: null });
+    this.contributionWanted = false;
+    ++this.contributionEpoch;
+    this.set({ resumeNeeded: false });
+    this.setStopPending(true);
+    // Keep the existing media flowing until the server accepts Stop. Do not confuse local
+    // disconnection with confirmed destination shutdown. A pending start is fenced immediately.
+    await this.sendStop();
   }
 
   /** Keep the slate up 5 more minutes while the studio comes back (SPEC §12.5; at most 20 min). */

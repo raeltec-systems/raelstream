@@ -396,6 +396,11 @@ function LiveCamera({ sender, label }: { sender: CameraSender; label: string }) 
         </div>
       )}
       <div className={s.sheet}>
+        {snd.captureError && (
+          <p className={s.error} role="alert">
+            {t('cam.switchFailed')}
+          </p>
+        )}
         {zoomOptions.length > 1 && (
           <Segmented<string>
             label={t('cam.zoom')}
