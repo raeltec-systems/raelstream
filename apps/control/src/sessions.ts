@@ -93,6 +93,17 @@ export async function listSources(db: Kysely<DB>, sessionId: string): Promise<So
   }));
 }
 
+/** The profile the media node was asked to run at, while it runs (not while stopping). */
+function runningProfile(desired: unknown): SessionSnapshot['runningProfile'] {
+  const d = desired as { normaliser?: string; stopRequestedAt?: string | null; profile?: string };
+  if (!d || d.normaliser !== 'running' || d.stopRequestedAt) return null;
+  return d.profile === 'full_hd' || d.profile === 'reliable_hd' ? d.profile : null;
+}
+
+function isRecording(desired: unknown): boolean {
+  return (desired as { record?: boolean } | null)?.record === true;
+}
+
 export async function snapshot(db: Kysely<DB>, id: string): Promise<SessionSnapshot> {
   const s = await getSession(db, id);
   return {
@@ -103,6 +114,8 @@ export async function snapshot(db: Kysely<DB>, id: string): Promise<SessionSnaps
     generation: s.generation,
     sources: await listSources(db, id),
     lastSequence: Number(s.last_sequence),
+    runningProfile: runningProfile(s.desired_state),
+    recording: runningProfile(s.desired_state) !== null && isRecording(s.desired_state),
   };
 }
 

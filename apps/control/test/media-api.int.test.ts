@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Kysely } from 'kysely';
 import type { FastifyInstance } from 'fastify';
@@ -15,11 +18,13 @@ let sessionId: string;
 let withKey: string;
 let noKey: string;
 
+const recordingsDir = mkdtempSync(join(tmpdir(), 'rs-rec-'));
+
 beforeAll(async () => {
   const f = await freshDb('rs_test_media_api');
   db = f.db;
   url = f.url;
-  ({ app, headers } = await appWithOperator(db, f.url));
+  ({ app, headers } = await appWithOperator(db, f.url, { RS_RECORDINGS_DIR: recordingsDir }));
   sessionId = (
     await app.inject({
       method: 'POST',
@@ -118,10 +123,64 @@ describe('start / stop / retry (SPEC §12.1)', () => {
     expect(d.lifecycle).toBe('PREPARING'); // private test never enters a live state
   });
 
-  it('refuses to change the profile of a running programme (B§14.3)', async () => {
-    expect(
-      (await start({ mode: 'live', profile: 'full_hd', destinationIds: [withKey] })).statusCode,
-    ).toBe(400);
+  it('refuses to change the profile of a running programme (B§14.3), and says why', async () => {
+    const r = await start({ mode: 'live', profile: 'full_hd', destinationIds: [withKey] });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().code).toBe('PROFILE_LOCKED');
+    expect(r.json().message).toMatch(/private test is running at a different programme size/);
+  });
+
+  it('tells a reloaded studio the size the private test is running at', async () => {
+    const snap = await app.inject({ method: 'GET', url: `/api/sessions/${sessionId}`, headers });
+    expect(snap.json().runningProfile).toBe('reliable_hd');
+  });
+
+  it('records a private test on request, and stops recording on request', async () => {
+    const record = (on: boolean) =>
+      app.inject({
+        method: 'POST',
+        url: `/api/sessions/${sessionId}/record`,
+        headers,
+        payload: { on },
+      });
+    const snap = async () =>
+      (await app.inject({ method: 'GET', url: `/api/sessions/${sessionId}`, headers })).json();
+    expect((await snap()).recording).toBe(false);
+    expect((await record(true)).json()).toEqual({ recording: true });
+    expect((await desired()).desired_state).toMatchObject({ mode: 'ingest_test', record: true });
+    expect((await snap()).recording).toBe(true);
+    await record(false);
+    expect((await desired()).desired_state).toMatchObject({ record: false });
+    expect((await snap()).recording).toBe(false);
+  });
+
+  it('plays a recording in the studio with seeking (byte ranges), or downloads it', async () => {
+    const dir = join(recordingsDir, 'norm', sessionId, 'a'.repeat(32));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, '2026-09-27_09-00-00-000000.mp4'), Buffer.alloc(1000, 7));
+    const list = (
+      await app.inject({ method: 'GET', url: `/api/sessions/${sessionId}/recordings`, headers })
+    ).json();
+    expect(list).toHaveLength(1);
+    const part = await app.inject({
+      method: 'GET',
+      url: `${list[0].url}?play=1`,
+      headers: { ...headers, range: 'bytes=10-19' },
+    });
+    expect(part.statusCode).toBe(206);
+    expect(part.headers['content-range']).toBe('bytes 10-19/1000');
+    expect(part.rawPayload).toHaveLength(10);
+    expect(part.headers['content-disposition']).toBeUndefined();
+    const whole = await app.inject({ method: 'GET', url: list[0].url, headers });
+    expect(whole.statusCode).toBe(200);
+    expect(whole.rawPayload).toHaveLength(1000);
+    expect(whole.headers['content-disposition']).toMatch(/attachment/);
+    const bad = await app.inject({
+      method: 'GET',
+      url: list[0].url,
+      headers: { ...headers, range: 'bytes=5000-' },
+    });
+    expect(bad.statusCode).toBe(416);
   });
 
   it('upgrades to live; the same idempotency key returns the same result (A32)', async () => {
@@ -173,6 +232,17 @@ describe('start / stop / retry (SPEC §12.1)', () => {
     expect(
       (await start({ mode: 'live', profile: 'reliable_hd', destinationIds: [withKey] })).statusCode,
     ).toBe(409);
+  });
+
+  it('cannot switch recording on when nothing is running', async () => {
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sessionId}/record`,
+      headers,
+      payload: { on: true },
+    });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().code).toBe('NOT_RUNNING');
   });
 });
 

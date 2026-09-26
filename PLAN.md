@@ -313,3 +313,12 @@ soak on that hardware (A26) and two real services (A47).
 | Replacement phone | Done (migration 0008): a different phone scanning the reconnect code while the camera's phone is **offline** waits as a replacement; the studio shows "A different phone wants to take over from Camera 1" with the words to compare, **Let this phone take over** / **Refuse**. Letting it in revokes the old camera in the same transaction (`camera.replaced`). While the old phone is connected, another phone is still refused; only one phone may wait; removing the old camera turns the waiting phone into an ordinary new camera. |
 
 **Verified:** 92 unit, 77 integration; Playwright: all three camera-reconnect runs (including a second phone taking over), the church look with the Wipe style, phone audio, invite/lease.
+
+### Owner testing round 3: 26 Sep 2026
+
+| Report | Fix |
+|---|---|
+| "That didn't work: Some details were not valid" on Go live during a private test | The studio tab had been reloaded during the private test and asked to go live at a different programme size (1080p) from the one the test was running at (720p); the media node refused. The snapshot now carries the size the media node is running at (`runningProfile`); a reloaded studio follows it, and Go live upgrades a running test at its own size. If the sizes still differ, the message says so (`PROFILE_LOCKED`) instead of "not valid". |
+| Record without going live, then watch and listen | **Record the test** (on by default) records the private test on the server; recording can be switched on and off while it runs. **Recordings** in the studio lists this service's files, plays them in place with sound (byte-range seeking) or downloads them. A live "watch while it runs" player is not built: the server's programme carries AAC audio, which browsers do not play over WebRTC; it would need HLS and a player library. |
+
+**Verified:** unit, 81 integration (profile lock message, running size in the snapshot, record on/off, NOT_RUNNING, ranged playback, 416); Playwright locally for the non-media runs; the spine run (records the private test and plays the recording, checking decoded audio) runs in CI with the real media node.

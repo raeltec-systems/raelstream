@@ -188,8 +188,33 @@ test('WP0 spine: pair → direct camera → audio → compose → WHIP ingest', 
   await studio.screenshot({ path: info.outputPath('04-studio-live-private-test.png') });
   await cam.screenshot({ path: info.outputPath('05-camera-live.png') });
 
+  // The private test was recorded (on by default): the server's own programme, with its sound.
+  await expect(studio.getByTestId('test-recording')).toHaveAttribute('aria-pressed', 'true');
   await studio.getByRole('button', { name: 'Stop private test' }).click();
   await expect(studio.getByText('Not sending')).toBeVisible();
+  const recordings = studio.getByRole('button', { name: /^Recordings \(\d+\)$/ });
+  await expect(recordings).toBeVisible({ timeout: 15_000 });
+  await recordings.click();
+  await studio.getByRole('dialog').getByRole('button', { name: '▶ Play' }).first().click();
+  const player = studio.getByTestId('recording-player');
+  await expect
+    .poll(() => player.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(2);
+  expect(await player.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
+  // Sound too: Chrome counts the audio it has decoded while the recording plays.
+  await expect
+    .poll(
+      () =>
+        player.evaluate(
+          (v) =>
+            (v as HTMLVideoElement & { webkitAudioDecodedByteCount: number })
+              .webkitAudioDecodedByteCount,
+        ),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
+  await studio.screenshot({ path: info.outputPath('05b-private-test-recording.png') });
+  await studio.keyboard.press('Escape');
 
   // The service report (SPEC §19): the studio's 10 s statistics windows arrived; what was not measured
   // says so in words (A45).

@@ -80,11 +80,26 @@ export function registerRecordingRoutes(
     const path = join(cfg.recordingsDir, 'norm', id, dir, file);
     const st = await stat(path).catch(() => null);
     if (!st?.isFile()) throw new AppError('NOT_FOUND');
-    return reply
+    reply
       .header('Content-Type', 'video/mp4')
-      .header('Content-Length', st.size)
-      .header('Content-Disposition', `attachment; filename="${file}"`)
-      .header('Cache-Control', 'private, no-store')
-      .send(createReadStream(path));
+      .header('Accept-Ranges', 'bytes')
+      .header('Cache-Control', 'private, no-store');
+    // "?play=1" is for the studio's player; otherwise the browser saves the file.
+    if ((req.query as { play?: string }).play !== '1')
+      reply.header('Content-Disposition', `attachment; filename="${file}"`);
+    // Byte ranges let the player seek without downloading the whole recording first.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+    if (range && (range[1] || range[2])) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, st.size - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1;
+      if (start >= st.size || start > end)
+        return reply.status(416).header('Content-Range', `bytes */${st.size}`).send();
+      return reply
+        .status(206)
+        .header('Content-Range', `bytes ${start}-${end}/${st.size}`)
+        .header('Content-Length', end - start + 1)
+        .send(createReadStream(path, { start, end }));
+    }
+    return reply.header('Content-Length', st.size).send(createReadStream(path));
   });
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SourceSummary } from './pairing.js';
+import { Profile } from './media.js';
 
 export const SessionLifecycle = z.enum([
   'DRAFT',
@@ -26,6 +27,10 @@ export const SessionSnapshot = z.object({
   generation: z.number().int().positive(),
   sources: z.array(SourceSummary),
   lastSequence: z.number().int().nonnegative(),
+  /** The programme size the media node is running at (private test or live), if it is running. */
+  runningProfile: Profile.nullable().optional(),
+  /** The media node is recording the programme privately (a private test or a live service). */
+  recording: z.boolean().optional(),
 });
 export type SessionSnapshot = z.infer<typeof SessionSnapshot>;
 

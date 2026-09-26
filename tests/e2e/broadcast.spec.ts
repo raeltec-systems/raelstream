@@ -111,7 +111,7 @@ test('Go live → both sending → one platform lost → stop → ended', async 
   await page.screenshot({ path: info.outputPath('04-ended.png') });
 
   // The private recording (SPEC §12.7): MediaMTX recorded the public output; the owner downloads it.
-  await page.getByRole('button', { name: /^Recording \(\d+ files?\)$/ }).click();
+  await page.getByRole('button', { name: /^Recordings \(\d+\)$/ }).click();
   const link = page.getByRole('dialog').getByRole('link').first();
   const href = (await link.getAttribute('href'))!;
   const file = await page.request.get(href);

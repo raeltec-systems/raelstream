@@ -9,6 +9,7 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   RATE_LIMITED: 429,
   PAIR_INVALID: 410,
   PAIR_SLOT_TAKEN: 409,
+  PROFILE_LOCKED: 409,
   SESSION_ACTIVE_EXISTS: 409,
   STALE_GENERATION: 409,
   LEASE_HELD: 409,
@@ -18,6 +19,7 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   DEST_NOT_CONFIGURED: 409,
   DEST_KEY_MISSING: 409,
   NOT_SENDING: 409,
+  NOT_RUNNING: 409,
   DEST_URL_NOT_ALLOWED: 400,
   DEST_UNREACHABLE: 502,
   ASSET_TOO_LARGE: 413,
@@ -41,11 +43,14 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   RATE_LIMITED: 'Too many attempts. Wait a minute and try again.',
   PAIR_INVALID: 'This code is no longer valid. Ask the studio for a new one.',
   PAIR_SLOT_TAKEN: 'A camera is already connected. Remove it in the studio first.',
+  PROFILE_LOCKED:
+    'The private test is running at a different programme size. Stop the private test, then go live.',
   SESSION_ACTIVE_EXISTS: 'Another service is already running.',
   STALE_GENERATION: 'Another studio has taken over this service.',
   DEST_NOT_CONFIGURED: 'A selected destination is not set up. Set it up or deselect it.',
   DEST_KEY_MISSING: 'A selected destination has no stream key. Paste the key or deselect it.',
   NOT_SENDING: 'That destination is not part of this broadcast.',
+  NOT_RUNNING: 'Start the private test or go live first.',
   DEST_URL_NOT_ALLOWED:
     'That server is not an official Facebook or YouTube ingest address. Choose one from the list.',
   DEST_UNREACHABLE:

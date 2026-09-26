@@ -85,7 +85,7 @@ export async function startMedia(
   const existing = currentDesired(s.desired_state);
   const running = existing && existing.normaliser === 'running' && !existing.stopRequestedAt;
   if (running && existing.mode === req.mode) return { desired: existing }; // repeated Start (A32)
-  if (running && existing.profile !== req.profile) throw new AppError('VALIDATION', 'session');
+  if (running && existing.profile !== req.profile) throw new AppError('PROFILE_LOCKED', 'session');
 
   const publishers: DesiredState['publishers'] = {};
   if (req.mode === 'live') {
@@ -123,7 +123,8 @@ export async function startMedia(
     fallbackGraceS: s.fallback_grace_s,
     stopRequestedAt: null,
     endOnStop: req.mode === 'live',
-    record: req.mode === 'live' && req.record === true,
+    // A private test may be recorded too, so it can be watched and listened to afterwards.
+    record: req.record === true,
   };
   await db.transaction().execute(async (trx) => {
     await trx
@@ -146,6 +147,26 @@ export async function startMedia(
   });
   await notifyDesired(db, sessionId);
   return { desired };
+}
+
+/** Turn the private recording on or off while the programme runs (SPEC §12.7). */
+export async function setRecording(
+  db: Kysely<DB>,
+  sessionId: string,
+  on: boolean,
+): Promise<{ recording: boolean }> {
+  const s = await getSession(db, sessionId);
+  const d = currentDesired(s.desired_state);
+  if (!d || d.normaliser !== 'running' || d.stopRequestedAt) throw new AppError('NOT_RUNNING');
+  if (d.record !== on) {
+    await db
+      .updateTable('stream_sessions')
+      .set({ desired_state: JSON.stringify({ ...d, record: on }) })
+      .where('id', '=', sessionId)
+      .execute();
+    await notifyDesired(db, sessionId);
+  }
+  return { recording: on };
 }
 
 /** Stop sending: idempotent, and takes precedence over reconnect attempts (A34). */

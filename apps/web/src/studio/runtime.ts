@@ -79,6 +79,8 @@ export interface StudioState {
     result: UplinkResult | null;
   };
   commandError: string | null;
+  /** Record the next private test (on by default: a test is for watching back). */
+  recordTest: boolean;
   /** Studio lease (SPEC §9.10): only the holder may send commands; others are read-only. */
   lease: {
     mine: boolean;
@@ -172,6 +174,7 @@ export class StudioRuntime extends Observable<StudioState> {
       invitation: null,
       profile: 'reliable_hd',
       contribution: 'idle',
+      recordTest: true,
       contributionError: null,
       rundown: [],
       onAirIndex: null,
@@ -472,6 +475,10 @@ export class StudioRuntime extends Observable<StudioState> {
           this.lastSequence = Math.max(this.lastSequence, m.snapshot.lastSequence);
           const hadAdmitted = this.admittedSource?.id;
           this.set({ session: m.snapshot, lifecycle: m.snapshot.lifecycle });
+          // A reloaded tab follows the size the media node is already running at (a private test or
+          // a live service started before the reload), so going live never asks for another size.
+          const running = m.snapshot.runningProfile;
+          if (running && running !== this.state.profile && !this.whip) this.applyProfile(running);
           if (hadAdmitted && !this.admittedSource) this.camera.close();
         }
         break;
@@ -561,6 +568,11 @@ export class StudioRuntime extends Observable<StudioState> {
   // ---- programme ----
   setProfile(profile: Profile): void {
     if (this.state.contribution !== 'idle' && this.state.contribution !== 'error') return; // fixed while sending (B§14.3)
+    if (this.state.session?.runningProfile) return; // the media node is running at its own size
+    this.applyProfile(profile);
+  }
+
+  private applyProfile(profile: Profile): void {
     if (profile === this.state.profile) return;
     const { w, h } = PROFILE_SIZE[profile];
     const scene = this.compositor.snapshot.scene;
@@ -1084,11 +1096,24 @@ export class StudioRuntime extends Observable<StudioState> {
         mode: 'ingest_test',
         profile: this.state.profile,
         destinationIds: [],
+        record: this.state.recordTest,
       });
       await this.ensureContribution();
     } catch (e) {
       this.set({ contribution: 'error', contributionError: (e as Error).message });
     }
+  }
+
+  setRecordTest(on: boolean): void {
+    this.set({ recordTest: on });
+  }
+
+  /** Turn the private recording on or off while the programme runs. */
+  async setRecording(on: boolean): Promise<void> {
+    this.set({ commandError: null });
+    await this.command('record', { on }).catch((e) =>
+      this.set({ commandError: (e as Error).message }),
+    );
   }
 
   async stopPrivateTest(): Promise<void> {
@@ -1109,7 +1134,8 @@ export class StudioRuntime extends Observable<StudioState> {
         await this.command('mode', { mode: 'ingest_test' });
       await api('POST', `/api/sessions/${this.state.session!.id}/start`, {
         mode: 'live',
-        profile: this.state.profile,
+        // A running private test is upgraded in place, at the size it is running at.
+        profile: this.state.session?.runningProfile ?? this.state.profile,
         destinationIds,
         record,
       });

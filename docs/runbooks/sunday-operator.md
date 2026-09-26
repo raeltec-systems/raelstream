@@ -42,7 +42,10 @@ When the footer says **All ready**, press **Open the Studio**.
 ## 10 minutes before: private test
 
 Press **Start private test**. It sends the programme to the Raelstream server only; **nobody can see
-it**. Wait for "server receiving", check the Health panel, then **Stop private test**.
+it**. **Record the test** is on by default. Wait for "server receiving", check the Health panel, clap,
+talk, show a lower third, then **Stop private test**. Press **Recordings** and **▶ Play**: this is the
+server's own programme, picture, graphics and sound, exactly what viewers will get. (The owner's
+account can play recordings.)
 
 ## Going live
 

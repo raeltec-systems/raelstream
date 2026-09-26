@@ -432,3 +432,19 @@
   color: var(--standby-text, #f0c36b);
   font-weight: 700;
 }
+
+.recPlayer {
+  width: 100%;
+  max-height: 50vh;
+  border-radius: var(--rs-r-input);
+  background: #000;
+  margin: 8px 0 12px;
+}
+.recName {
+  font-weight: 600;
+}
+.recPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

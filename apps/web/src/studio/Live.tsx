@@ -10,7 +10,13 @@ import {
 import { useStore } from '../lib/useStore.js';
 import { router } from '../lib/router.js';
 import { PROFILE_SIZE, studioRuntime } from './runtime.js';
-import { BroadcastAction, BroadcastBanners, DestinationRows, SessionPill } from './Broadcast.js';
+import {
+  BroadcastAction,
+  BroadcastBanners,
+  DestinationRows,
+  Recordings,
+  SessionPill,
+} from './Broadcast.js';
 import { CameraPreview, ReconnectPanel, ReplacementPanel } from './steps/DevicesStep.js';
 import { typeLabel } from './steps/RundownStep.js';
 import { LeaseBanner } from './LeaseBanner.js';
@@ -104,7 +110,9 @@ export function Live() {
         <div className={s.divider} />
         <div className={s.service}>
           <div className={s.serviceName}>{st.session?.name}</div>
-          <div className={s.serviceSub}>{PROFILE_SIZE[st.profile].label}</div>
+          <div className={s.serviceSub}>
+            {PROFILE_SIZE[st.session?.runningProfile ?? st.profile].label}
+          </div>
         </div>
         <div className={s.spacer} />
         <SessionPill
@@ -121,19 +129,49 @@ export function Live() {
         <Button size="dense" onClick={() => router.go('/studio')}>
           {t('live.preparation')}
         </Button>
+        <Recordings />
         {!rt.isLive &&
           (st.contribution === 'sending' || st.contribution === 'starting' ? (
-            <Button size="dense" onClick={() => void rt.stopPrivateTest()}>
-              {t('live.stopPrivateTest')}
-            </Button>
+            <>
+              <Button
+                size="dense"
+                variant={st.session?.recording ? 'dangerTrigger' : 'secondary'}
+                aria-pressed={!!st.session?.recording}
+                disabled={!st.lease?.mine || !st.session?.runningProfile}
+                onClick={() => void rt.setRecording(!st.session?.recording)}
+                data-testid="test-recording"
+              >
+                <span className={s.recPill}>
+                  <StatusDot tone={st.session?.recording ? 'live' : 'off'} size={8} />
+                  {st.session?.recording ? t('live.recordingOn') : t('live.recordingOff')}
+                </span>
+              </Button>
+              <Button size="dense" onClick={() => void rt.stopPrivateTest()}>
+                {t('live.stopPrivateTest')}
+              </Button>
+            </>
           ) : (
-            <Button
-              size="dense"
-              disabled={!st.lease?.mine}
-              onClick={() => void rt.startPrivateTest()}
-            >
-              {t('live.startPrivateTest')}
-            </Button>
+            <>
+              <Button
+                size="dense"
+                aria-pressed={st.recordTest}
+                disabled={!st.lease?.mine}
+                onClick={() => rt.setRecordTest(!st.recordTest)}
+                data-testid="record-test-toggle"
+              >
+                <span className={s.recPill}>
+                  <StatusDot tone={st.recordTest ? 'live' : 'off'} size={8} />
+                  {st.recordTest ? t('live.recordTestOn') : t('live.recordTestOff')}
+                </span>
+              </Button>
+              <Button
+                size="dense"
+                disabled={!st.lease?.mine}
+                onClick={() => void rt.startPrivateTest()}
+              >
+                {t('live.startPrivateTest')}
+              </Button>
+            </>
           ))}
         <BroadcastAction now={now} />
       </header>

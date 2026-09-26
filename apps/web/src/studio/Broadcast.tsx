@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DestinationSummary, ObservedDestination } from '@raelstream/contracts';
 import { Banner, Button, Modal, Pill, StatusDot, StopModal, type Tone } from '@raelstream/ui';
 import { t, type MessageKey } from '@raelstream/i18n';
@@ -198,24 +198,42 @@ function LiveConfirmation({
   );
 }
 
-/** The owner's private recording of this service, if one was made (SPEC §12.7). */
-function Recordings() {
+/**
+ * The owner's private recordings of this service (SPEC §12.7): a recorded private test or the live
+ * service. Each file plays here with its sound, exactly as the server made it, or downloads.
+ */
+export function Recordings() {
   const st = useStore(studioRuntime());
   const [files, setFiles] = useState<Array<{ name: string; bytes: number; url: string }>>([]);
   const [open, setOpen] = useState(false);
+  const [playing, setPlaying] = useState<string | null>(null);
   const close = useRef<HTMLButtonElement>(null);
   const id = st.session?.id;
-  useEffect(() => {
+  const recording = !!st.session?.recording;
+  const refresh = useCallback(() => {
     if (!id) return;
     // Owner only: an operator gets 403 and sees nothing.
     void api<typeof files>('GET', `/api/sessions/${id}/recordings`)
       .then(setFiles)
       .catch(() => setFiles([]));
   }, [id]);
+  // Look again when recording starts or stops, and every half minute while it runs.
+  useEffect(() => {
+    refresh();
+    if (!recording) return;
+    const t = setInterval(refresh, 30_000);
+    return () => clearInterval(t);
+  }, [refresh, recording]);
   if (files.length === 0) return null;
   return (
     <>
-      <Button size="dense" onClick={() => setOpen(true)}>
+      <Button
+        size="dense"
+        onClick={() => {
+          refresh();
+          setOpen(true);
+        }}
+      >
         {t('rec.open', { n: files.length })}
       </Button>
       {open && (
@@ -230,15 +248,31 @@ function Recordings() {
           }
         >
           <p className={s.goMeta}>{t('rec.body')}</p>
+          {recording && <p className={s.goMeta}>{t('rec.stillRecording')}</p>}
+          {playing && (
+            <video
+              key={playing}
+              className={s.recPlayer}
+              src={`${playing}?play=1`}
+              controls
+              autoPlay
+              playsInline
+              data-testid="recording-player"
+            />
+          )}
           <ul className={s.goList}>
             {files.map((f) => (
               <li key={f.url} className={s.goRow}>
-                <a className={s.destLink} href={f.url} download>
-                  {f.name}
-                </a>
+                <span className={s.recName}>{f.name.replace(/\.mp4$/, '').replace(/_/g, ' ')}</span>
                 <span className={s.goMeta}>
                   {t('rec.size', { gb: (f.bytes / 1e9).toFixed(2) })}
                 </span>
+                <Button size="dense" onClick={() => setPlaying(f.url)}>
+                  {t('rec.play')}
+                </Button>
+                <a className={s.destLink} href={f.url} download>
+                  {t('rec.download')}
+                </a>
               </li>
             ))}
           </ul>

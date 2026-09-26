@@ -21,7 +21,14 @@ import * as pairing from './pairing.js';
 import * as presets from './presets.js';
 import { authorizeMediaMtx, createIngest, type MediaMtxAuthRequest } from './ingest.js';
 import { createIceProvider } from './turn.js';
-import { idempotent, listDestinations, retryDestination, startMedia, stopMedia } from './media.js';
+import {
+  idempotent,
+  listDestinations,
+  retryDestination,
+  setRecording,
+  startMedia,
+  stopMedia,
+} from './media.js';
 import { acquireLease, requireLease, takeover } from './leases.js';
 import { registerAccountRoutes } from './routes/account.js';
 import { registerContentRoutes } from './routes/content.js';
@@ -388,12 +395,22 @@ export async function buildApp(
       return { mode: out.desired.mode, profile: out.desired.profile };
     });
   });
+  app.post('/api/sessions/:id/record', { preHandler: user }, async (req) => {
+    const { id } = SessionParams.parse(req.params);
+    await lease(req, id);
+    const { on } = z.object({ on: z.boolean() }).parse(req.body);
+    const r = await setRecording(db, id, on);
+    await event(id, on ? 'recording.on' : 'recording.off', operatorOf(req).name);
+    await hub.broadcastSnapshot(id);
+    return r;
+  });
   // Stop: the lease holder, or any owner without the lease (SPEC §17.1): stopping must never be blocked.
   app.post('/api/sessions/:id/stop', { preHandler: user }, async (req) => {
     const { id } = SessionParams.parse(req.params);
     if (operatorOf(req).role !== 'owner') await lease(req, id);
     const r = await stopMedia(db, id);
     if (r.stopping) await event(id, 'broadcast.stop', operatorOf(req).name);
+    await hub.broadcastSnapshot(id);
     return r;
   });
   app.post('/api/sessions/:id/destinations/:dest/retry', { preHandler: user }, async (req) => {
