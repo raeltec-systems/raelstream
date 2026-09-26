@@ -78,6 +78,14 @@ it**. Wait for "server receiving", check the Health panel, then **Stop private t
   **Keep the slate up 5 more minutes** if you need more time.
 - **"Upload congested"**: the church internet is busy. The studio lowers the quality by itself and puts
   it back later. Ask people to pause big downloads.
+- **"Restoring the stream connection"**: the laptop retries its upload with fresh credentials. Keep
+  this page open. If it cannot recover, check the internet and use **Resume stream** once available.
+- **After a studio refresh or browser restart:** choose and check the audio input again in
+  **Preparation**, check the programme preview, then press **Resume stream**. This resumes the existing
+  broadcast. The slate stays up until the upload returns; choose the camera scene when ready.
+- **"Waiting for the server to stop streaming"**: Stop has not yet been confirmed. The app keeps
+  retrying, including after a refresh. Keep the page open and check the platform consoles; do not
+  assume the broadcast has ended until the studio says so.
 
 ## Ending
 

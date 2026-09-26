@@ -178,13 +178,26 @@ export class Supervisor {
   }
 
   private slateRetryAt = 0;
+  private normCheckAt = 0;
 
   private async ensureNormPath(
     sessionId: string,
     name: string,
     desired: DesiredState,
   ): Promise<void> {
-    if (this.normPath || Date.now() < this.slateRetryAt) return;
+    if (this.normPath) {
+      if (Date.now() < this.normCheckAt) return;
+      this.normCheckAt = Date.now() + 2000;
+      if (!(await this.mtx.hasPathConfig(this.normPath))) {
+        // API-created paths are lost when MediaMTX restarts. Keep the same path so existing
+        // normaliser/publisher retries recover, including the slate and private recording.
+        await this.mtx.upsertPathConfig(this.normPath, this.normPathConfig(!!desired.record));
+        this.recording = !!desired.record;
+        this.log('warn', 'restored normalised path after media server restart');
+      }
+      return;
+    }
+    if (Date.now() < this.slateRetryAt) return;
     this.slateRetryAt = Date.now() + 5000; // bounded retry if rendering fails
     this.slateFile = await ensureSlate(this.cfg.ffmpegPath, this.cfg.slateDir, this.cfg.slateFont, {
       profile: desired.profile,
@@ -622,6 +635,8 @@ export class Supervisor {
     this.normaliserEverRan = false;
     this.contribPresentSince = null;
     this.fallbackSince = null;
+    this.normCheckAt = 0;
+    this.slateRetryAt = 0;
     this.lastWrittenJson = '';
   }
 }
